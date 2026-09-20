@@ -34,6 +34,32 @@ app.get('/', (req, res) => {
   res.send('WaveLength backend is running.');
 });
 
+app.get('/dashboard', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>WaveLength</title>
+        <style>
+          body {
+            font-family: sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background: #1d1e66;
+            color: #fff;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>WaveLength coming soon</h1>
+      </body>
+    </html>
+  `);
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
