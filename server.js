@@ -160,7 +160,10 @@ app.get('/dashboard', (req, res) => {
               const res = await fetch('/spotify/currently-playing');
               const data = await res.json();
 
-              if (!data.playing) {
+              // Only treat it as "nothing to show" when there's no track
+              // info at all (no active session) - a paused track still
+              // has a track name/artist/art, it's just not playing.
+              if (!data.track) {
                 document.getElementById('track').textContent = 'Nothing playing';
                 document.getElementById('artist').textContent = '';
                 document.getElementById('albumArt').src = '';
@@ -170,7 +173,7 @@ app.get('/dashboard', (req, res) => {
                 return;
               }
 
-              isCurrentlyPlaying = true;
+              isCurrentlyPlaying = data.playing;
 
               document.getElementById('track').textContent = data.track || 'Unknown track';
               document.getElementById('artist').textContent = data.artist || 'Unknown artist';
@@ -183,7 +186,7 @@ app.get('/dashboard', (req, res) => {
               document.getElementById('currentTime').textContent = formatMs(data.progressMs);
               document.getElementById('totalTime').textContent = formatMs(data.durationMs);
 
-              statusEl.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+              statusEl.textContent = (data.playing ? 'Playing' : 'Paused') + ' - Last updated: ' + new Date().toLocaleTimeString();
             } catch (err) {
               statusEl.textContent = 'Error fetching data - check console/server logs';
               console.error(err);
