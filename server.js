@@ -39,22 +39,119 @@ app.get('/dashboard', (req, res) => {
     <!DOCTYPE html>
     <html>
       <head>
-        <title>WaveLength</title>
+        <title>WaveLength - Test Dashboard</title>
         <style>
           body {
             font-family: sans-serif;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
-            background: #1d1e66;
+            background: #0a0a0a;
             color: #fff;
+            gap: 16px;
           }
+          h1 { font-size: 1.1rem; opacity: 0.6; font-weight: normal; }
+          #albumArt {
+            width: 240px;
+            height: 240px;
+            background: #222;
+            border-radius: 8px;
+            object-fit: cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #555;
+            font-size: 0.9rem;
+          }
+          #track { font-size: 1.4rem; font-weight: bold; margin: 0; }
+          #artist { font-size: 1rem; opacity: 0.7; margin: 0; }
+          #progressWrap {
+            width: 280px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.75rem;
+            opacity: 0.7;
+          }
+          #progressBarBg {
+            flex: 1;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            overflow: hidden;
+          }
+          #progressBarFill {
+            height: 100%;
+            width: 0%;
+            background: #1db954;
+            transition: width 0.5s linear;
+          }
+          #status { font-size: 0.8rem; opacity: 0.5; margin-top: 20px; }
         </style>
       </head>
       <body>
-        <h1>WaveLength coming soon</h1>
+        <h1>WaveLength - Test Dashboard</h1>
+
+        <img id="albumArt" src="" alt="Album art" />
+        <p id="track">Loading...</p>
+        <p id="artist"></p>
+
+        <div id="progressWrap">
+          <span id="currentTime">0:00</span>
+          <div id="progressBarBg"><div id="progressBarFill"></div></div>
+          <span id="totalTime">0:00</span>
+        </div>
+
+        <p id="status">Waiting for data...</p>
+
+        <script>
+          function formatMs(ms) {
+            if (!ms && ms !== 0) return '0:00';
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return minutes + ':' + String(seconds).padStart(2, '0');
+          }
+
+          async function refresh() {
+            const statusEl = document.getElementById('status');
+            try {
+              const res = await fetch('/spotify/currently-playing');
+              const data = await res.json();
+
+              if (!data.playing) {
+                document.getElementById('track').textContent = 'Nothing playing';
+                document.getElementById('artist').textContent = '';
+                document.getElementById('albumArt').src = '';
+                document.getElementById('progressBarFill').style.width = '0%';
+                statusEl.textContent = 'No active playback detected';
+                return;
+              }
+
+              document.getElementById('track').textContent = data.track || 'Unknown track';
+              document.getElementById('artist').textContent = data.artist || 'Unknown artist';
+              document.getElementById('albumArt').src = data.albumArt || '';
+
+              const pct = data.durationMs
+                ? Math.min(100, (data.progressMs / data.durationMs) * 100)
+                : 0;
+              document.getElementById('progressBarFill').style.width = pct + '%';
+              document.getElementById('currentTime').textContent = formatMs(data.progressMs);
+              document.getElementById('totalTime').textContent = formatMs(data.durationMs);
+
+              statusEl.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+            } catch (err) {
+              statusEl.textContent = 'Error fetching data - check console/server logs';
+              console.error(err);
+            }
+          }
+
+          refresh();
+          setInterval(refresh, 2000); // poll every 2 seconds
+        </script>
       </body>
     </html>
   `);

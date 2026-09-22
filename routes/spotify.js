@@ -50,6 +50,7 @@ router.get('/currently-playing', async (req, res) => {
       playing: data.is_playing,
       track: data.item?.name,
       artist: data.item?.artists?.map((a) => a.name).join(', '),
+      albumArt: data.item?.album?.images?.[0]?.url, // largest available image
       progressMs: data.progress_ms,
       durationMs: data.item?.duration_ms,
     });
