@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { refreshAccessToken, getCurrentlyPlaying } = require('../lib/spotifyClient');
+const { refreshAccessToken, getCurrentlyPlaying, resumePlayback, pausePlayback, skipToNext, skipToPrevious } = require('../lib/spotifyClient');
 const { saveTokens, getTokens } = require('../db/tokenStore');
 
 // Ensures we hand back a valid, non-expired access token,
@@ -59,5 +59,40 @@ router.get('/currently-playing', async (req, res) => {
     res.status(500).json({ error: 'Could not fetch currently-playing data' });
   }
 });
+
+// Shared handler for the four control endpoints below - they all follow
+// the same pattern: get a valid token, call the Spotify action, and
+// translate Spotify's specific error codes into clearer messages.
+function makeControlRoute(action) {
+  return async (req, res) => {
+    try {
+      const userId = req.sessionID;
+      const accessToken = await getValidAccessToken(userId);
+      await action(accessToken);
+      res.json({ success: true });
+    } catch (err) {
+      const status = err.response?.status;
+
+      if (status === 403) {
+        return res
+          .status(403)
+          .json({ error: 'This action requires Spotify Premium.' });
+      }
+      if (status === 404) {
+        return res.status(404).json({
+          error: 'No active Spotify device found. Open Spotify on a device first.',
+        });
+      }
+
+      console.error('playback control failed:', err.response?.data || err.message);
+      res.status(500).json({ error: 'Could not complete playback action' });
+    }
+  };
+}
+
+router.put('/play', makeControlRoute(resumePlayback));
+router.put('/pause', makeControlRoute(pausePlayback));
+router.post('/next', makeControlRoute(skipToNext));
+router.post('/previous', makeControlRoute(skipToPrevious));
 
 module.exports = router;

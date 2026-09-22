@@ -34,6 +34,10 @@ app.get('/', (req, res) => {
   res.send('WaveLength backend is running.');
 });
 
+// Test dashboard: polls /spotify/currently-playing and displays the
+// album art, track name, artist, and a seek/progress bar. This exists
+// purely so backend features can be tested before the real frontend
+// is ready - it's not meant to be the final UI.
 app.get('/dashboard', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -90,6 +94,31 @@ app.get('/dashboard', (req, res) => {
             transition: width 0.5s linear;
           }
           #status { font-size: 0.8rem; opacity: 0.5; margin-top: 20px; }
+          #controls {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+          }
+          #controls button {
+            background: #1db954;
+            border: none;
+            color: #fff;
+            font-size: 1.2rem;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            cursor: pointer;
+          }
+          #controls button:hover { background: #1ed760; }
+          #controls button:disabled {
+            background: #333;
+            cursor: not-allowed;
+          }
+          #controlError {
+            font-size: 0.8rem;
+            color: #ff6b6b;
+            min-height: 1em;
+          }
         </style>
       </head>
       <body>
@@ -105,6 +134,13 @@ app.get('/dashboard', (req, res) => {
           <span id="totalTime">0:00</span>
         </div>
 
+        <div id="controls">
+          <button id="prevBtn" title="Previous">⏮</button>
+          <button id="playPauseBtn" title="Play/Pause">⏯</button>
+          <button id="nextBtn" title="Next">⏭</button>
+        </div>
+        <p id="controlError"></p>
+
         <p id="status">Waiting for data...</p>
 
         <script>
@@ -115,6 +151,8 @@ app.get('/dashboard', (req, res) => {
             const seconds = totalSeconds % 60;
             return minutes + ':' + String(seconds).padStart(2, '0');
           }
+
+          let isCurrentlyPlaying = false; // tracks state so the play/pause button knows which action to send
 
           async function refresh() {
             const statusEl = document.getElementById('status');
@@ -128,8 +166,11 @@ app.get('/dashboard', (req, res) => {
                 document.getElementById('albumArt').src = '';
                 document.getElementById('progressBarFill').style.width = '0%';
                 statusEl.textContent = 'No active playback detected';
+                isCurrentlyPlaying = false;
                 return;
               }
+
+              isCurrentlyPlaying = true;
 
               document.getElementById('track').textContent = data.track || 'Unknown track';
               document.getElementById('artist').textContent = data.artist || 'Unknown artist';
@@ -148,6 +189,36 @@ app.get('/dashboard', (req, res) => {
               console.error(err);
             }
           }
+
+          // Sends a playback control request, shows any error, then
+          // refreshes the display shortly after (Spotify takes a moment
+          // to reflect the change).
+          async function sendControl(method, path) {
+            const errorEl = document.getElementById('controlError');
+            errorEl.textContent = '';
+            try {
+              const res = await fetch(path, { method });
+              if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                errorEl.textContent = body.error || ('Request failed (' + res.status + ')');
+                return;
+              }
+              setTimeout(refresh, 500); // give Spotify a moment before re-checking state
+            } catch (err) {
+              errorEl.textContent = 'Network error sending command';
+              console.error(err);
+            }
+          }
+
+          document.getElementById('playPauseBtn').addEventListener('click', () => {
+            sendControl('PUT', isCurrentlyPlaying ? '/spotify/pause' : '/spotify/play');
+          });
+          document.getElementById('nextBtn').addEventListener('click', () => {
+            sendControl('POST', '/spotify/next');
+          });
+          document.getElementById('prevBtn').addEventListener('click', () => {
+            sendControl('POST', '/spotify/previous');
+          });
 
           refresh();
           setInterval(refresh, 2000); // poll every 2 seconds

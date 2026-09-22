@@ -7,7 +7,7 @@ const { saveTokens } = require('../db/tokenStore');
 
 const { SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI, FRONTEND_URL } = process.env;
 
-const SCOPES = 'user-read-currently-playing user-read-playback-state';
+const SCOPES = 'user-read-currently-playing user-read-playback-state user-modify-playback-state';
 
 // GET /auth/login - frontend sends the user here to start the flow
 router.get('/login', (req, res) => {
