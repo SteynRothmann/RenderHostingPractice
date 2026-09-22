@@ -53,7 +53,7 @@ router.get('/callback', async (req, res) => {
     });
 
     res.clearCookie('spotify_auth_state');
-    res.redirect(`${FRONTEND_URL}/dashboard`);
+    res.redirect(`${FRONTEND_URL}/ocean`);
   } catch (err) {
     console.error('Token exchange failed:', err.response?.data || err.message);
     res.redirect(`${FRONTEND_URL}/login-error?reason=token_exchange_failed`);

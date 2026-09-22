@@ -50,4 +50,14 @@ async function getTokens(userId) {
   return result.rows[0] || null;
 }
 
-module.exports = { saveTokens, getTokens, useMemoryStore };
+// Used by the background poller to know which sessions to check.
+async function getAllUserIds() {
+  if (useMemoryStore) {
+    return Array.from(memoryStore.keys());
+  }
+
+  const result = await pool.query(`SELECT user_id FROM spotify_tokens`);
+  return result.rows.map((r) => r.user_id);
+}
+
+module.exports = { saveTokens, getTokens, getAllUserIds, useMemoryStore };

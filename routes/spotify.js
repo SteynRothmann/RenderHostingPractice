@@ -1,38 +1,20 @@
 const express = require('express');
 const router = express.Router();
 
-const { refreshAccessToken, getCurrentlyPlaying, resumePlayback, pausePlayback, skipToNext, skipToPrevious } = require('../lib/spotifyClient');
-const { saveTokens, getTokens } = require('../db/tokenStore');
-
-// Ensures we hand back a valid, non-expired access token,
-// refreshing it first if needed. This is the piece the Ocean
-// team's polling job will end up calling indirectly via the
-// route below.
-async function getValidAccessToken(userId) {
-  const stored = await getTokens(userId);
-  if (!stored) {
-    throw new Error('No Spotify tokens found for this user - they need to log in first.');
-  }
-
-  const isExpired = Date.now() > stored.expiresAt - 30_000; // 30s safety buffer
-  if (!isExpired) {
-    return stored.accessToken;
-  }
-
-  const refreshed = await refreshAccessToken(stored.refreshToken);
-  const newTokens = {
-    accessToken: refreshed.access_token,
-    // Spotify doesn't always return a new refresh_token - keep the old one if so.
-    refreshToken: refreshed.refresh_token || stored.refreshToken,
-    expiresAt: Date.now() + refreshed.expires_in * 1000,
-  };
-  await saveTokens(userId, newTokens);
-
-  return newTokens.accessToken;
-}
+const {
+  getCurrentlyPlaying,
+  resumePlayback,
+  playTrackAt,
+  pausePlayback,
+  skipToNext,
+  skipToPrevious,
+} = require('../lib/spotifyClient');
+const { getValidAccessToken } = require('../lib/authHelper');
+const oceanState = require('../lib/oceanState');
 
 // GET /spotify/currently-playing
-// This is the endpoint the Ocean team's polling job hits.
+// Used by the standalone test dashboard (routes/spotify.js is separate
+// from the ocean page's group-based data, which comes over Socket.IO).
 router.get('/currently-playing', async (req, res) => {
   try {
     // Same session id used at login time - this identifies which
@@ -48,6 +30,7 @@ router.get('/currently-playing', async (req, res) => {
 
     res.json({
       playing: data.is_playing,
+      trackId: data.item?.id,
       track: data.item?.name,
       artist: data.item?.artists?.map((a) => a.name).join(', '),
       albumArt: data.item?.album?.images?.[0]?.url, // largest available image
@@ -72,7 +55,13 @@ function makeControlRoute(action) {
       res.json({ success: true });
     } catch (err) {
       const status = err.response?.status;
+      const spotifyMessage = err.response?.data?.error?.message;
 
+      if (status === 401 && spotifyMessage === 'Permissions missing') {
+        return res.status(401).json({
+          error: 'Your login is missing the playback-control permission. Log out and log in again to grant it.',
+        });
+      }
       if (status === 403) {
         return res
           .status(403)
@@ -94,5 +83,57 @@ router.put('/play', makeControlRoute(resumePlayback));
 router.put('/pause', makeControlRoute(pausePlayback));
 router.post('/next', makeControlRoute(skipToNext));
 router.post('/previous', makeControlRoute(skipToPrevious));
+
+// POST /spotify/join
+// Called when someone clicks a bubble on the ocean page. Starts that
+// track on THEIR Spotify at (roughly) the live position everyone else
+// is at, and folds them into that song's listener group.
+router.post('/join', async (req, res) => {
+  const { trackUri, trackId } = req.body || {};
+  if (!trackUri || !trackId) {
+    return res.status(400).json({ error: 'trackUri and trackId are required' });
+  }
+
+  try {
+    const userId = req.sessionID;
+
+    // The actual bug fix: if this session is already anchoring/part of
+    // this track's group (whether paused or playing), calling Spotify's
+    // play endpoint again on ourselves interrupts our own playback
+    // instead of "joining" anything - so just no-op instead.
+    if (oceanState.isSessionInGroup(userId, trackId)) {
+      return res.json({ success: true, alreadyListening: true });
+    }
+
+    const accessToken = await getValidAccessToken(userId);
+
+    const groups = oceanState.computeGroups();
+    const group = groups.find((g) => g.trackId === trackId);
+    const positionMs = group ? oceanState.getLiveProgressMs(group) : 0;
+
+    await playTrackAt(accessToken, trackUri, positionMs);
+    res.json({ success: true, joinedAtMs: positionMs });
+  } catch (err) {
+    const status = err.response?.status;
+    const spotifyMessage = err.response?.data?.error?.message;
+
+    if (status === 401 && spotifyMessage === 'Permissions missing') {
+      return res.status(401).json({
+        error: 'Your login is missing the playback-control permission. Log out and log in again to grant it.',
+      });
+    }
+    if (status === 403) {
+      return res.status(403).json({ error: 'This action requires Spotify Premium.' });
+    }
+    if (status === 404) {
+      return res.status(404).json({
+        error: 'No active Spotify device found. Open Spotify on a device first.',
+      });
+    }
+
+    console.error('join failed:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Could not join this song' });
+  }
+});
 
 module.exports = router;
