@@ -239,15 +239,14 @@ app.get('/dashboard', (req, res) => {
 });
 
 // The Ocean page: WaveLength's only page. Shows one floating bubble per
-// song currently being listened to across all logged-in users (grouped,
-// not one per person). Real-time updates arrive over Socket.IO from the
-// background poller in lib/spotifyPoller.js. Clicking a bubble pauses its
-// own drifting animation and opens a panel to join that song on your own
-// Spotify, starting near its live position. The page structure/flow
-// (waves, drifting motion, pause-on-click, sinking animation, centered
-// song panel) mirrors the "Simple CSS Waves" mockup - only the floating
-// icon itself uses our round bubble style instead of the mockup's
-// rounded-square covers.
+// song currently being listened to across all logged-in Spotify accounts
+// (grouped by track AND deduped by real account, not by browser tab).
+// Real-time updates arrive over Socket.IO from the background poller in
+// lib/spotifyPoller.js, once per second. Clicking a bubble pauses its own
+// drifting animation (locally, in your own browser only) and opens a
+// panel to join that song on your own Spotify, or Follow Along with
+// whoever's hosting it (auto-following them through song changes, with
+// host succession if they stop).
 app.get('/ocean', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -259,9 +258,10 @@ app.get('/ocean', (req, res) => {
         <style>
           @import url(//fonts.googleapis.com/css?family=Lato:300,400);
           * { box-sizing: border-box; }
-          body {
+          html, body {
             margin: 0;
-            overflow-x: hidden;
+            height: 100%;
+            overflow: hidden; /* no page scroll at all - keeps sinking bubbles from ever affecting layout */
             font-family: 'Lato', sans-serif;
           }
           h1 {
@@ -272,11 +272,12 @@ app.get('/ocean', (req, res) => {
           }
           .header {
             position: relative;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
             text-align: center;
             background: linear-gradient(60deg, rgba(84,58,183,1) 0%, rgba(0,172,193,1) 100%);
             color: #fff;
-            height: 100vh;
-            overflow: hidden;
           }
           .logo {
             width: 44px;
@@ -284,12 +285,12 @@ app.get('/ocean', (req, res) => {
             margin-right: 14px;
             vertical-align: middle;
           }
-          .inner-header {
-            height: 65vh;
-            width: 100%;
+          .title-area {
+            flex: 1 1 auto;
             display: flex;
             align-items: center;
             justify-content: center;
+            min-height: 0;
           }
           .title-row {
             display: flex;
@@ -300,6 +301,7 @@ app.get('/ocean', (req, res) => {
             position: relative;
             width: 100%;
             height: 15vh;
+            flex: 0 0 auto;
             margin-bottom: -7px;
             min-height: 100px;
             max-height: 150px;
@@ -316,32 +318,29 @@ app.get('/ocean', (req, res) => {
             100% { transform: translate3d(85px,0,0); }
           }
 
-          /* Floating song bubbles */
+          /* Floating song bubbles - positioned as a flex child right
+             after the waves, so they sit ON the water instead of in a
+             leftover gap below it (issue: bubbles looked like footer icons) */
           .ocean-floaters {
-            position: absolute;
-            left: 0; right: 0; bottom: 0;
-            height: 34%;
-            min-height: 140px;
-            overflow-x: hidden;
-            overflow-y: visible;
-            pointer-events: none;
-            z-index: 6;
+            position: relative;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: visible;
           }
           .floater {
             position: absolute;
             left: 0;
+            top: 0;
             width: 72px;
             height: 72px;
             padding: 0;
             border: none;
             background: transparent;
             cursor: pointer;
-            pointer-events: auto;
             animation-name: float-ocean;
-            animation-timing-function: ease-in-out;
+            animation-timing-function: linear; /* smooth continuous drift, not the stutter of ease-in-out across many keyframes */
             animation-iteration-count: infinite;
           }
-          /* Our round bubble style, in place of the mockup's rounded-square covers */
           .floater img, .floater .generated-cover {
             display: block;
             width: 100%;
@@ -356,6 +355,9 @@ app.get('/ocean', (req, res) => {
             transform: scale(1.08);
             box-shadow: 0 0 24px rgba(80,180,255,0.55), 0 6px 18px rgba(0,0,0,0.4);
           }
+          /* Clicking a bubble pauses ONLY its own animation, in your own
+             browser - this never touches anyone else's screen or Spotify. */
+          .floater.active { animation-play-state: paused; }
           .floater.active img, .floater.active .generated-cover {
             border-color: #00e5ff;
             box-shadow: 0 0 0 4px rgba(0,229,255,0.25), 0 0 22px rgba(0,229,255,0.55);
@@ -365,8 +367,8 @@ app.get('/ocean', (req, res) => {
           }
           .floater.sinking { pointer-events: none; animation-play-state: paused; }
           .floater.sinking img, .floater.sinking .generated-cover {
-            transition: transform 5s cubic-bezier(0.55,0,1,0.45), opacity 5s ease-in, filter 5s ease-in;
-            transform: translateY(100vh) scale(0.7);
+            transition: transform 2.2s ease-in, opacity 1.8s ease-in 0.4s, filter 2.2s ease-in;
+            transform: translateY(70px) scale(0.6);
             opacity: 0;
             filter: grayscale(1) brightness(0.7);
           }
@@ -392,26 +394,37 @@ app.get('/ocean', (req, res) => {
             border: 2px solid #543ab7;
           }
 
-          /* Drifts left to right while bobbing up and down like it's
-             riding the swell, wrapping from off-screen right back to
-             off-screen left (matches the mockup's motion exactly) */
+          /* Drifts left to right at a CONSTANT speed while bobbing
+             smoothly (sine-wave motion) - evenly spaced keyframes +
+             linear timing fixes the old "pulls itself, then stops" stutter */
           @keyframes float-ocean {
-            0%   { transform: translate(-15vw, 0) rotate(-2deg); }
-            9%   { transform: translate(-2vw, -16px) rotate(1deg); }
-            18%  { transform: translate(11vw, 12px) rotate(-2deg); }
-            27%  { transform: translate(24vw, -18px) rotate(2deg); }
-            36%  { transform: translate(37vw, 14px) rotate(-1deg); }
-            45%  { transform: translate(50vw, -12px) rotate(1deg); }
-            55%  { transform: translate(64vw, 17px) rotate(-2deg); }
-            64%  { transform: translate(77vw, -15px) rotate(2deg); }
-            73%  { transform: translate(90vw, 10px) rotate(-1deg); }
-            82%  { transform: translate(103vw, -17px) rotate(1deg); }
-            100% { transform: translate(115vw, 0) rotate(-2deg); }
+            0% { transform: translate(-15.0vw, 0.0px) rotate(0.8deg); }
+            5% { transform: translate(-8.8vw, 12.5px) rotate(1.9deg); }
+            10% { transform: translate(-2.6vw, 15.6px) rotate(1.6deg); }
+            14% { transform: translate(3.6vw, 6.9px) rotate(0.1deg); }
+            19% { transform: translate(9.8vw, -6.9px) rotate(-1.5deg); }
+            24% { transform: translate(16.0vw, -15.6px) rotate(-2.0deg); }
+            29% { transform: translate(22.1vw, -12.5px) rotate(-1.0deg); }
+            33% { transform: translate(28.3vw, -0.0px) rotate(0.8deg); }
+            38% { transform: translate(34.5vw, 12.5px) rotate(1.9deg); }
+            43% { transform: translate(40.7vw, 15.6px) rotate(1.6deg); }
+            48% { transform: translate(46.9vw, 6.9px) rotate(0.1deg); }
+            52% { transform: translate(53.1vw, -6.9px) rotate(-1.5deg); }
+            57% { transform: translate(59.3vw, -15.6px) rotate(-2.0deg); }
+            62% { transform: translate(65.5vw, -12.5px) rotate(-1.0deg); }
+            67% { transform: translate(71.7vw, -0.0px) rotate(0.8deg); }
+            71% { transform: translate(77.9vw, 12.5px) rotate(1.9deg); }
+            76% { transform: translate(84.0vw, 15.6px) rotate(1.6deg); }
+            81% { transform: translate(90.2vw, 6.9px) rotate(0.1deg); }
+            86% { transform: translate(96.4vw, -6.9px) rotate(-1.5deg); }
+            90% { transform: translate(102.6vw, -15.6px) rotate(-2.0deg); }
+            95% { transform: translate(108.8vw, -12.5px) rotate(-1.0deg); }
+            100% { transform: translate(115.0vw, -0.0px) rotate(0.8deg); }
           }
 
           #emptyMessage {
             position: absolute;
-            top: 40%; left: 50%;
+            top: 30%; left: 50%;
             transform: translate(-50%, -50%);
             opacity: 0.75;
             font-size: 14px;
@@ -419,7 +432,7 @@ app.get('/ocean', (req, res) => {
             z-index: 5;
           }
 
-          /* Song panel - centered modal, matching the mockup's design */
+          /* Song panel - centered modal */
           .song-panel-backdrop {
             position: fixed; inset: 0;
             background: rgba(10,10,15,0.55);
@@ -456,33 +469,65 @@ app.get('/ocean', (req, res) => {
           .song-panel-progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, rgba(84,58,183,1) 0%, rgba(0,172,193,1) 100%); transition: width 0.6s linear; }
           .song-panel-times { display: flex; justify-content: space-between; font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px; }
           .song-panel-transport { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 12px; }
-          /* Read-only playback indicator - NOT a control. Only Spotify
-             itself can pause/play/skip, per the "no on-site controls"
-             requirement - this button is disabled and just reflects state. */
           .song-panel-playpause {
             width: 52px; height: 52px; border-radius: 50%;
             border: none; background: #444; display: flex;
             align-items: center; justify-content: center;
-            cursor: default;
+            cursor: default; /* read-only status, not a control */
           }
           .song-panel-playpause svg { width: 22px; height: 22px; fill: #ccc; }
           .song-panel-status-label { font-size: 12px; color: rgba(255,255,255,0.55); }
           .song-panel-title { margin-top: 18px; font-weight: 400; font-size: 20px; letter-spacing: 0.5px; text-align: center; }
           .song-panel-artist { font-size: 13px; color: rgba(255,255,255,0.55); text-align: center; margin-top: 2px; }
           .song-panel-listeners { display: block; text-align: center; font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 6px; }
-          .song-panel-actions { display: flex; justify-content: center; margin-top: 18px; }
-          #joinBtn {
-            font-size: 13px; letter-spacing: 0.3px; color: #fff;
-            background: #1db954; border: none; border-radius: 18px;
-            padding: 10px 24px; cursor: pointer; font-weight: bold;
+
+          .song-panel-host-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255,255,255,0.1);
           }
+          .song-panel-host-name {
+            flex: 1;
+            font-size: 12px;
+            color: rgba(255,255,255,0.75);
+            text-align: left;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .song-panel-host-name b { color: #fff; font-weight: 400; }
+          #hostProfileLink {
+            font-size: 11px;
+            color: #fff;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 14px;
+            padding: 5px 12px;
+            text-decoration: none;
+            white-space: nowrap;
+          }
+          #hostProfileLink:hover { background: rgba(255,255,255,0.2); }
+
+          .song-panel-actions { display: flex; justify-content: center; gap: 8px; margin-top: 16px; }
+          #joinBtn, #followBtn {
+            font-size: 13px; letter-spacing: 0.3px; color: #fff;
+            border: none; border-radius: 18px;
+            padding: 10px 18px; cursor: pointer; font-weight: bold;
+          }
+          #joinBtn { background: #1db954; }
           #joinBtn:disabled { background: #333; color: #888; cursor: not-allowed; }
+          #followBtn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); }
+          #followBtn.following { background: #543ab7; border-color: #543ab7; }
+          #followBtn:disabled { opacity: 0.4; cursor: not-allowed; }
           #joinError { color: #ff8080; font-size: 12px; text-align: center; min-height: 1em; margin-top: 10px; }
         </style>
       </head>
       <body>
         <div class="header">
-          <div class="inner-header">
+          <div class="title-area">
             <div class="title-row">
               <svg class="logo" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
                 <path fill="#fff" d="M250.4,0.8C112.7,0.8,1,112.4,1,250.2c0,137.7,111.7,249.4,249.4,249.4c137.7,0,249.4-111.7,249.4-249.4C499.8,112.4,388.1,0.8,250.4,0.8z M383.8,326.3c-62,0-101.4-14.1-117.6-46.3c-17.1-34.1-2.3-75.4,13.2-104.1c-22.4,3-38.4,9.2-47.8,18.3c-11.2,10.9-13.6,26.7-16.3,45c-3.1,20.8-6.6,44.4-25.3,62.4c-19.8,19.1-51.6,26.9-100.2,24.6l1.8-39.7c35.9,1.6,59.7-2.9,70.8-13.6c8.9-8.6,11.1-22.9,13.5-39.6c6.3-42,14.8-99.4,141.4-99.4h41L333,166c-12.6,16-45.4,68.2-31.2,96.2c9.2,18.3,41.5,25.6,91.2,24.2l1.1,39.8C390.5,326.2,387.1,326.3,383.8,326.3z" />
@@ -504,8 +549,9 @@ app.get('/ocean', (req, res) => {
             </g>
           </svg>
 
-          <div class="ocean-floaters" id="oceanFloaters"></div>
-          <p id="emptyMessage">No one's listening yet - play something on Spotify to start a wave.</p>
+          <div class="ocean-floaters" id="oceanFloaters">
+            <p id="emptyMessage">No one's listening yet - play something on Spotify to start a wave.</p>
+          </div>
         </div>
 
         <div class="song-panel-backdrop" id="songBackdrop"></div>
@@ -524,10 +570,17 @@ app.get('/ocean', (req, res) => {
           <div class="song-panel-title" id="songPanelTitle"></div>
           <div class="song-panel-artist" id="songPanelArtist"></div>
           <span class="song-panel-listeners" id="songPanelListeners"></span>
+
           <div class="song-panel-actions">
             <button id="joinBtn" type="button">Join on Spotify</button>
+            <button id="followBtn" type="button">Follow Along</button>
           </div>
           <p id="joinError"></p>
+
+          <div class="song-panel-host-row">
+            <span class="song-panel-host-name">Started by <b id="hostNameText">-</b></span>
+            <a id="hostProfileLink" href="#" target="_blank" rel="noopener">Spotify Profile</a>
+          </div>
         </div>
 
         <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
@@ -539,14 +592,17 @@ app.get('/ocean', (req, res) => {
 
             var floaterEls = {};   // trackId -> element
             var groupData = {};    // trackId -> latest group data
+            var laneUsage = [0, 0, 0, 0, 0, 0, 0, 0]; // how many bubbles have used each lane so far, for spacing
             var activeFloaterEl = null;
             var openTrackId = null;
-            var myTrackId = null;  // whatever track I'm personally listening to right now (playing OR paused)
-            var floaterCreateCount = 0;
+            var myTrackId = null;   // whatever track I'm personally listening to right now (playing OR paused)
+            var isFollowingSomeone = false;
 
-            var floaterDurations = ['34s', '42s', '38s', '30s', '46s'];
-            var floaterDelays = ['-2s', '-18s', '-30s', '-8s', '-22s'];
-            var floaterBottoms = ['20%', '6%', '30%', '14%', '24%'];
+            // More lanes + spacing-aware placement than before, to reduce
+            // the odds of two different songs' bubbles overlapping when
+            // several are floating at once.
+            var LANE_BOTTOMS = ['4%', '16%', '28%', '40%', '52%', '64%', '76%', '88%'];
+            var BASE_DURATION = 30; // seconds to cross the screen
 
             function coverHTML(group) {
               if (group.albumArt) return '<img src="' + group.albumArt + '" alt="' + group.trackName + ' cover art">';
@@ -562,6 +618,21 @@ app.get('/ocean', (req, res) => {
               return m + ':' + (s < 10 ? '0' + s : s);
             }
 
+            function pickLaneAndDelay() {
+              // Choose whichever lane has been used the least so far, then
+              // stagger its phase (delay) based on how many bubbles have
+              // already used it, spreading them evenly along the path
+              // instead of bunching at the same spot at the same time.
+              var laneIndex = 0;
+              for (var i = 1; i < LANE_BOTTOMS.length; i++) {
+                if (laneUsage[i] < laneUsage[laneIndex]) laneIndex = i;
+              }
+              var usageCount = laneUsage[laneIndex]++;
+              var phaseSlots = 3; // how many staggered starting points per lane
+              var delay = -((usageCount % phaseSlots) / phaseSlots) * BASE_DURATION;
+              return { bottom: LANE_BOTTOMS[laneIndex], delay: delay };
+            }
+
             function renderFloater(group) {
               var el = floaterEls[group.trackId];
 
@@ -569,10 +640,10 @@ app.get('/ocean', (req, res) => {
                 el = document.createElement('button');
                 el.type = 'button';
                 el.className = 'floater';
-                var i = floaterCreateCount++;
-                el.style.animationDuration = floaterDurations[i % floaterDurations.length];
-                el.style.animationDelay = floaterDelays[i % floaterDelays.length];
-                el.style.bottom = floaterBottoms[i % floaterBottoms.length];
+                var placement = pickLaneAndDelay();
+                el.style.animationDuration = BASE_DURATION + 's';
+                el.style.animationDelay = placement.delay + 's';
+                el.style.bottom = placement.bottom;
                 el.setAttribute('aria-label', 'Open ' + group.trackName + ' by ' + group.artist);
                 el.innerHTML = coverHTML(group) + '<span class="listener-badge"></span>';
                 el.addEventListener('click', function () { openSongPanel(group.trackId); });
@@ -595,7 +666,7 @@ app.get('/ocean', (req, res) => {
               window.setTimeout(function () {
                 if (el.parentNode) el.parentNode.removeChild(el);
                 delete floaterEls[trackId];
-              }, 5000);
+              }, 2200);
               if (activeFloaterEl === el) activeFloaterEl = null;
               if (openTrackId === trackId) closeSongPanel();
             }
@@ -604,9 +675,9 @@ app.get('/ocean', (req, res) => {
               var group = groupData[trackId];
               if (!group) return;
 
-              // Only one floater bobs at rest (paused float animation) at
-              // a time - clicking a bubble pauses ITS drifting motion,
-              // not Spotify playback.
+              // Clicking a bubble pauses ONLY its own drifting animation,
+              // in this browser only - it has no effect on anyone else's
+              // screen and does not touch Spotify playback at all.
               if (activeFloaterEl) activeFloaterEl.classList.remove('active');
               var floaterEl = floaterEls[trackId];
               if (floaterEl) {
@@ -620,10 +691,18 @@ app.get('/ocean', (req, res) => {
               document.getElementById('songPanelArtist').textContent = group.artist;
               document.getElementById('songPanelListeners').textContent =
                 group.listenerCount + (group.listenerCount === 1 ? ' listener' : ' listeners');
+              document.getElementById('hostNameText').textContent = group.hostDisplayName || 'someone';
+              var profileLink = document.getElementById('hostProfileLink');
+              if (group.hostProfileUrl) {
+                profileLink.href = group.hostProfileUrl;
+                profileLink.style.display = 'inline-block';
+              } else {
+                profileLink.style.display = 'none';
+              }
 
               updatePanelPlaybackState(group);
               document.getElementById('joinError').textContent = '';
-              updateJoinButton();
+              updateActionButtons();
 
               document.getElementById('songPanel').classList.add('open');
               document.getElementById('songPanel').setAttribute('aria-hidden', 'false');
@@ -651,18 +730,26 @@ app.get('/ocean', (req, res) => {
               openTrackId = null;
             }
 
-            function updateJoinButton() {
-              var btn = document.getElementById('joinBtn');
-              // Fixed bug: this compares against myTrackId regardless of
-              // whether I'm playing or paused, so a paused host can't
-              // accidentally "join" (and thereby disrupt) their own track.
-              if (openTrackId && myTrackId === openTrackId) {
-                btn.textContent = 'Already listening';
-                btn.disabled = true;
+            function updateActionButtons() {
+              var joinBtn = document.getElementById('joinBtn');
+              var followBtn = document.getElementById('followBtn');
+              var group = groupData[openTrackId];
+              var isMyOwnTrack = openTrackId && myTrackId === openTrackId;
+              var isMyOwnHostedTrack = group && isMyOwnTrack; // I'm the one who started this exact bubble
+
+              if (isMyOwnTrack) {
+                joinBtn.textContent = 'Already listening';
+                joinBtn.disabled = true;
               } else {
-                btn.textContent = 'Join on Spotify';
-                btn.disabled = false;
+                joinBtn.textContent = 'Join on Spotify';
+                joinBtn.disabled = false;
               }
+
+              // Can't follow yourself, and the button reflects whether
+              // you're currently following THIS specific song's host.
+              followBtn.disabled = !!isMyOwnHostedTrack;
+              followBtn.classList.toggle('following', isFollowingSomeone && !isMyOwnHostedTrack && followBtn.dataset.followingTrackId === openTrackId);
+              followBtn.textContent = followBtn.classList.contains('following') ? 'Following' : 'Follow Along';
             }
 
             document.getElementById('songPanelClose').addEventListener('click', closeSongPanel);
@@ -686,15 +773,46 @@ app.get('/ocean', (req, res) => {
                     return;
                   }
                   myTrackId = group.trackId;
-                  updateJoinButton();
+                  isFollowingSomeone = false; // manual join clears any follow, mirrors the server
+                  updateActionButtons();
                 })
                 .catch(function (err) {
-                  errorEl.textContent = 'Network error joining song';
+                  errorEl.textContent = 'Network error joining song - is Spotify open on this device?';
                   console.error(err);
                 });
             });
 
-            // Real-time ocean updates (every ~4s from the server's poller)
+            document.getElementById('followBtn').addEventListener('click', function () {
+              var btn = document.getElementById('followBtn');
+              var errorEl = document.getElementById('joinError');
+              errorEl.textContent = '';
+              var alreadyFollowingThis = btn.classList.contains('following');
+              var request = alreadyFollowingThis
+                ? fetch('/spotify/unfollow', { method: 'POST' })
+                : fetch('/spotify/follow', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ trackId: openTrackId })
+                  });
+
+              request
+                .then(function (res) { return res.json().then(function (body) { return { res: res, body: body }; }); })
+                .then(function (result) {
+                  if (!result.res.ok) {
+                    errorEl.textContent = result.body.error || 'Could not update Follow Along';
+                    return;
+                  }
+                  isFollowingSomeone = !alreadyFollowingThis;
+                  btn.dataset.followingTrackId = isFollowingSomeone ? openTrackId : '';
+                  updateActionButtons();
+                })
+                .catch(function (err) {
+                  errorEl.textContent = 'Network error updating Follow Along';
+                  console.error(err);
+                });
+            });
+
+            // Real-time ocean updates (every ~1s from the server's poller)
             socket.on('oceanUpdate', function (groups) {
               var newTrackIds = {};
               groups.forEach(function (g) { newTrackIds[g.trackId] = true; });
@@ -715,24 +833,26 @@ app.get('/ocean', (req, res) => {
                 updatePanelPlaybackState(groupData[openTrackId]);
                 document.getElementById('songPanelListeners').textContent =
                   groupData[openTrackId].listenerCount + (groupData[openTrackId].listenerCount === 1 ? ' listener' : ' listeners');
+              } else if (openTrackId && !groupData[openTrackId]) {
+                closeSongPanel();
               }
             });
 
             // Poll MY OWN currently-playing separately, regardless of
-            // playing/paused state - this is the fix for the join bug:
-            // it makes sure "Join" greys out on my own track even while
-            // I'm paused, instead of only while actively playing.
+            // playing/paused state, once per second (matches the
+            // server's poll rate) - keeps "Join"/"Follow" button state
+            // accurate even while I'm paused on my own track.
             function pollMyStatus() {
               fetch('/spotify/currently-playing')
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
                   myTrackId = data.trackId || null;
-                  updateJoinButton();
+                  if (openTrackId) updateActionButtons();
                 })
                 .catch(function () { /* non-fatal */ });
             }
             pollMyStatus();
-            setInterval(pollMyStatus, 4000);
+            setInterval(pollMyStatus, 1000);
           })();
         </script>
       </body>
@@ -748,5 +868,5 @@ httpServer.listen(PORT, () => {
     );
   }
   startOceanPoller(io);
-  console.log('Ocean poller started - checking all logged-in users every 4s.');
+  console.log('Ocean poller started - checking all logged-in users every 1s.');
 });

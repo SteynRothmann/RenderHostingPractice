@@ -51,8 +51,20 @@ CREATE TABLE spotify_tokens (
   user_id TEXT PRIMARY KEY,
   access_token TEXT NOT NULL,
   refresh_token TEXT NOT NULL,
-  expires_at BIGINT NOT NULL
+  expires_at BIGINT NOT NULL,
+  spotify_user_id TEXT,
+  display_name TEXT,
+  profile_url TEXT
 );
+```
+
+If you created this table BEFORE the ocean feature's account-dedup/host-name
+update, run this once against your existing table instead of recreating it:
+
+```sql
+ALTER TABLE spotify_tokens ADD COLUMN IF NOT EXISTS spotify_user_id TEXT;
+ALTER TABLE spotify_tokens ADD COLUMN IF NOT EXISTS display_name TEXT;
+ALTER TABLE spotify_tokens ADD COLUMN IF NOT EXISTS profile_url TEXT;
 ```
 
 Run this once against your hosted Postgres instance, then set

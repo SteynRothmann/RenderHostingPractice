@@ -2,7 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 
-const { exchangeCodeForTokens } = require('../lib/spotifyClient');
+const { exchangeCodeForTokens, getMyProfile } = require('../lib/spotifyClient');
 const { saveTokens } = require('../db/tokenStore');
 
 const { SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI, FRONTEND_URL } = process.env;
@@ -46,10 +46,18 @@ router.get('/callback', async (req, res) => {
     // logged-in user's actual database id.
     const userId = req.sessionID;
 
+    // The real Spotify account id - used to tell "the same person in two
+    // browser tabs" apart from "two different people" for listener
+    // counts, and to show/link the host's name in the ocean panel.
+    const profile = await getMyProfile(access_token);
+
     await saveTokens(userId, {
       accessToken: access_token,
       refreshToken: refresh_token,
       expiresAt: Date.now() + expires_in * 1000,
+      spotifyUserId: profile.spotifyUserId,
+      displayName: profile.displayName,
+      profileUrl: profile.profileUrl,
     });
 
     res.clearCookie('spotify_auth_state');

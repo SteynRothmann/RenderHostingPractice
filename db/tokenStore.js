@@ -19,18 +19,33 @@ if (!useMemoryStore) {
 
 const memoryStore = new Map();
 
-async function saveTokens(userId, { accessToken, refreshToken, expiresAt }) {
+async function saveTokens(userId, tokenData) {
+  const { accessToken, refreshToken, expiresAt, spotifyUserId, displayName, profileUrl } = tokenData;
+
   if (useMemoryStore) {
-    memoryStore.set(userId, { accessToken, refreshToken, expiresAt });
+    // A refresh-only save doesn't include the profile fields - merge so
+    // those aren't wiped out by an ordinary token refresh.
+    const existing = memoryStore.get(userId) || {};
+    memoryStore.set(userId, {
+      accessToken,
+      refreshToken,
+      expiresAt,
+      spotifyUserId: spotifyUserId !== undefined ? spotifyUserId : existing.spotifyUserId,
+      displayName: displayName !== undefined ? displayName : existing.displayName,
+      profileUrl: profileUrl !== undefined ? profileUrl : existing.profileUrl,
+    });
     return;
   }
 
   await pool.query(
-    `INSERT INTO spotify_tokens (user_id, access_token, refresh_token, expires_at)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (user_id)
-     DO UPDATE SET access_token = $2, refresh_token = $3, expires_at = $4`,
-    [userId, accessToken, refreshToken, expiresAt]
+    `INSERT INTO spotify_tokens (user_id, access_token, refresh_token, expires_at, spotify_user_id, display_name, profile_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (user_id) DO UPDATE SET
+       access_token = $2, refresh_token = $3, expires_at = $4,
+       spotify_user_id = COALESCE($5, spotify_tokens.spotify_user_id),
+       display_name = COALESCE($6, spotify_tokens.display_name),
+       profile_url = COALESCE($7, spotify_tokens.profile_url)`,
+    [userId, accessToken, refreshToken, expiresAt, spotifyUserId ?? null, displayName ?? null, profileUrl ?? null]
   );
 }
 
@@ -42,7 +57,10 @@ async function getTokens(userId) {
   const result = await pool.query(
     `SELECT access_token AS "accessToken",
             refresh_token AS "refreshToken",
-            expires_at AS "expiresAt"
+            expires_at AS "expiresAt",
+            spotify_user_id AS "spotifyUserId",
+            display_name AS "displayName",
+            profile_url AS "profileUrl"
      FROM spotify_tokens
      WHERE user_id = $1`,
     [userId]

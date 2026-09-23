@@ -97,6 +97,12 @@ router.post('/join', async (req, res) => {
   try {
     const userId = req.sessionID;
 
+    // If they were following someone, a deliberate manual join means
+    // they're choosing to do their own thing now - otherwise the
+    // follow-sync loop would just snap them back to the host's track
+    // on the very next poll cycle.
+    oceanState.clearFollow(userId);
+
     // The actual bug fix: if this session is already anchoring/part of
     // this track's group (whether paused or playing), calling Spotify's
     // play endpoint again on ourselves interrupts our own playback
@@ -134,6 +140,37 @@ router.post('/join', async (req, res) => {
     console.error('join failed:', err.response?.data || err.message);
     res.status(500).json({ error: 'Could not join this song' });
   }
+});
+
+// POST /spotify/follow
+// "Follow Along": keep following whoever is currently hosting this
+// track, even as they change songs - handled by the background poller's
+// syncFollowers(). If that host later disappears, host succession
+// (also in the poller) promotes the next-earliest follower automatically.
+router.post('/follow', async (req, res) => {
+  const { trackId } = req.body || {};
+  if (!trackId) {
+    return res.status(400).json({ error: 'trackId is required' });
+  }
+
+  const userId = req.sessionID;
+  const groups = oceanState.computeGroups();
+  const group = groups.find((g) => g.trackId === trackId);
+  if (!group) {
+    return res.status(404).json({ error: 'That song is no longer playing' });
+  }
+  if (group.hostSessionId === userId) {
+    return res.status(400).json({ error: "You can't follow yourself" });
+  }
+
+  oceanState.setFollow(userId, group.hostSessionId);
+  res.json({ success: true });
+});
+
+// POST /spotify/unfollow
+router.post('/unfollow', (req, res) => {
+  oceanState.clearFollow(req.sessionID);
+  res.json({ success: true });
 });
 
 module.exports = router;
