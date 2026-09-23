@@ -276,63 +276,83 @@ app.get('/ocean', (req, res) => {
             display: flex;
             flex-direction: column;
             text-align: center;
-            background: linear-gradient(60deg, rgba(84,58,183,1) 0%, rgba(0,172,193,1) 100%);
+            background: linear-gradient(360deg, rgba(210,245,235,1) 0%, rgba(100,210,210,1) 50%, rgba(0,150,190,1) 100%);
             color: #fff;
           }
-          .logo {
-            width: 44px;
-            fill: #fff;
-            margin-right: 14px;
-            vertical-align: middle;
-          }
           .title-area {
-            flex: 1 1 auto;
+            flex: 0 0 auto;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 0;
+            padding: 6vh 0 4vh;
           }
           .title-row {
             display: flex;
             align-items: center;
             justify-content: center;
           }
-          .waves {
+          /* Everything below the title - the wave graphic AND the
+             floating bubbles both live in here, layered on top of each
+             other, so bubbles can actually overlap the wave crest instead
+             of being confined to a separate flat region below it. This
+             fills all remaining space down to the true bottom of the page. */
+          .ocean {
             position: relative;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+          }
+          .waves {
+            position: absolute;
+            bottom: 0; /* anchored to the true bottom of the page, not floating with empty space beneath it */
+            left: 0;
             width: 100%;
-            height: 15vh;
-            flex: 0 0 auto;
-            margin-bottom: -7px;
-            min-height: 100px;
-            max-height: 150px;
+            height: 30vh;
+            min-height: 140px;
+            max-height: 220px;
+            z-index: 2;
           }
           .parallax > use {
             animation: move-forever 25s cubic-bezier(.55,.5,.45,.5) infinite;
           }
-          .parallax > use:nth-child(1) { animation-delay: -2s; animation-duration: 7s; }
-          .parallax > use:nth-child(2) { animation-delay: -3s; animation-duration: 10s; }
-          .parallax > use:nth-child(3) { animation-delay: -4s; animation-duration: 13s; }
+          .parallax > use:nth-child(1) { animation-delay: -2s; animation-duration: 10s; }
+          .parallax > use:nth-child(2) { animation-delay: -3s; animation-duration: 12s; }
+          .parallax > use:nth-child(3) { animation-delay: -4s; animation-duration: 16s; }
           .parallax > use:nth-child(4) { animation-delay: -5s; animation-duration: 20s; }
           @keyframes move-forever {
             0% { transform: translate3d(-90px,0,0); }
             100% { transform: translate3d(85px,0,0); }
           }
 
-          /* Floating song bubbles - positioned as a flex child right
-             after the waves, so they sit ON the water instead of in a
-             leftover gap below it (issue: bubbles looked like footer icons) */
+          /* Floating song bubbles - absolutely fill the WHOLE .ocean
+             region (same space as the wave graphic, layered above it via
+             z-index), so bubbles can visibly float on top of the waves
+             and the whole thing extends to the true bottom of the page. */
           .ocean-floaters {
-            position: relative;
-            flex: 1 1 auto;
-            min-height: 0;
+            position: absolute;
+            inset: 0;
+            z-index: 3;
             overflow: visible;
+          }
+          /* ============================================================
+             BUBBLE SIZE - change this one value to resize every bubble
+             (the floating ones in the ocean AND the big one in the panel
+             scale off the floater size below; the panel art is separate,
+             see .song-panel-art if you want that bigger/smaller too).
+             ============================================================ */
+          :root {
+            --bubble-size: 72px;
           }
           .floater {
             position: absolute;
             left: 0;
-            top: 0;
-            width: 72px;
-            height: 72px;
+            /* NOTE: no "top" here on purpose - JS sets "bottom" inline
+               per bubble (see LANE_BOTTOMS below) to control vertical
+               position. Adding a "top" value back here will silently
+               override "bottom" and pin every bubble to the top of the
+               screen again (that was the "floating in the sky" bug). */
+            width: var(--bubble-size);
+            height: var(--bubble-size);
             padding: 0;
             border: none;
             background: transparent;
@@ -529,28 +549,27 @@ app.get('/ocean', (req, res) => {
         <div class="header">
           <div class="title-area">
             <div class="title-row">
-              <svg class="logo" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
-                <path fill="#fff" d="M250.4,0.8C112.7,0.8,1,112.4,1,250.2c0,137.7,111.7,249.4,249.4,249.4c137.7,0,249.4-111.7,249.4-249.4C499.8,112.4,388.1,0.8,250.4,0.8z M383.8,326.3c-62,0-101.4-14.1-117.6-46.3c-17.1-34.1-2.3-75.4,13.2-104.1c-22.4,3-38.4,9.2-47.8,18.3c-11.2,10.9-13.6,26.7-16.3,45c-3.1,20.8-6.6,44.4-25.3,62.4c-19.8,19.1-51.6,26.9-100.2,24.6l1.8-39.7c35.9,1.6,59.7-2.9,70.8-13.6c8.9-8.6,11.1-22.9,13.5-39.6c6.3-42,14.8-99.4,141.4-99.4h41L333,166c-12.6,16-45.4,68.2-31.2,96.2c9.2,18.3,41.5,25.6,91.2,24.2l1.1,39.8C390.5,326.2,387.1,326.3,383.8,326.3z" />
-              </svg>
               <h1>WaveLength</h1>
             </div>
           </div>
 
-          <svg class="waves" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-            viewBox="0 24 150 28" preserveAspectRatio="none" shape-rendering="auto">
-            <defs>
-              <path id="gentle-wave" d="M-160 44c30 0 58-18 88-18s 58 18 88 18 58-18 88-18 58 18 88 18 v44h-352z" />
-            </defs>
-            <g class="parallax">
-              <use xlink:href="#gentle-wave" x="48" y="0" fill="rgba(255,255,255,0.7)" />
-              <use xlink:href="#gentle-wave" x="48" y="3" fill="rgba(255,255,255,0.5)" />
-              <use xlink:href="#gentle-wave" x="48" y="5" fill="rgba(255,255,255,0.3)" />
-              <use xlink:href="#gentle-wave" x="48" y="7" fill="#fff" />
-            </g>
-          </svg>
+          <div class="ocean">
+            <svg class="waves" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+              viewBox="0 24 150 28" preserveAspectRatio="none" shape-rendering="auto">
+              <defs>
+                <path id="gentle-wave" d="M-160 44c30 0 58-18 88-18s 58 18 88 18 58-18 88-18 58 18 88 18 v44h-352z" />
+              </defs>
+              <g class="parallax">
+                <use xlink:href="#gentle-wave" x="48" y="0" fill="rgba(40,90,160,0.35)" />
+                <use xlink:href="#gentle-wave" x="48" y="3" fill="rgba(70,140,200,0.45)" />
+                <use xlink:href="#gentle-wave" x="48" y="5" fill="rgba(110,175,220,0.6)" />
+                <use xlink:href="#gentle-wave" x="48" y="7" fill="rgba(170,215,235,0.9)" />
+              </g>
+            </svg>
 
-          <div class="ocean-floaters" id="oceanFloaters">
-            <p id="emptyMessage">No one's listening yet - play something on Spotify to start a wave.</p>
+            <div class="ocean-floaters" id="oceanFloaters">
+              <p id="emptyMessage">No one's listening yet - play something on Spotify to start a wave.</p>
+            </div>
           </div>
         </div>
 
@@ -601,7 +620,12 @@ app.get('/ocean', (req, res) => {
             // More lanes + spacing-aware placement than before, to reduce
             // the odds of two different songs' bubbles overlapping when
             // several are floating at once.
-            var LANE_BOTTOMS = ['4%', '16%', '28%', '40%', '52%', '64%', '76%', '88%'];
+            // BUBBLE HEIGHT (vertical position) - these are % from the
+            // bottom of the ocean region. Lower numbers = closer to the
+            // wave; higher numbers = higher up the screen. To raise or
+            // lower the whole band, shift every value up or down together
+            // (e.g. ['30%','34%',...,'58%'] moves bubbles higher).
+            var LANE_BOTTOMS = ['20%', '24%', '28%', '32%', '36%', '40%', '44%', '48%'];
             var BASE_DURATION = 30; // seconds to cross the screen
 
             function coverHTML(group) {
