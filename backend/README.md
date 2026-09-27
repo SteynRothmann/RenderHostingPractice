@@ -108,28 +108,45 @@ polling job should hit.
 
 ## Multi-user support
 
-Each browser gets its own long-lived identity cookie (`wl_uid`, set up
-in `lib/identity.js` and attached to every request in `server.js`).
-Tokens are stored keyed by `req.userId`, so multiple teammates can log
-in independently — either on separate machines running their own copy,
-or in separate browsers/incognito windows on the same machine —
-without overwriting each other's tokens.
+Each browser is identified by an opaque bearer token, handed back once
+by `/auth/callback` (in the URL hash of the redirect back to the
+frontend) and sent back on every later request as an `Authorization:
+Bearer <token>` header (see `lib/identity.js` and the frontend's
+`src/lib/api.ts`/`src/data/AuthContext.tsx`). Tokens are stored keyed
+by `req.userId`, so multiple teammates can log in independently —
+either on separate machines running their own copy, or in separate
+browsers/incognito windows on the same machine — without overwriting
+each other's tokens.
 
-Two things worth knowing:
-- This intentionally does **not** use `express-session`/`connect.sid`
-  anymore. That was tried first, but express-session's session records
-  live in RAM by default, so every backend restart (a redeploy, or
-  Render's free tier spinning the service down after inactivity) wiped
-  every session and silently handed returning browsers a brand new
-  session id — which meant `/auth/me` reported them logged out even
-  though their Spotify tokens were still sitting there fine (and the
+Three things worth knowing:
+- This intentionally does **not** use `express-session`/`connect.sid`.
+  That was tried first, but express-session's session records live in
+  RAM by default, so every backend restart (a redeploy, or Render's
+  free tier spinning the service down after inactivity) wiped every
+  session and silently handed returning browsers a brand new session
+  id — which meant `/auth/me` reported them logged out even though
+  their Spotify tokens were still sitting there fine (and the
   background poller, which doesn't care about sessions, kept polling
-  and showing their song to everyone else). The `wl_uid` cookie has no
-  server-side store to lose, so it survives restarts by itself.
+  and showing their song to everyone else).
+- It also intentionally does **not** use a cookie at all, even a
+  standalone one independent of `express-session` (that was tried
+  second). If your frontend and backend end up on two different real
+  domains, or two different `*.onrender.com` subdomains like this
+  project's default setup, browsers treat them as separate *sites* —
+  `onrender.com` is a public suffix, so each subdomain is its own
+  registrable domain, unlike e.g. `app.example.com` and
+  `api.example.com`, which share `example.com` and count as the same
+  site. That makes any identity cookie a third-party cookie, and
+  third-party cookies are blocked by default in Safari and Firefox,
+  and by a growing share of Chrome installs too — which is exactly why
+  it worked for some people and not others, regardless of how
+  carefully the cookie's `Secure`/`SameSite` flags were set. A bearer
+  token sent as an explicit header isn't a cookie at all, so none of
+  that applies to it.
 - `req.userId` is a random, un-meaningful string — it's not a
   username. Once you build real accounts, you'll likely want to swap
-  this for an actual user ID from your database, tied to `wl_uid` at
-  login time.
+  this for an actual user ID from your database, tied to the bearer
+  token at login time.
 
 ## Pushing this to GitHub
 

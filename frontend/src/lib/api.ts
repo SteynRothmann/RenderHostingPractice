@@ -1,18 +1,53 @@
 // Thin client for the real backend (Express + Socket.IO, see /backend).
-// Every request includes credentials so the backend's `wl_uid` identity
-// cookie (set on first contact, read back on every request after) rides
-// along - that cookie is how the backend knows which Spotify account is
-// asking, and it's independent of any server-side session store, so it
-// keeps working across backend restarts. See socket.ts for the companion
-// Socket.IO connection used for live 'oceanUpdate' events.
+// Identity rides along as an `Authorization: Bearer <token>` header, not a
+// cookie - the frontend and backend are on two different *.onrender.com
+// subdomains, which browsers treat as separate sites, so a cookie here
+// would be a third-party cookie and get silently blocked by a growing
+// share of browsers (Safari and Firefox always, Chrome increasingly) no
+// matter how it's configured. The token itself is handed to us once, via
+// the URL after the OAuth redirect lands back here (see
+// src/data/AuthContext.tsx), and kept in localStorage from then on. See
+// socket.ts for the companion Socket.IO connection used for live
+// 'oceanUpdate' events (that one's just a public broadcast, no auth).
 import type { ChatRequest, HostProfile, MyPlayback, PublicPlaylist, RecentTrack, SpotifyProfile } from '../data/types';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+const TOKEN_STORAGE_KEY = 'wl_token';
+
+export function getStoredToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_STORAGE_KEY);
+  } catch {
+    return null; // localStorage can throw in some privacy modes - just treat as logged out
+  }
+}
+
+export function setStoredToken(token: string): void {
+  try {
+    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+  } catch {
+    // Nothing sensible to do if storage is unavailable - the user will
+    // just need to log in again next visit.
+  }
+}
+
+export function clearStoredToken(): void {
+  try {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const token = getStoredToken();
   return fetch(`${API_URL}${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
     ...options,
   });
 }
@@ -42,7 +77,13 @@ export async function fetchMe(): Promise<{ loggedIn: boolean; profile: SpotifyPr
 }
 
 export async function logout(): Promise<void> {
-  await apiFetch('/auth/logout');
+  try {
+    await apiFetch('/auth/logout');
+  } finally {
+    // This is what actually logs the browser out - the backend has no
+    // server-side identity to clear anymore (see backend/lib/identity.js).
+    clearStoredToken();
+  }
 }
 
 export async function fetchCurrentlyPlaying(): Promise<MyPlayback> {

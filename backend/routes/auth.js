@@ -4,7 +4,7 @@ const router = express.Router();
 
 const { exchangeCodeForTokens, getMyProfile } = require('../lib/spotifyClient');
 const { saveTokens, getTokens } = require('../db/tokenStore');
-const { COOKIE_NAME } = require('../lib/identity');
+const { generateUserId } = require('../lib/identity');
 
 const { SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI, FRONTEND_URL } = process.env;
 
@@ -57,12 +57,15 @@ router.get('/callback', async (req, res) => {
   try {
     const { access_token, refresh_token, expires_in } = await exchangeCodeForTokens(code);
 
-    // Each browser gets its own stable identity cookie (see
-    // lib/identity.js), so req.userId uniquely identifies this person
-    // without needing real accounts yet, and keeps working across backend
-    // restarts. Later, once you have a users table, you can swap this for
-    // the logged-in user's actual database id.
-    const userId = req.userId;
+    // A brand new opaque id for this login - NOT read from a cookie (see
+    // lib/identity.js for why: an identity cookie here would be a
+    // third-party cookie, since the frontend and backend are on different
+    // *.onrender.com subdomains, and those get blocked by a growing share
+    // of browsers regardless of how it's configured). This id is handed
+    // back to the frontend once, below, as a bearer token it stores itself
+    // and attaches to every future request - so it works the same in every
+    // browser, with no dependence on cookie policy at all.
+    const userId = generateUserId();
 
     // The real Spotify account id - used to tell "the same person in two
     // browser tabs" apart from "two different people" for listener
@@ -82,8 +85,12 @@ router.get('/callback', async (req, res) => {
 
     res.clearCookie('spotify_auth_state');
     // The Ocean page is the frontend's root route ("/"), not "/ocean" -
-    // see src/App.tsx.
-    res.redirect(`${FRONTEND_URL}/`);
+    // see src/App.tsx. The new bearer token rides along in the URL hash
+    // (never sent to any server, including this one, on later requests -
+    // unlike a query string) so the frontend can pick it up, save it to
+    // localStorage, and strip it from the address bar. See
+    // src/data/AuthContext.tsx for the other half of this handoff.
+    res.redirect(`${FRONTEND_URL}/#wl_token=${encodeURIComponent(userId)}`);
   } catch (err) {
     console.error('Token exchange failed:', err.response?.data || err.message);
     res.redirect(`${FRONTEND_URL}/login?error=token_exchange_failed`);
@@ -117,17 +124,13 @@ router.get('/me', async (req, res) => {
 
 // GET /auth/logout - called by the frontend via fetch (not a page nav) so
 // it can be triggered from the "Log out" button without leaving the app.
-// Clears this browser's identity cookie so /auth/me reports logged-out
-// afterwards (a fresh identity - and so a fresh login - is issued next
-// time). This doesn't revoke the Spotify token itself - Spotify has no
-// simple client revoke endpoint, so the old tokens are just left orphaned
-// in the store and expire naturally.
+// There's no server-side identity to clear anymore (see lib/identity.js) -
+// the frontend deletes its own stored bearer token right after this call
+// resolves (see logout() in src/lib/api.ts), which is what actually makes
+// /auth/me start reporting logged-out again. This doesn't revoke the
+// Spotify token itself - Spotify has no simple client revoke endpoint, so
+// the old tokens are just left orphaned in the store and expire naturally.
 router.get('/logout', (req, res) => {
-  res.clearCookie(COOKIE_NAME, {
-    httpOnly: true,
-    sameSite: NEEDS_SECURE_COOKIES ? 'none' : 'lax',
-    secure: NEEDS_SECURE_COOKIES,
-  });
   res.json({ success: true });
 });
 

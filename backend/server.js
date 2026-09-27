@@ -11,25 +11,23 @@ const spotifyRouter = require('./routes/spotify');
 const chatRequestsRouter = require('./routes/chatRequests');
 const { useMemoryStore } = require('./db/tokenStore');
 const { startOceanPoller } = require('./lib/spotifyPoller');
-const { ensureIdentity } = require('./lib/identity');
+const { identifyRequest } = require('./lib/identity');
 
 const app = express();
 app.set('trust proxy', 1); // needed behind Render's (or any) reverse proxy for req.ip/req.protocol to reflect the real client, not the proxy hop
 const httpServer = http.createServer(app);
 
 // The React frontend (Vite dev server, or wherever it's deployed) runs on
-// a different origin than this API, so both plain requests AND the
-// Socket.IO connection need CORS configured with credentials: true -
-// otherwise the browser won't send/accept the session cookie and every
-// fetch() from the frontend will look "logged out" even after a real login.
+// a different origin than this API. CORS needs an explicit origin (not a
+// wildcard) so the browser will make the request at all.
 const FRONTEND_ORIGIN = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-// Once the frontend and backend are on two different real domains (e.g.
-// two separate onrender.com subdomains), the session cookie needs
-// SameSite=None; Secure or the browser silently drops it on every
-// fetch() - login will "succeed" (the redirect lands fine) but every API
-// call afterward looks logged out, since the cookie set during
-// /auth/callback never makes it back on subsequent requests.
+// Used only for the short-lived OAuth 'spotify_auth_state' cookie (see
+// routes/auth.js) - that cookie is only ever set and read back on requests
+// to this backend's own domain (never sent cross-site), but a real HTTPS
+// deployment still needs Secure set or some browsers will refuse to store
+// it, while local http:// dev must NOT set it or the cookie won't be
+// stored at all.
 //
 // This is derived directly from FRONTEND_ORIGIN being https:// rather
 // than from NODE_ENV === 'production': NODE_ENV's default value varies by
@@ -48,15 +46,15 @@ app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }));
 app.use(cookieParser());
 app.use(express.json()); // needed for POST /spotify/join's JSON body
 
-// Gives each browser a stable, long-lived identity cookie ('wl_uid').
-// req.userId is then used as the key for storing that person's Spotify
-// tokens, so multiple people can log in independently without overwriting
-// each other. This intentionally does NOT use express-session anymore -
-// see lib/identity.js for why (in short: express-session's session records
-// live in RAM and get wiped on every backend restart, which was silently
-// logging everyone out on Render's free tier while the poller kept
-// happily using their still-valid, still-stored tokens).
-app.use(ensureIdentity);
+// Identifies each browser by an Authorization: Bearer <token> header
+// (issued once at /auth/callback, stored client-side in localStorage) -
+// deliberately NOT a cookie. See lib/identity.js for why: the frontend and
+// backend live on different *.onrender.com subdomains, which browsers
+// treat as different *sites*, making any identity cookie a third-party
+// cookie - something a growing share of browsers block by default no
+// matter how carefully its flags are set. A bearer token sent as an
+// explicit header sidesteps that entirely.
+app.use(identifyRequest);
 
 app.use('/auth', authRouter);
 app.use('/spotify', spotifyRouter);

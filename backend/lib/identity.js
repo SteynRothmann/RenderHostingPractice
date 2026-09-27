@@ -1,45 +1,41 @@
 const crypto = require('crypto');
 
-const COOKIE_NAME = 'wl_uid';
-const COOKIE_MAX_AGE = 1000 * 60 * 60 * 24 * 180; // 180 days
-
-// Wavelength needs a stable way to recognize "this browser" across visits -
-// this used to be req.sessionID (from express-session), but that turned out
-// to be the root cause of a real bug: express-session's session records
-// live in RAM (the default MemoryStore) with no persistence of their own.
-// Every time the backend restarts - a Render redeploy, or the free tier
-// spinning the service down after inactivity - every session record is
-// wiped. A returning browser still presents its OLD 'connect.sid' cookie,
-// but since that id no longer matches anything in the (now-empty) store,
-// express-session silently swaps in a brand new session id for that
-// request, with no error and no way for the browser to know.
+// Wavelength needs a stable way to recognize "this browser" across visits.
 //
-// Since Spotify tokens were saved keyed by that session id, the result was:
-// after any restart, /auth/me would report "logged out" for someone whose
-// tokens were still sitting there safely in the token store (Postgres, or
-// even just the still-running process's own memory) - because it was now
-// being looked up under a new, never-used id. Meanwhile the background
-// poller reads tokens directly by whatever ids exist in the store, so it
-// kept polling and broadcasting their song just fine. That mismatch is
-// exactly the "shows as logged out, but can still play songs" symptom.
+// Attempt #1 was req.sessionID (express-session) - broke because its
+// session records live in RAM and get wiped on every backend restart.
 //
-// The fix: a dedicated identity cookie, completely independent of
-// express-session, set once with a long lifetime and simply read back on
-// every later request. As long as the browser still has this cookie, it
-// keeps the same identity no matter how many times the backend restarts.
-function ensureIdentity(req, res, next) {
-  let id = req.cookies?.[COOKIE_NAME];
-  if (!id) {
-    id = crypto.randomBytes(20).toString('hex');
-    res.cookie(COOKIE_NAME, id, {
-      httpOnly: true,
-      maxAge: COOKIE_MAX_AGE,
-      sameSite: req.app.get('needsCrossSiteCookies') ? 'none' : 'lax',
-      secure: !!req.app.get('needsCrossSiteCookies'),
-    });
-  }
-  req.userId = id;
+// Attempt #2 was a dedicated 'wl_uid' cookie, set once with a long
+// lifetime, completely independent of any server-side session store. That
+// solved the restart problem, but ran into a DIFFERENT problem: the
+// frontend and backend live on two different *.onrender.com subdomains,
+// which browsers treat as separate *sites* (onrender.com is a public
+// suffix, so each subdomain is its own registrable domain - unlike, say,
+// app.example.com and api.example.com, which share example.com and count
+// as the same site). That makes the identity cookie a genuine third-party
+// cookie from the browser's point of view, and third-party cookies are
+// blocked by default in Safari and Firefox, and increasingly in Chrome
+// too. That's exactly why it "worked" for one person (whichever browser/
+// settings happened to still allow it) and not others - it was never
+// reliable in the first place, regardless of the cookie's Secure/SameSite
+// flags being set correctly.
+//
+// The actual fix: stop using a cookie for identity at all. Instead, the
+// backend hands back an opaque bearer token once (embedded in the OAuth
+// redirect back to the frontend after /auth/callback), the frontend saves
+// it in localStorage, and sends it back as a normal `Authorization: Bearer
+// <token>` request header on every call. That's not a cookie, so none of
+// the SameSite/third-party cookie rules apply to it at all - it works the
+// same in every browser, with every privacy setting.
+function identifyRequest(req, res, next) {
+  const header = req.headers.authorization || '';
+  const match = /^Bearer\s+(.+)$/i.exec(header.trim());
+  req.userId = match ? match[1] : null;
   next();
 }
 
-module.exports = { ensureIdentity, COOKIE_NAME };
+function generateUserId() {
+  return crypto.randomBytes(20).toString('hex');
+}
+
+module.exports = { identifyRequest, generateUserId };

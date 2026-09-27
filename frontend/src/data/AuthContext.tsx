@@ -1,12 +1,16 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import { fetchMe, logout as apiLogout, spotifyLoginUrl } from '../lib/api';
+import { fetchMe, logout as apiLogout, spotifyLoginUrl, setStoredToken } from '../lib/api';
 import type { SpotifyProfile } from './types';
 
-// Real Spotify auth, backed by the Express backend's session cookie (see
+// Real Spotify auth, backed by the Express backend (see
 // backend/routes/auth.js). login() does a full-page redirect into the
-// OAuth dance; there's no client-side token handling here at all - the
-// backend holds the access/refresh tokens and this context just asks it
-// "is this browser logged in?" via /auth/me.
+// OAuth dance. The backend holds the actual Spotify access/refresh
+// tokens - all this app ever sees is an opaque bearer token identifying
+// "this browser", handed back once in the URL hash right after
+// /auth/callback redirects here (picked up below), then kept in
+// localStorage and attached to every API call from then on (see
+// src/lib/api.ts). This context just asks the backend "is this browser
+// logged in?" via /auth/me.
 
 interface AuthContextValue {
   isLoggedIn: boolean;
@@ -18,6 +22,18 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+// Pulls '#wl_token=...' out of the URL (present only right after landing
+// back from the OAuth redirect), saves it, and strips it from the address
+// bar so it doesn't linger in the browser's history/URL bar.
+function consumeTokenFromUrl(): void {
+  if (!window.location.hash.startsWith('#wl_token=')) return;
+  const token = decodeURIComponent(window.location.hash.slice('#wl_token='.length));
+  if (token) setStoredToken(token);
+  const url = new URL(window.location.href);
+  url.hash = '';
+  window.history.replaceState(null, '', url.toString());
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -37,9 +53,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  // Check session status once on load. This also covers landing back on
-  // the Ocean page right after /auth/callback redirects here post-login.
+  // Grab the bearer token if we just landed back from /auth/callback, then
+  // check login status - this also covers a plain page load/refresh, where
+  // there's no hash to consume and the stored token (if any) is used as-is.
   useEffect(() => {
+    consumeTokenFromUrl();
     refresh();
   }, [refresh]);
 
