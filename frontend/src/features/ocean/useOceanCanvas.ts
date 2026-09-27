@@ -217,6 +217,41 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, w, h);
 
+      // Light rays entering from the surface + rising background bubbles
+      // (ported from the redesigned mockup's ocean background layer) -
+      // purely decorative, drawn after the base gradient and before the
+      // wave bands so the bands still read clearly on top of it.
+      ctx.save();
+      const rayGradient = ctx.createLinearGradient(0, 0, 0, h * 0.7);
+      rayGradient.addColorStop(0, 'rgba(125, 211, 252, 0.055)');
+      rayGradient.addColorStop(1, 'rgba(125, 211, 252, 0)');
+      ctx.fillStyle = rayGradient;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.32, 0);
+      ctx.lineTo(w * 0.43, 0);
+      ctx.lineTo(w * 0.59, h * 0.72);
+      ctx.lineTo(w * 0.48, h * 0.72);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(w * 0.57, 0);
+      ctx.lineTo(w * 0.64, 0);
+      ctx.lineTo(w * 0.75, h * 0.58);
+      ctx.lineTo(w * 0.68, h * 0.58);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      for (let i = 0; i < 24; i++) {
+        const bubbleX = (i * 137 + 70) % Math.max(w, 1);
+        const bubbleY = h - ((t * (9 + (i % 5) * 2) + i * 79) % Math.max(h, 1));
+        const bubbleSize = 1.3 + (i % 4) * 0.7;
+        ctx.beginPath();
+        ctx.arc(bubbleX, bubbleY, bubbleSize, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(165, 243, 252, 0.16)';
+        ctx.fill();
+      }
+
       // Three wave bands, back to front.
       WAVE_BANDS.forEach((band, bandIndex) => {
         ctx.beginPath();
@@ -329,6 +364,25 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
           ctx.strokeStyle = rt.isMine ? '#1ED760' : '#22d3ee';
           ctx.lineWidth = 3;
           ctx.stroke();
+        }
+
+        // Hover bubble effect - same visual family as OceanButton's bubble
+        // animation, done procedurally (no particle state to manage) since
+        // these markers are canvas-drawn, not DOM elements. Only drawn for
+        // the currently-hovered, non-sinking marker.
+        if (!sinking && hoveredRef.current === rt.id) {
+          for (let i = 0; i < 5; i++) {
+            const seed = hashString(rt.id + '-bubble-' + i);
+            const cycle = (t * (0.6 + (seed % 5) * 0.15) + seed * 0.13) % 1;
+            const bx = x + Math.sin(seed + t * 1.5) * (half * 0.6);
+            const by = top - cycle * (size * 1.6);
+            const bsize = 1 + (seed % 3) * 0.8;
+            const alpha = (1 - cycle) * 0.55;
+            ctx.beginPath();
+            ctx.arc(bx, by, bsize, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(165, 243, 252, ${alpha.toFixed(3)})`;
+            ctx.fill();
+          }
         }
 
         // Listener-count badge, bottom-right corner - a stronger,

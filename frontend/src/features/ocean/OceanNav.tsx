@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, Waves } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Bell, LogOut, MessageCircle, Search, Waves } from 'lucide-react';
 import { useData } from '../../data/DataContext';
 import { useAuth } from '../../data/AuthContext';
 import { fetchIncomingChatRequests } from '../../lib/api';
+import OceanButton from '../../components/OceanButton';
 
 interface Props {
   onSearch: (query: string) => void;
@@ -14,6 +15,7 @@ interface Props {
 export default function OceanNav({ onSearch, onOpenNotifications, onOpenChallenge }: Props) {
   const { db } = useData();
   const { isLoggedIn, logout, profile } = useAuth();
+  const navigate = useNavigate();
   const [pendingCount, setPendingCount] = useState(0);
 
   // Real pending chat-request count, for the red dot - polled rather than
@@ -44,7 +46,7 @@ export default function OceanNav({ onSearch, onOpenNotifications, onOpenChalleng
 
   return (
     <div className="absolute inset-x-0 top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-cyan-500/20 bg-[#02182b]/80 px-4 py-2.5 text-cyan-100 backdrop-blur">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
         {isLoggedIn ? (
           <>
             <Link to="/profile" aria-label="Your profile" className="flex items-center">
@@ -58,21 +60,32 @@ export default function OceanNav({ onSearch, onOpenNotifications, onOpenChalleng
                 )}
               </span>
             </Link>
-            <Link to="/chat" className="relative text-sm font-medium hover:text-cyan-300">
-              Chat
-              {db.hasChatDot && <span className="absolute -right-2 -top-1 h-2 w-2 rounded-full bg-red-500" />}
-            </Link>
-            <button onClick={onOpenNotifications} type="button" className="relative text-sm font-medium hover:text-cyan-300">
-              Notifications
-              {pendingCount > 0 && <span className="absolute -right-2 -top-1 h-2 w-2 rounded-full bg-red-500" />}
-            </button>
-            <button
+
+            <OceanButton
+              onClick={() => navigate('/chat')}
+              aria-label="Chat"
+              className="relative flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium hover:bg-cyan-500/10 hover:text-white"
+            >
+              <MessageCircle className="h-5 w-5" />
+              {db.hasChatDot && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />}
+            </OceanButton>
+
+            <OceanButton
+              onClick={onOpenNotifications}
+              aria-label="Notifications"
+              className="relative flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium hover:bg-cyan-500/10 hover:text-white"
+            >
+              <Bell className="h-5 w-5" />
+              {pendingCount > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />}
+            </OceanButton>
+
+            <OceanButton
               onClick={onOpenChallenge}
-              type="button"
-              className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/20"
+              aria-label="Weekly Challenge"
+              className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/20"
             >
               Weekly Challenge
-            </button>
+            </OceanButton>
           </>
         ) : (
           <span className="flex items-center gap-2 text-sm font-semibold tracking-tight">
@@ -95,9 +108,13 @@ export default function OceanNav({ onSearch, onOpenNotifications, onOpenChalleng
         </div>
 
         {isLoggedIn ? (
-          <button onClick={logout} type="button" className="text-sm font-medium text-cyan-300/70 hover:text-cyan-200">
-            Log out
-          </button>
+          <OceanButton
+            onClick={logout}
+            aria-label="Log out"
+            className="flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium text-cyan-300/70 hover:bg-cyan-500/10 hover:text-cyan-100"
+          >
+            <LogOut className="h-4 w-4" />
+          </OceanButton>
         ) : (
           <Link to="/login" className="rounded-full bg-[#1ED760] px-4 py-1.5 text-sm font-semibold text-black hover:bg-[#1fdf64]">
             Log in
