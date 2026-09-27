@@ -190,14 +190,16 @@ export default function OceanPage() {
         onOpenNotifications={() => setNotifOpen(true)}
       />
 
-      {/* Weekly Challenge trigger - centered just below the nav bar (not
-          inside its row anymore - the nav now carries the centered
-          logo/wordmark instead). */}
-      <div className="pointer-events-none absolute inset-x-0 top-16 z-20 flex justify-center px-4">
-        <div className="pointer-events-auto">
-          <WeeklyChallengeButton isOpen={challengeOpen} onOpen={() => setChallengeOpen(true)} />
+      {/* Weekly Challenge trigger - centered just below the nav bar.
+          Logged-out/guest visitors never see it at all (and so can never
+          open the panel behind it) - challenges are a logged-in feature. */}
+      {isLoggedIn && (
+        <div className="pointer-events-none absolute inset-x-0 top-16 z-20 flex justify-center px-4">
+          <div className="pointer-events-auto">
+            <WeeklyChallengeButton isOpen={challengeOpen} onOpen={() => setChallengeOpen(true)} />
+          </div>
         </div>
-      </div>
+      )}
 
       {hoveredGroup && (
         <div className="pointer-events-none absolute left-1/2 top-28 z-20 -translate-x-1/2 rounded-full border border-cyan-500/30 bg-[#02182b]/90 px-4 py-1.5 text-xs font-medium text-cyan-100">

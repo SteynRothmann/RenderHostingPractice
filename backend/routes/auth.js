@@ -3,8 +3,9 @@ const crypto = require('crypto');
 const router = express.Router();
 
 const { exchangeCodeForTokens, getMyProfile } = require('../lib/spotifyClient');
-const { saveTokens, getTokens } = require('../db/tokenStore');
+const { saveTokens, getTokens, deleteTokens } = require('../db/tokenStore');
 const { generateUserId } = require('../lib/identity');
+const oceanState = require('../lib/oceanState');
 
 const { SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI, FRONTEND_URL } = process.env;
 
@@ -124,13 +125,28 @@ router.get('/me', async (req, res) => {
 
 // GET /auth/logout - called by the frontend via fetch (not a page nav) so
 // it can be triggered from the "Log out" button without leaving the app.
-// There's no server-side identity to clear anymore (see lib/identity.js) -
-// the frontend deletes its own stored bearer token right after this call
+// There's no server-side SESSION to clear (see lib/identity.js) - the
+// frontend deletes its own stored bearer token right after this call
 // resolves (see logout() in src/lib/api.ts), which is what actually makes
 // /auth/me start reporting logged-out again. This doesn't revoke the
-// Spotify token itself - Spotify has no simple client revoke endpoint, so
-// the old tokens are just left orphaned in the store and expire naturally.
-router.get('/logout', (req, res) => {
+// Spotify token itself - Spotify has no simple client revoke endpoint.
+//
+// It DOES, however, immediately drop this account from the ocean
+// (oceanState.removeSession) and delete its stored tokens so the
+// background poller (spotifyPoller.js) never picks it up again. Both are
+// needed: without removeSession, the bubble would linger for up to 10s
+// (PAUSE_SINK_MS) even in the best case; without deleteTokens, an account
+// whose best-effort pause-on-logout call failed (no active device, or a
+// free/non-Premium account that Spotify's API won't let us pause at all)
+// would keep actually playing, and the very next 2s poll would just
+// resurrect the bubble that removeSession had cleared.
+router.get('/logout', async (req, res) => {
+  oceanState.removeSession(req.userId);
+  try {
+    await deleteTokens(req.userId);
+  } catch (err) {
+    console.error('Failed to delete tokens on logout:', err.message);
+  }
   res.json({ success: true });
 });
 

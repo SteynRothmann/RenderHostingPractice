@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -132,15 +131,6 @@ export default function WeeklyChallengeButton({ isOpen, onOpen }: Props) {
               "
             >
               <div className="relative z-10 flex items-center gap-2">
-                <motion.div
-                  animate={{ rotate: [-6, 6, -6] }}
-                  transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
-                  className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-400/20 border border-cyan-300/40"
-                >
-                  <svg viewBox="0 0 24 24" className="h-3 w-3 fill-none stroke-cyan-200" strokeWidth="2.5">
-                    <path d="M2 14c3-4 6-4 9 0s6 4 9 0" />
-                  </svg>
-                </motion.div>
                 <span className="font-bold text-xs tracking-wider text-cyan-100">RIDE THE WAVE</span>
               </div>
 
@@ -159,7 +149,6 @@ export default function WeeklyChallengeButton({ isOpen, onOpen }: Props) {
                 [backface-visibility:hidden] [transform:rotateY(180deg)]
               "
             >
-              <Trophy className="h-4 w-4 text-cyan-300 drop-shadow-[0_0_6px_#22d3ee]" />
               <span className="font-extrabold text-[11px] tracking-wide text-cyan-100">WEEKLY CHALLENGES</span>
               <div className="rounded-full bg-cyan-400/20 border border-cyan-300/40 px-1.5 py-0.5 text-[8px] font-black text-cyan-200 tracking-wider">
                 GO

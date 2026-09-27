@@ -85,6 +85,27 @@ async function getTokens(userId) {
   return result.rows[0] || null;
 }
 
+// Called on logout. Without this, a logged-out browser's tokens (and
+// hence its Spotify account) would stay in the store forever - orphaned,
+// per the old comment in routes/auth.js - and getAllUserIds() below would
+// keep handing it to the poller indefinitely. That mattered for more than
+// just tidiness: if the best-effort pause-on-logout call failed (no
+// active device, free/non-Premium account), the account would keep
+// actually playing on Spotify, and the very next poll cycle would
+// re-report it and resurrect the "logged out but still showing" bubble
+// that oceanState.removeSession() just cleared. Deleting the tokens here
+// stops that account from ever being polled again after logout.
+async function deleteTokens(userId) {
+  if (!userId) return;
+
+  if (useMemoryStore) {
+    memoryStore.delete(userId);
+    return;
+  }
+
+  await pool.query(`DELETE FROM spotify_tokens WHERE user_id = $1`, [userId]);
+}
+
 // Used by the background poller to know which sessions to check.
 async function getAllUserIds() {
   if (useMemoryStore) {
@@ -127,4 +148,4 @@ async function getTokensBySpotifyUserId(spotifyUserId) {
   return result.rows[0] || null;
 }
 
-module.exports = { saveTokens, getTokens, getTokensBySpotifyUserId, getAllUserIds, useMemoryStore };
+module.exports = { saveTokens, getTokens, deleteTokens, getTokensBySpotifyUserId, getAllUserIds, useMemoryStore };

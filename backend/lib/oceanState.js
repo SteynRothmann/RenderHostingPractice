@@ -180,6 +180,21 @@ function getSession(sessionId) {
   return sessions.get(sessionId) || null;
 }
 
+// Immediately drops a session from the ocean (and any Follow Along
+// relationship it held as a follower), instead of waiting for it to
+// naturally sink. Used on logout: the best-effort pausePlayback() call
+// that runs right before logout can silently fail (no active device,
+// free/non-Premium account that can't be paused via the API at all), in
+// which case the account just keeps actually playing on Spotify and the
+// next poll cycle would otherwise re-report it and resurrect the bubble.
+// Calling this here makes "log out" reliably remove the bubble for
+// everyone right away, regardless of whether the real Spotify pause
+// succeeded.
+function removeSession(sessionId) {
+  sessions.delete(sessionId);
+  follows.delete(sessionId);
+}
+
 // ---- Follow Along ----
 // followerSessionId explicitly wants to keep following whatever
 // hostSessionId is listening to, even across song changes.
@@ -275,6 +290,7 @@ module.exports = {
   getLiveProgressMs,
   isSessionInGroup,
   getSession,
+  removeSession,
   setFollow,
   clearFollow,
   isFollowing,

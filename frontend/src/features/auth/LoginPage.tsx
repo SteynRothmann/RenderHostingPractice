@@ -14,8 +14,8 @@ import BrandLogo from '../../components/BrandLogo';
 // ?error=... handling on a failed round-trip) is unchanged from before.
 const ERROR_MESSAGES: Record<string, string> = {
   access_denied: 'Spotify login was cancelled.',
-  state_mismatch: 'Login could not be verified — please try again.',
-  token_exchange_failed: "Something went wrong connecting to Spotify — please try again.",
+  state_mismatch: 'Login could not be verified. Please try again.',
+  token_exchange_failed: "Something went wrong connecting to Spotify. Please try again.",
 };
 
 export default function LoginPage() {
@@ -70,26 +70,39 @@ export default function LoginPage() {
       </div>
 
       {/* Layered wave bands at the bottom, colors matching WAVE_BANDS in
-          useOceanCanvas.ts. */}
-      <svg
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-[32vh] min-h-[180px] w-full"
-        viewBox="0 0 1200 300"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        <defs>
-          <path id="login-wave-shape" d="M0 90c150 0 150 60 300 60s150-60 300-60 150 60 300 60 150-60 300-60v210H0z" />
-        </defs>
-        <g className="login-wave-band login-wave-band-1">
-          <use href="#login-wave-shape" fill="rgba(34,211,238,0.12)" />
-        </g>
-        <g className="login-wave-band login-wave-band-2">
-          <use href="#login-wave-shape" x="60" y="40" fill="rgba(34,211,238,0.22)" />
-        </g>
-        <g className="login-wave-band login-wave-band-3">
-          <use href="#login-wave-shape" x="-40" y="80" fill="rgba(34,211,238,0.38)" />
-        </g>
-      </svg>
+          useOceanCanvas.ts. The wrapper spans the full viewport edge to
+          edge and the svg uses preserveAspectRatio="xMidYMax slice" (like
+          CSS background-size: cover, anchored to the bottom) instead of
+          "none": on a very wide/ultra-wide viewport, stretching a fixed
+          viewBox non-uniformly could still end up short of covering the
+          full width in some browsers/zoom levels, leaving bare
+          background-gradient gaps in the bottom corners. "slice" instead
+          scales the (wide, multi-hump) pattern up uniformly until it's
+          guaranteed to cover the entire width, cropping any excess height
+          rather than ever leaving a horizontal gap. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[34vh] min-h-[190px] w-full overflow-hidden" aria-hidden="true">
+        <svg
+          className="absolute inset-0 h-full w-full"
+          viewBox="0 0 2400 300"
+          preserveAspectRatio="xMidYMax slice"
+        >
+          <defs>
+            <path
+              id="login-wave-shape"
+              d="M0 90c150 0 150 60 300 60s150-60 300-60 150 60 300 60 150-60 300-60 150 60 300 60 150-60 300-60 150 60 300 60 150-60 300-60v210H0z"
+            />
+          </defs>
+          <g className="login-wave-band login-wave-band-1">
+            <use href="#login-wave-shape" fill="rgba(34,211,238,0.12)" />
+          </g>
+          <g className="login-wave-band login-wave-band-2">
+            <use href="#login-wave-shape" x="60" y="40" fill="rgba(34,211,238,0.22)" />
+          </g>
+          <g className="login-wave-band login-wave-band-3">
+            <use href="#login-wave-shape" x="-40" y="80" fill="rgba(34,211,238,0.38)" />
+          </g>
+        </svg>
+      </div>
 
       {/* Card content. */}
       <div className="relative z-10 w-full max-w-sm">
@@ -102,7 +115,7 @@ export default function LoginPage() {
         <div className="rounded-2xl border border-cyan-500/20 bg-[#04385a]/60 p-6 shadow-[0_20px_60px_rgba(2,24,43,0.55)] backdrop-blur-md">
           {errorReason && (
             <p className="mb-4 rounded-lg border border-red-400/40 bg-red-500/15 px-3 py-2 text-xs text-red-100">
-              {ERROR_MESSAGES[errorReason] || 'Could not connect to Spotify — please try again.'}
+              {ERROR_MESSAGES[errorReason] || 'Could not connect to Spotify. Please try again.'}
             </p>
           )}
 
@@ -121,7 +134,7 @@ export default function LoginPage() {
             <span>
               Spotify Premium is needed to actually interact with songs in the ocean (join a track,
               follow along). Free accounts can still open a song's panel to inspect it, but its buttons
-              won't work for you — you can, however, show whatever you're currently playing as your own
+              won't work for you. You can, however, show whatever you're currently playing as your own
               bubble in the ocean, and Premium listeners can join it. Chat works for everyone regardless
               of tier.
             </span>
@@ -143,7 +156,7 @@ export default function LoginPage() {
           </button>
           <p className="mt-2 flex items-start gap-1.5 text-left text-[11px] leading-snug text-cyan-100/60">
             <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-cyan-300/70" aria-hidden="true" />
-            <span>As a guest you can only watch songs drift by — you won't be able to interact with them.</span>
+            <span>As a guest you can only watch songs drift by. You won't be able to interact with them.</span>
           </p>
         </div>
       </div>

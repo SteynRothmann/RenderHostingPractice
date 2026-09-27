@@ -63,9 +63,17 @@ export default function OceanNav({ onSearch, onOpenNotifications }: Props) {
   }, [isLoggedIn]);
 
   return (
-    <div className="absolute inset-x-0 top-0 z-30 grid grid-cols-[1fr_auto_1fr] flex-wrap items-center gap-3 border-b border-cyan-500/20 bg-[#02182b]/80 px-4 py-2.5 text-cyan-100 backdrop-blur">
+    <div className="absolute inset-x-0 top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-cyan-500/20 bg-[#02182b]/80 px-4 py-2.5 text-cyan-100 backdrop-blur">
+      {/* Logo + wordmark, top-left of the nav bar - the single Wavelength
+          brand mark shown to everyone, logged in or not. There used to
+          also be a second, smaller logo-only fallback rendered here for
+          guests; it's removed so only this one ever shows. */}
       <div className="flex items-center gap-2">
-        {isLoggedIn ? (
+        <Link to="/" aria-label="Wavelength home" className="flex items-center gap-2">
+          <BrandLogo className="h-7 w-7" withWordmark />
+        </Link>
+
+        {isLoggedIn && (
           <>
             <NavBob index={0}>
               <Tooltip label="Profile">
@@ -109,17 +117,8 @@ export default function OceanNav({ onSearch, onOpenNotifications }: Props) {
               </Tooltip>
             </NavBob>
           </>
-        ) : (
-          <Link to="/" aria-label="Wavelength home" className="flex items-center">
-            <BrandLogo className="h-7 w-7" />
-          </Link>
         )}
       </div>
-
-      {/* Logo + wordmark, centered in the nav bar. */}
-      <Link to="/" aria-label="Wavelength home" className="flex items-center justify-center gap-2">
-        <BrandLogo className="h-7 w-7" withWordmark />
-      </Link>
 
       <div className="flex items-center justify-end gap-3">
         <div className="flex items-center gap-2 rounded-full border border-cyan-500/20 bg-[#04385a]/60 px-3 py-1.5">
