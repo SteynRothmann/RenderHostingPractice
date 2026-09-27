@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import { fetchMe, logout as apiLogout, spotifyLoginUrl, setStoredToken } from '../lib/api';
+import { fetchMe, logout as apiLogout, pausePlayback, spotifyLoginUrl, setStoredToken } from '../lib/api';
 import type { SpotifyProfile } from './types';
 
 // Real Spotify auth, backed by the Express backend (see
@@ -66,10 +66,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
-    apiLogout().finally(() => {
-      setIsLoggedIn(false);
-      setProfile(null);
-    });
+    // Best-effort: if this browser was playing something on Spotify, stop
+    // it so it doesn't keep playing to an empty room after logout. This is
+    // allowed to fail silently (no active device, free/non-Premium account,
+    // already paused, etc.) - it must never block or break the real logout
+    // that follows.
+    pausePlayback()
+      .catch(() => {
+        // non-fatal - proceed with logout regardless
+      })
+      .finally(() => {
+        apiLogout().finally(() => {
+          setIsLoggedIn(false);
+          setProfile(null);
+        });
+      });
   }, []);
 
   return (

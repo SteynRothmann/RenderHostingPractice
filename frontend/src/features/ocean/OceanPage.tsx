@@ -118,8 +118,23 @@ export default function OceanPage() {
           animate={{ opacity: challengeOpen ? 1 : 0 }}
           transition={{ duration: 0.9 }}
         >
-          {/* Deep Seabed Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#020712] via-[#051329]/90 to-transparent" />
+          {/* Deep Seabed Gradient - top edge is feathered through the same
+              cyan used by the bottom wave band (WAVE_BANDS[2].color in
+              useOceanCanvas.ts is rgba(34,211,238,0.38)) so the seabed
+              blends into the wave above it instead of showing a hard-edged
+              dark rectangle cutting across it. */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `linear-gradient(to top,
+                #020712 0%,
+                rgba(5,19,41,0.92) 30%,
+                rgba(8,40,64,0.65) 48%,
+                rgba(34,211,238,0.32) 62%,
+                rgba(34,211,238,0.12) 80%,
+                rgba(34,211,238,0) 100%)`,
+            }}
+          />
 
           {/* Caustic Light Rays */}
           <div className="absolute left-1/2 top-0 h-[450px] w-[800px] -translate-x-1/2 rounded-full bg-cyan-500/10 blur-[100px]" />
@@ -175,16 +190,17 @@ export default function OceanPage() {
         onOpenNotifications={() => setNotifOpen(true)}
       />
 
-      {/* Weekly Challenge trigger - top-center of the page, independent of
-          the icon nav row. */}
-      <div className="pointer-events-none absolute inset-x-0 top-2 z-40 flex justify-center px-4">
+      {/* Weekly Challenge trigger - centered just below the nav bar (not
+          inside its row anymore - the nav now carries the centered
+          logo/wordmark instead). */}
+      <div className="pointer-events-none absolute inset-x-0 top-16 z-20 flex justify-center px-4">
         <div className="pointer-events-auto">
           <WeeklyChallengeButton isOpen={challengeOpen} onOpen={() => setChallengeOpen(true)} />
         </div>
       </div>
 
       {hoveredGroup && (
-        <div className="pointer-events-none absolute left-1/2 top-16 z-20 -translate-x-1/2 rounded-full border border-cyan-500/30 bg-[#02182b]/90 px-4 py-1.5 text-xs font-medium text-cyan-100">
+        <div className="pointer-events-none absolute left-1/2 top-28 z-20 -translate-x-1/2 rounded-full border border-cyan-500/30 bg-[#02182b]/90 px-4 py-1.5 text-xs font-medium text-cyan-100">
           {hoveredGroup.trackName} — {hoveredGroup.artist}
         </div>
       )}

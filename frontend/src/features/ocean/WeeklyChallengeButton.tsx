@@ -99,7 +99,10 @@ export default function WeeklyChallengeButton({ isOpen, onOpen }: Props) {
             ? { duration: 0.7, ease: 'easeIn' }
             : isResurfacing
               ? { duration: 0.85, ease: [0.175, 0.885, 0.32, 1.275] }
-              : { repeat: Infinity, duration: 4.5, ease: 'easeInOut' }
+              // Slowed ~1.6x from the original 4.5s so the idle "buoy" bob
+              // reads as calm rather than restless - shared with the other
+              // nav buttons' bob in OceanNav.tsx.
+              : { repeat: Infinity, duration: 7.2, ease: 'easeInOut' }
         }
         className="relative"
       >
