@@ -5,13 +5,13 @@ const http = require('http');
 const cors = require('cors');
 const { Server } = require('socket.io');
 const cookieParser = require('cookie-parser');
-const session = require('express-session');
 
 const authRouter = require('./routes/auth');
 const spotifyRouter = require('./routes/spotify');
 const chatRequestsRouter = require('./routes/chatRequests');
 const { useMemoryStore } = require('./db/tokenStore');
 const { startOceanPoller } = require('./lib/spotifyPoller');
+const { ensureIdentity } = require('./lib/identity');
 
 const app = express();
 app.set('trust proxy', 1); // needed behind Render's (or any) reverse proxy for req.ip/req.protocol to reflect the real client, not the proxy hop
@@ -38,6 +38,7 @@ const FRONTEND_ORIGIN = process.env.FRONTEND_URL || 'http://localhost:5173';
 // setups where it isn't actually set. Local dev always uses plain
 // http://, so this only ever turns on for a real deployment.
 const NEEDS_CROSS_SITE_COOKIES = FRONTEND_ORIGIN.startsWith('https://');
+app.set('needsCrossSiteCookies', NEEDS_CROSS_SITE_COOKIES);
 
 const io = new Server(httpServer, {
   cors: { origin: FRONTEND_ORIGIN, credentials: true },
@@ -47,29 +48,15 @@ app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }));
 app.use(cookieParser());
 app.use(express.json()); // needed for POST /spotify/join's JSON body
 
-// Gives each browser its own private session (a 'connect.sid' cookie).
-// req.sessionID is then used as the key for storing that person's
-// Spotify tokens, so multiple people can log in independently without
-// overwriting each other.
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || 'dev-only-secret-change-me',
-    resave: false,
-    saveUninitialized: true, // create a session on first visit, before login
-    cookie: {
-      httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-      // Frontend and backend are on different origins (different ports in
-      // dev, different domains once deployed), so the session cookie is
-      // sent on a cross-site fetch(). Locally "localhost:5173" and
-      // "localhost:3000" count as the same site, so the default 'lax'
-      // works for dev - but a real cross-domain deployment needs 'none' +
-      // secure (which requires HTTPS) or the browser will silently drop it.
-      sameSite: NEEDS_CROSS_SITE_COOKIES ? 'none' : 'lax',
-      secure: NEEDS_CROSS_SITE_COOKIES,
-    },
-  })
-);
+// Gives each browser a stable, long-lived identity cookie ('wl_uid').
+// req.userId is then used as the key for storing that person's Spotify
+// tokens, so multiple people can log in independently without overwriting
+// each other. This intentionally does NOT use express-session anymore -
+// see lib/identity.js for why (in short: express-session's session records
+// live in RAM and get wiped on every backend restart, which was silently
+// logging everyone out on Render's free tier while the poller kept
+// happily using their still-valid, still-stored tokens).
+app.use(ensureIdentity);
 
 app.use('/auth', authRouter);
 app.use('/spotify', spotifyRouter);

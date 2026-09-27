@@ -99,7 +99,7 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
   // only removed once that animation finishes.
   function syncRuntime(width: number, time: number) {
     const seen = new Set<string>();
-    markersRef.current.forEach((m, i) => {
+    markersRef.current.forEach((m) => {
       seen.add(m.id);
       const existing = runtimeRef.current.get(m.id);
       if (!existing) {
@@ -107,7 +107,18 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
         runtimeRef.current.set(m.id, {
           id: m.id,
           lane: h % WAVE_COUNT, // per-song, not per-list-position - see hashString
-          x: (i / Math.max(1, markersRef.current.length)) * width,
+          // Every new song always starts just off the left edge (same
+          // starting point the wrap-around uses below), then drifts right
+          // at its own speed. This used to be
+          // `(i / markersRef.current.length) * width`, which placed a
+          // brand-new marker based on its index among whatever songs
+          // happened to already be playing - so depending on how many
+          // other songs were live and where this one landed in that list,
+          // it could spawn anywhere from the left edge to the middle of
+          // the screen instead of consistently sliding in from the left.
+          // A small per-song stagger (from the hash) keeps several songs
+          // that spawn in the same tick from overlapping exactly.
+          x: -MARKER_RADIUS - (h % 40),
           speed: 26 + (h % 20), // slightly different speeds so they don't all move in lockstep
           phase: (h % 100) / 100 * Math.PI * 2,
           song: m.song,

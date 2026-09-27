@@ -4,8 +4,16 @@ const router = express.Router();
 
 const { exchangeCodeForTokens, getMyProfile } = require('../lib/spotifyClient');
 const { saveTokens, getTokens } = require('../db/tokenStore');
+const { COOKIE_NAME } = require('../lib/identity');
 
 const { SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI, FRONTEND_URL } = process.env;
+
+// Matches the check in server.js - the 'state' cookie below is only ever
+// read back on a same-domain redirect from Spotify, but a real HTTPS
+// deployment still needs Secure set (browsers are increasingly strict
+// about this), while local http:// dev must NOT set it or the cookie
+// won't be stored at all.
+const NEEDS_SECURE_COOKIES = (FRONTEND_URL || '').startsWith('https://');
 
 const SCOPES =
   'user-read-currently-playing user-read-playback-state user-modify-playback-state ' +
@@ -14,7 +22,11 @@ const SCOPES =
 // GET /auth/login - frontend sends the user here to start the flow
 router.get('/login', (req, res) => {
   const state = crypto.randomBytes(16).toString('hex');
-  res.cookie('spotify_auth_state', state, { httpOnly: true, sameSite: 'lax' });
+  res.cookie('spotify_auth_state', state, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: NEEDS_SECURE_COOKIES,
+  });
 
   const params = new URLSearchParams({
     client_id: SPOTIFY_CLIENT_ID,
@@ -45,11 +57,12 @@ router.get('/callback', async (req, res) => {
   try {
     const { access_token, refresh_token, expires_in } = await exchangeCodeForTokens(code);
 
-    // Each browser gets its own session (see server.js), so req.sessionID
-    // uniquely identifies this person without needing real accounts yet.
-    // Later, once you have a users table, you can swap this for the
-    // logged-in user's actual database id.
-    const userId = req.sessionID;
+    // Each browser gets its own stable identity cookie (see
+    // lib/identity.js), so req.userId uniquely identifies this person
+    // without needing real accounts yet, and keeps working across backend
+    // restarts. Later, once you have a users table, you can swap this for
+    // the logged-in user's actual database id.
+    const userId = req.userId;
 
     // The real Spotify account id - used to tell "the same person in two
     // browser tabs" apart from "two different people" for listener
@@ -82,7 +95,7 @@ router.get('/callback', async (req, res) => {
 // get the real Spotify profile info to display, without exposing tokens.
 router.get('/me', async (req, res) => {
   try {
-    const stored = await getTokens(req.sessionID);
+    const stored = await getTokens(req.userId);
     if (!stored) {
       return res.json({ loggedIn: false, profile: null });
     }
@@ -104,18 +117,18 @@ router.get('/me', async (req, res) => {
 
 // GET /auth/logout - called by the frontend via fetch (not a page nav) so
 // it can be triggered from the "Log out" button without leaving the app.
-// Destroys the session so /auth/me reports logged-out afterwards. This
-// doesn't revoke the Spotify token itself - Spotify has no simple client
-// revoke endpoint, so it's just left to expire naturally.
+// Clears this browser's identity cookie so /auth/me reports logged-out
+// afterwards (a fresh identity - and so a fresh login - is issued next
+// time). This doesn't revoke the Spotify token itself - Spotify has no
+// simple client revoke endpoint, so the old tokens are just left orphaned
+// in the store and expire naturally.
 router.get('/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('Logout failed:', err.message);
-      return res.status(500).json({ error: 'Could not log out' });
-    }
-    res.clearCookie('connect.sid');
-    res.json({ success: true });
+  res.clearCookie(COOKIE_NAME, {
+    httpOnly: true,
+    sameSite: NEEDS_SECURE_COOKIES ? 'none' : 'lax',
+    secure: NEEDS_SECURE_COOKIES,
   });
+  res.json({ success: true });
 });
 
 module.exports = router;

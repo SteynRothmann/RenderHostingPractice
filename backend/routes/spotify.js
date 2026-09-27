@@ -22,7 +22,7 @@ router.get('/currently-playing', async (req, res) => {
   try {
     // Same session id used at login time - this identifies which
     // browser/person is asking, without needing real accounts yet.
-    const userId = req.sessionID;
+    const userId = req.userId;
 
     const accessToken = await getValidAccessToken(userId);
     const data = await getCurrentlyPlaying(accessToken);
@@ -52,7 +52,7 @@ router.get('/currently-playing', async (req, res) => {
 function makeControlRoute(action) {
   return async (req, res) => {
     try {
-      const userId = req.sessionID;
+      const userId = req.userId;
       const accessToken = await getValidAccessToken(userId);
       await action(accessToken);
       res.json({ success: true });
@@ -98,7 +98,7 @@ router.post('/join', async (req, res) => {
   }
 
   try {
-    const userId = req.sessionID;
+    const userId = req.userId;
 
     // If they were following someone, a deliberate manual join means
     // they're choosing to do their own thing now - otherwise the
@@ -156,7 +156,7 @@ router.post('/follow', async (req, res) => {
     return res.status(400).json({ error: 'trackId is required' });
   }
 
-  const userId = req.sessionID;
+  const userId = req.userId;
   const groups = oceanState.computeGroups();
   const group = groups.find((g) => g.trackId === trackId);
   if (!group) {
@@ -172,7 +172,7 @@ router.post('/follow', async (req, res) => {
 
 // POST /spotify/unfollow
 router.post('/unfollow', (req, res) => {
-  oceanState.clearFollow(req.sessionID);
+  oceanState.clearFollow(req.userId);
   res.json({ success: true });
 });
 
@@ -180,7 +180,7 @@ router.post('/unfollow', (req, res) => {
 // Follow Along toggle when a song panel is reopened (or the page is
 // refreshed), instead of always assuming "not following".
 router.get('/follow-status', (req, res) => {
-  const follow = oceanState.getFollow(req.sessionID);
+  const follow = oceanState.getFollow(req.userId);
   res.json({ followingHostSessionId: follow?.hostSessionId ?? null });
 });
 
@@ -199,7 +199,7 @@ router.get('/follow-status', (req, res) => {
 // full stop.
 router.get('/user/:spotifyUserId', async (req, res) => {
   try {
-    await getValidAccessToken(req.sessionID); // just confirms the viewer is logged in
+    await getValidAccessToken(req.userId); // just confirms the viewer is logged in
   } catch (err) {
     console.error('user profile fetch: no valid token for viewer:', err.message);
     return res.status(401).json({ error: 'You need to log in first' });
@@ -226,7 +226,7 @@ router.get('/user/:spotifyUserId', async (req, res) => {
 // before that scope was added needs to log out and back in once.
 router.get('/recently-played', async (req, res) => {
   try {
-    const accessToken = await getValidAccessToken(req.sessionID);
+    const accessToken = await getValidAccessToken(req.userId);
     const items = await getRecentlyPlayed(accessToken, 10);
     res.json({ items });
   } catch (err) {
@@ -247,7 +247,7 @@ router.get('/recently-played', async (req, res) => {
 // full set of owned/followed playlists to filter from).
 router.get('/playlists', async (req, res) => {
   try {
-    const accessToken = await getValidAccessToken(req.sessionID);
+    const accessToken = await getValidAccessToken(req.userId);
     const items = await getPublicPlaylists(accessToken);
     res.json({ items });
   } catch (err) {

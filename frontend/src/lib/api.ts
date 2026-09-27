@@ -1,8 +1,10 @@
 // Thin client for the real backend (Express + Socket.IO, see /backend).
-// Every request is same-site-with-credentials so the `connect.sid` session
-// cookie set by /auth/callback rides along - that cookie is how the
-// backend knows which Spotify account/session is asking. See socket.ts for
-// the companion Socket.IO connection used for live 'oceanUpdate' events.
+// Every request includes credentials so the backend's `wl_uid` identity
+// cookie (set on first contact, read back on every request after) rides
+// along - that cookie is how the backend knows which Spotify account is
+// asking, and it's independent of any server-side session store, so it
+// keeps working across backend restarts. See socket.ts for the companion
+// Socket.IO connection used for live 'oceanUpdate' events.
 import type { ChatRequest, HostProfile, MyPlayback, PublicPlaylist, RecentTrack, SpotifyProfile } from '../data/types';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';

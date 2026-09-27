@@ -108,23 +108,28 @@ polling job should hit.
 
 ## Multi-user support
 
-Each browser now gets its own session (a `connect.sid` cookie, set up
-in `server.js` via `express-session`). Tokens are stored keyed by
-`req.sessionID`, so multiple teammates can log in independently —
-either on separate machines running their own copy, or in separate
-browsers/incognito windows on the same machine — without overwriting
-each other's tokens.
+Each browser gets its own long-lived identity cookie (`wl_uid`, set up
+in `lib/identity.js` and attached to every request in `server.js`).
+Tokens are stored keyed by `req.userId`, so multiple teammates can log
+in independently — either on separate machines running their own copy,
+or in separate browsers/incognito windows on the same machine —
+without overwriting each other's tokens.
 
 Two things worth knowing:
-- Like the in-memory token store, sessions also live in memory by
-  default and reset when the server restarts. This is fine for local
-  dev; if you want sessions to survive restarts once Postgres is
-  connected, a package like `connect-pg-simple` can persist them
-  there too (not set up yet — flag it if you need it).
-- `req.sessionID` is a random, un-meaningful string — it's not a
+- This intentionally does **not** use `express-session`/`connect.sid`
+  anymore. That was tried first, but express-session's session records
+  live in RAM by default, so every backend restart (a redeploy, or
+  Render's free tier spinning the service down after inactivity) wiped
+  every session and silently handed returning browsers a brand new
+  session id — which meant `/auth/me` reported them logged out even
+  though their Spotify tokens were still sitting there fine (and the
+  background poller, which doesn't care about sessions, kept polling
+  and showing their song to everyone else). The `wl_uid` cookie has no
+  server-side store to lose, so it survives restarts by itself.
+- `req.userId` is a random, un-meaningful string — it's not a
   username. Once you build real accounts, you'll likely want to swap
-  this for an actual user ID from your database, tied to sessionID
-  via login (e.g. `req.session.userId = user.id`).
+  this for an actual user ID from your database, tied to `wl_uid` at
+  login time.
 
 ## Pushing this to GitHub
 

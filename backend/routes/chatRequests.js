@@ -10,7 +10,7 @@ const chatRequests = require('../lib/chatRequests');
 // and back in. This is just a lookup, not a live Spotify API call, so it
 // doesn't need getValidAccessToken/a token refresh.
 async function getMySpotifyIdentity(req) {
-  const stored = await getTokens(req.sessionID);
+  const stored = await getTokens(req.userId);
   if (!stored?.spotifyUserId) return null;
   return {
     spotifyUserId: stored.spotifyUserId,
