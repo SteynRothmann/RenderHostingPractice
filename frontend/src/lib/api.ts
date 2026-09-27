@@ -81,9 +81,11 @@ export async function fetchFollowStatus(): Promise<{ followingHostSessionId: str
   return res.json();
 }
 
-// A host's read-only Wavelength profile: their public Spotify identity +
-// public playlists. No recently-played here - see the backend route.
-export async function fetchHostProfile(spotifyUserId: string): Promise<{ profile: HostProfile; playlists: PublicPlaylist[] }> {
+// A host's read-only Wavelength profile: their public Spotify identity
+// (name, avatar, profile link). No playlists here - Spotify permanently
+// removed the "get another user's playlists" endpoint in Feb 2026, so
+// there's no longer any way to fetch anyone's playlists but your own.
+export async function fetchHostProfile(spotifyUserId: string): Promise<{ profile: HostProfile }> {
   const res = await apiFetch(`/spotify/user/${encodeURIComponent(spotifyUserId)}`);
   if (!res.ok) throw new Error(await errorFrom(res, "Could not load this person's profile"));
   return res.json();

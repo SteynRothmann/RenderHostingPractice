@@ -14,6 +14,7 @@ const { useMemoryStore } = require('./db/tokenStore');
 const { startOceanPoller } = require('./lib/spotifyPoller');
 
 const app = express();
+app.set('trust proxy', 1); // needed behind Render's (or any) reverse proxy for req.ip/req.protocol to reflect the real client, not the proxy hop
 const httpServer = http.createServer(app);
 
 // The React frontend (Vite dev server, or wherever it's deployed) runs on
@@ -22,7 +23,21 @@ const httpServer = http.createServer(app);
 // otherwise the browser won't send/accept the session cookie and every
 // fetch() from the frontend will look "logged out" even after a real login.
 const FRONTEND_ORIGIN = process.env.FRONTEND_URL || 'http://localhost:5173';
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+// Once the frontend and backend are on two different real domains (e.g.
+// two separate onrender.com subdomains), the session cookie needs
+// SameSite=None; Secure or the browser silently drops it on every
+// fetch() - login will "succeed" (the redirect lands fine) but every API
+// call afterward looks logged out, since the cookie set during
+// /auth/callback never makes it back on subsequent requests.
+//
+// This is derived directly from FRONTEND_ORIGIN being https:// rather
+// than from NODE_ENV === 'production': NODE_ENV's default value varies by
+// hosting platform and deployment method (e.g. a platform's native Node
+// runtime vs. a Dockerfile), so relying on it silently breaks login on
+// setups where it isn't actually set. Local dev always uses plain
+// http://, so this only ever turns on for a real deployment.
+const NEEDS_CROSS_SITE_COOKIES = FRONTEND_ORIGIN.startsWith('https://');
 
 const io = new Server(httpServer, {
   cors: { origin: FRONTEND_ORIGIN, credentials: true },
@@ -50,8 +65,8 @@ app.use(
       // "localhost:3000" count as the same site, so the default 'lax'
       // works for dev - but a real cross-domain deployment needs 'none' +
       // secure (which requires HTTPS) or the browser will silently drop it.
-      sameSite: IS_PRODUCTION ? 'none' : 'lax',
-      secure: IS_PRODUCTION,
+      sameSite: NEEDS_CROSS_SITE_COOKIES ? 'none' : 'lax',
+      secure: NEEDS_CROSS_SITE_COOKIES,
     },
   })
 );

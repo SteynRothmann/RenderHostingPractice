@@ -74,7 +74,10 @@ async function getMyProfile(accessToken) {
     spotifyUserId: res.data.id,
     displayName: res.data.display_name || res.data.id,
     profileUrl: res.data.external_urls?.spotify || null,
-    email: res.data.email || null, // requires the user-read-email scope
+    // As of Spotify's February 2026 Web API changes, /me no longer
+    // returns email at all, for any app at any scope - this will now
+    // always resolve to null. Left in place in case Spotify reverses it.
+    email: res.data.email || null,
     profileImage: res.data.images?.[0]?.url || null,
   };
 }
@@ -163,42 +166,14 @@ async function skipToPrevious(accessToken) {
   );
 }
 
-// A THIRD PARTY's public profile - for viewing an ocean host's page.
-// Spotify's /v1/users/{id} endpoint is public: no special scope needed,
-// works for any user id, and only ever returns what that person has made
-// public (name, avatar, profile link) - never email or anything private.
-async function getPublicProfile(accessToken, spotifyUserId) {
-  const res = await axios.get(`https://api.spotify.com/v1/users/${spotifyUserId}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  return {
-    spotifyUserId: res.data.id,
-    displayName: res.data.display_name || res.data.id,
-    profileUrl: res.data.external_urls?.spotify || null,
-    profileImage: res.data.images?.[0]?.url || null,
-  };
-}
-
-// A THIRD PARTY's public playlists. Note: there is no equivalent for
-// "recently played" - Spotify only exposes that for the currently
-// authenticated user, never for anyone else, so a host's profile page
-// can show their playlists but never their listening history.
-async function getPublicPlaylistsForUser(accessToken, spotifyUserId) {
-  const res = await axios.get(`https://api.spotify.com/v1/users/${spotifyUserId}/playlists`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    params: { limit: 50 },
-  });
-  return res.data.items
-    .filter((p) => p.public === true)
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      description: p.description || '',
-      image: p.images?.[0]?.url || null,
-      trackCount: p.tracks?.total ?? 0,
-      url: p.external_urls?.spotify || null,
-    }));
-}
+// NOTE: this used to also export getPublicProfile/getPublicPlaylistsForUser
+// (GET /v1/users/{id} and GET /v1/users/{id}/playlists), for viewing an
+// ocean host's page. Spotify removed BOTH of those endpoints outright in
+// their February 2026 Web API changes - there is now no way, at any scope
+// or app access tier, to fetch another person's Spotify profile or
+// playlists. routes/spotify.js's GET /user/:spotifyUserId now uses our own
+// stored copy of that person's profile (captured when they themselves
+// logged into Wavelength) instead of calling Spotify for it.
 
 module.exports = {
   exchangeCodeForTokens,
@@ -207,8 +182,6 @@ module.exports = {
   getMyProfile,
   getRecentlyPlayed,
   getPublicPlaylists,
-  getPublicProfile,
-  getPublicPlaylistsForUser,
   resumePlayback,
   playTrackAt,
   pausePlayback,

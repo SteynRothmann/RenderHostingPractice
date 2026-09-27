@@ -95,4 +95,36 @@ async function getAllUserIds() {
   return result.rows.map((r) => r.user_id);
 }
 
-module.exports = { saveTokens, getTokens, getAllUserIds, useMemoryStore };
+// Looks up someone's stored profile info by their real Spotify account id,
+// rather than by session id - used for a host's read-only Wavelength
+// profile page. This is OUR OWN data (captured when that person logged
+// into Wavelength themselves), not a live Spotify API call: as of
+// Spotify's February 2026 changes, there is no more "get another user's
+// profile" endpoint at all (GET /users/{id} was removed outright), so this
+// is now the only way to show a host's name/avatar to someone else.
+// If they've logged in more than once (e.g. two browser sessions), this
+// just returns whichever entry the search happens to land on first -
+// fine, since the profile fields should be identical across sessions for
+// the same account.
+async function getTokensBySpotifyUserId(spotifyUserId) {
+  if (useMemoryStore) {
+    for (const entry of memoryStore.values()) {
+      if (entry.spotifyUserId === spotifyUserId) return entry;
+    }
+    return null;
+  }
+
+  const result = await pool.query(
+    `SELECT spotify_user_id AS "spotifyUserId",
+            display_name AS "displayName",
+            profile_url AS "profileUrl",
+            profile_image AS "profileImage"
+     FROM spotify_tokens
+     WHERE spotify_user_id = $1
+     LIMIT 1`,
+    [spotifyUserId]
+  );
+  return result.rows[0] || null;
+}
+
+module.exports = { saveTokens, getTokens, getTokensBySpotifyUserId, getAllUserIds, useMemoryStore };

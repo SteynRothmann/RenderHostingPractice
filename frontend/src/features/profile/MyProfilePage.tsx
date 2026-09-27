@@ -218,7 +218,14 @@ export default function MyProfilePage() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm text-slate-200">{profile?.displayName || 'Unknown'}</p>
-              <p className="truncate text-xs text-slate-500">{profile?.email || 'Email not shared with this app'}</p>
+              {/* As of Spotify's February 2026 Web API changes, /me no
+                  longer returns email at all - not a scope issue, Spotify
+                  just stopped providing it to any app. profile.email will
+                  always be null now; kept in the type/response in case
+                  Spotify ever reverses this. */}
+              <p className="truncate text-xs text-slate-500">
+                {profile?.email || 'Spotify no longer shares account email with apps'}
+              </p>
             </div>
             {profile?.profileUrl && (
               <a

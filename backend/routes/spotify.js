@@ -10,10 +10,9 @@ const {
   skipToPrevious,
   getRecentlyPlayed,
   getPublicPlaylists,
-  getPublicProfile,
-  getPublicPlaylistsForUser,
 } = require('../lib/spotifyClient');
 const { getValidAccessToken } = require('../lib/authHelper');
+const { getTokensBySpotifyUserId } = require('../db/tokenStore');
 const oceanState = require('../lib/oceanState');
 
 // GET /spotify/currently-playing
@@ -186,42 +185,40 @@ router.get('/follow-status', (req, res) => {
 });
 
 // GET /spotify/user/:spotifyUserId - a host's read-only Wavelength
-// profile page: their public Spotify identity + public playlists. There's
-// no "recently played" here (see getPublicPlaylistsForUser) - that's only
-// ever available for the currently authenticated user via Spotify's API,
-// never for anyone else.
+// profile page: their name, avatar, and profile link.
+//
+// As of Spotify's February 2026 Web API changes, GET /users/{id} and
+// GET /users/{id}/playlists (both third-party endpoints - i.e. "look up
+// someone ELSE's info") were removed outright. There is no longer any way
+// to fetch another person's Spotify profile or playlists via the API,
+// regardless of scopes or app access tier - so this no longer calls
+// Spotify at all. Instead it looks up OUR OWN stored copy of that
+// person's profile info, captured whenever they themselves logged into
+// Wavelength (see routes/auth.js's /callback). No playlists here anymore:
+// there is no remaining Spotify endpoint that can supply someone else's,
+// full stop.
 router.get('/user/:spotifyUserId', async (req, res) => {
-  const { spotifyUserId } = req.params;
-  let accessToken;
   try {
-    accessToken = await getValidAccessToken(req.sessionID);
+    await getValidAccessToken(req.sessionID); // just confirms the viewer is logged in
   } catch (err) {
     console.error('user profile fetch: no valid token for viewer:', err.message);
     return res.status(401).json({ error: 'You need to log in first' });
   }
 
-  let profile;
-  try {
-    profile = await getPublicProfile(accessToken, spotifyUserId);
-  } catch (err) {
-    if (err.response?.status === 404) {
-      return res.status(404).json({ error: 'That Spotify account could not be found' });
-    }
-    console.error('user profile fetch failed:', err.response?.data || err.message);
-    return res.status(500).json({ error: "Could not load this person's profile" });
+  const { spotifyUserId } = req.params;
+  const stored = await getTokensBySpotifyUserId(spotifyUserId);
+  if (!stored) {
+    return res.status(404).json({ error: "This person hasn't logged into Wavelength" });
   }
 
-  // The playlist fetch is treated as non-fatal on its own: a permissions
-  // hiccup or transient error here shouldn't take down a profile that
-  // otherwise loaded fine - it just shows with an empty playlist section.
-  let playlists = [];
-  try {
-    playlists = await getPublicPlaylistsForUser(accessToken, spotifyUserId);
-  } catch (err) {
-    console.error('user playlists fetch failed:', err.response?.data || err.message);
-  }
-
-  res.json({ profile, playlists });
+  res.json({
+    profile: {
+      spotifyUserId: stored.spotifyUserId,
+      displayName: stored.displayName,
+      profileUrl: stored.profileUrl,
+      profileImage: stored.profileImage,
+    },
+  });
 });
 
 // GET /spotify/recently-played - for the profile page's listening history.
