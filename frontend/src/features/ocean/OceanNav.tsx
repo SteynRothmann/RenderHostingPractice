@@ -74,11 +74,17 @@ export default function OceanNav({ onSearch, onOpenNotifications }: Props) {
         </Link>
       </div>
 
-      {/* Profile / Chat / Notifications, centered in the middle of the nav
-          bar - moved here from the left-hand group so they sit visually
-          between the logo and the search/logout controls. */}
+      {/* Profile / Chat / Notifications - truly centered on the nav bar via
+          absolute positioning (left-1/2 + -translate-x-1/2) rather than a
+          flex-1 middle child. The old flex-1 approach centered this group
+          only within whatever space was LEFT OVER between the logo and the
+          search/logout controls - since those two side groups aren't the
+          same width, the "center" group ended up visibly off-center. This
+          centers it against the nav bar's true width instead, regardless of
+          how wide either side group is. Also spaced further apart (gap-8,
+          was gap-3) per feedback that the three felt cramped together. */}
       {isLoggedIn && (
-        <div className="flex flex-1 items-center justify-center gap-3">
+        <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-8">
           <NavBob index={0}>
             <Tooltip label="Profile">
               <Link to="/profile" aria-label="Your profile" className="flex items-center">
