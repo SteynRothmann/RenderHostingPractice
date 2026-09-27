@@ -12,7 +12,13 @@ import type { AppState, CatalogEntry } from './types';
 // is missing, so changing seed() alone does nothing for a browser that
 // already cached the old shape under the old key. The old key's data is
 // just left orphaned in localStorage, harmless.
-const KEY = 'wavelength_db_v3';
+//
+// Bumped to v4: u1 (Jake Doe) and u3 (Theo Park) were still seeded as
+// chatStatus 'friend' below, which left two mockup chat threads/friends
+// showing up in the Chat page for everyone even after the real "start as
+// a stranger, become friends via a real chat request" flow was built.
+// Nobody should start out already friends with anyone - see seed() below.
+const KEY = 'wavelength_db_v4';
 
 const CHALLENGE_THEMES = [
   'NOSTALGIA', '80S', 'RAINY DAY', 'MIDNIGHT DRIVE', 'FIRST LOVE', 'SUMMER HEAT', 'HOMECOMING',
@@ -54,9 +60,9 @@ function seed(): AppState {
       spotifyPic: '/avatars/avatar4.svg',
     },
     users: {
-      u1: { id: 'u1', name: 'Jake Doe', pic: '/avatars/avatar1.svg', followers: 1280, following: 54, listening: 's3', followedByMe: false, chatStatus: 'friend' },
+      u1: { id: 'u1', name: 'Jake Doe', pic: '/avatars/avatar1.svg', followers: 1280, following: 54, listening: 's3', followedByMe: false, chatStatus: 'none' },
       u2: { id: 'u2', name: 'Mia Chen', pic: '/avatars/avatar2.svg', followers: 542, following: 210, listening: 's1', followedByMe: false, chatStatus: 'none' },
-      u3: { id: 'u3', name: 'Theo Park', pic: '/avatars/avatar3.svg', followers: 89, following: 130, listening: null, followedByMe: true, chatStatus: 'friend' },
+      u3: { id: 'u3', name: 'Theo Park', pic: '/avatars/avatar3.svg', followers: 89, following: 130, listening: null, followedByMe: false, chatStatus: 'none' },
     },
     songs: {
       s1: { id: 's1', title: 'Blooming of Me', artist: 'Artist Name', cover: '/covers/cover1.svg', ownerId: 'u1' },
