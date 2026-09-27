@@ -64,61 +64,64 @@ export default function OceanNav({ onSearch, onOpenNotifications }: Props) {
 
   return (
     <div className="absolute inset-x-0 top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-cyan-500/20 bg-[#02182b]/80 px-4 py-2.5 text-cyan-100 backdrop-blur">
-      {/* Logo + wordmark, top-left of the nav bar - the single Wavelength
-          brand mark shown to everyone, logged in or not. There used to
-          also be a second, smaller logo-only fallback rendered here for
-          guests; it's removed so only this one ever shows. */}
+      {/* Logo + wordmark, far left - the single Wavelength brand mark shown
+          to everyone, logged in or not. There used to also be a second,
+          smaller logo-only fallback rendered here for guests; it's removed
+          so only this one ever shows. */}
       <div className="flex items-center gap-2">
         <Link to="/" aria-label="Wavelength home" className="flex items-center gap-2">
           <BrandLogo className="h-7 w-7" withWordmark />
         </Link>
-
-        {isLoggedIn && (
-          <>
-            <NavBob index={0}>
-              <Tooltip label="Profile">
-                <Link to="/profile" aria-label="Your profile" className="flex items-center">
-                  <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-slate-700 ring-2 ring-transparent hover:ring-cyan-400">
-                    {profile?.profileImage ? (
-                      <img src={profile.profileImage} alt="Your Spotify profile" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="text-xs font-semibold text-slate-300">
-                        {(profile?.displayName || '?').charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                  </span>
-                </Link>
-              </Tooltip>
-            </NavBob>
-
-            <NavBob index={1}>
-              <Tooltip label="Chat">
-                <OceanButton
-                  onClick={() => navigate('/chat')}
-                  aria-label="Chat"
-                  className="relative flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium hover:bg-cyan-500/10 hover:text-white"
-                >
-                  <MessageCircle className="h-5 w-5" />
-                  {db.hasChatDot && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />}
-                </OceanButton>
-              </Tooltip>
-            </NavBob>
-
-            <NavBob index={2}>
-              <Tooltip label="Notifications">
-                <OceanButton
-                  onClick={onOpenNotifications}
-                  aria-label="Notifications"
-                  className="relative flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium hover:bg-cyan-500/10 hover:text-white"
-                >
-                  <Bell className="h-5 w-5" />
-                  {pendingCount > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />}
-                </OceanButton>
-              </Tooltip>
-            </NavBob>
-          </>
-        )}
       </div>
+
+      {/* Profile / Chat / Notifications, centered in the middle of the nav
+          bar - moved here from the left-hand group so they sit visually
+          between the logo and the search/logout controls. */}
+      {isLoggedIn && (
+        <div className="flex flex-1 items-center justify-center gap-3">
+          <NavBob index={0}>
+            <Tooltip label="Profile">
+              <Link to="/profile" aria-label="Your profile" className="flex items-center">
+                <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-slate-700 ring-2 ring-transparent hover:ring-cyan-400">
+                  {profile?.profileImage ? (
+                    <img src={profile.profileImage} alt="Your Spotify profile" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-xs font-semibold text-slate-300">
+                      {(profile?.displayName || '?').charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </span>
+              </Link>
+            </Tooltip>
+          </NavBob>
+
+          <NavBob index={1}>
+            <Tooltip label="Chat">
+              <OceanButton
+                onClick={() => navigate('/chat')}
+                aria-label="Chat"
+                className="relative flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium hover:bg-cyan-500/10 hover:text-white"
+              >
+                <MessageCircle className="h-5 w-5" />
+                {db.hasChatDot && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />}
+              </OceanButton>
+            </Tooltip>
+          </NavBob>
+
+          <NavBob index={2}>
+            <Tooltip label="Notifications">
+              <OceanButton
+                onClick={onOpenNotifications}
+                aria-label="Notifications"
+                className="relative flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium hover:bg-cyan-500/10 hover:text-white"
+              >
+                <Bell className="h-5 w-5" />
+                {pendingCount > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />}
+              </OceanButton>
+            </Tooltip>
+          </NavBob>
+        </div>
+      )}
 
       <div className="flex items-center justify-end gap-3">
         <div className="flex items-center gap-2 rounded-full border border-cyan-500/20 bg-[#04385a]/60 px-3 py-1.5">

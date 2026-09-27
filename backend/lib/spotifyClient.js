@@ -79,6 +79,13 @@ async function getMyProfile(accessToken) {
     // always resolve to null. Left in place in case Spotify reverses it.
     email: res.data.email || null,
     profileImage: res.data.images?.[0]?.url || null,
+    // Follower count for the AUTHENTICATED user's own profile - this is
+    // distinct from the third-party GET /users/{id} endpoint Spotify
+    // removed in Feb 2026 (see the note near the bottom of this file);
+    // GET /me for yourself still returns your own followers.total with no
+    // extra scope needed. Bundled in here rather than a separate call
+    // since /me already has it.
+    followers: res.data.followers?.total ?? null,
   };
 }
 
@@ -96,6 +103,45 @@ async function getRecentlyPlayed(accessToken, limit = 10) {
     albumArt: item.track.album?.images?.[0]?.url || null,
     playedAt: item.played_at, // ISO timestamp
   }));
+}
+
+// How many artists this user follows - Spotify's "Get Followed Artists"
+// endpoint (a GET /me/... call, not a third-party lookup, so it's unaffected
+// by the Feb 2026 removals). Only the total is needed for the profile page's
+// "following" count, so limit=1 keeps the response tiny. Requires the
+// user-follow-read scope - a 403 here (missing scope, e.g. someone who
+// hasn't re-logged-in since it was added) is left for the calling route to
+// translate into a friendly message, same pattern as elsewhere in this file.
+async function getFollowingCount(accessToken) {
+  const res = await axios.get('https://api.spotify.com/v1/me/following', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    params: { type: 'artist', limit: 1 },
+  });
+  return res.data.artists?.total ?? 0;
+}
+
+// The user's top 5 genres, derived from their top artists (Spotify has no
+// direct "top genres" endpoint) - each top artist carries a genres[] array,
+// so this fetches a reasonable batch of top artists (short_term, i.e.
+// roughly last 4 weeks) and counts genre frequency across all of them.
+// Requires the user-top-read scope. A very new/sparse-history account may
+// simply have few or no genres to find - callers/frontend should treat an
+// empty array as "not enough listening history yet", not an error.
+async function getTopGenres(accessToken, limit = 5) {
+  const res = await axios.get('https://api.spotify.com/v1/me/top/artists', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    params: { time_range: 'short_term', limit: 20 },
+  });
+  const counts = new Map();
+  for (const artist of res.data.items || []) {
+    for (const genre of artist.genres || []) {
+      counts.set(genre, (counts.get(genre) || 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([genre]) => genre);
 }
 
 // The user's playlists, filtered down to public ones only for the profile
@@ -181,6 +227,8 @@ module.exports = {
   getCurrentlyPlaying,
   getMyProfile,
   getRecentlyPlayed,
+  getFollowingCount,
+  getTopGenres,
   getPublicPlaylists,
   resumePlayback,
   playTrackAt,

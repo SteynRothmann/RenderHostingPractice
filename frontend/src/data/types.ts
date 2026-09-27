@@ -166,6 +166,14 @@ export interface RecentTrack {
   playedAt: string; // ISO timestamp
 }
 
+// GET /spotify/stats - follower/following counts and top genres for the
+// profile page, derived from the Spotify account (not the mock Me.genres).
+export interface ProfileStats {
+  followers: number | null;
+  following: number;
+  topGenres: string[];
+}
+
 // GET /spotify/playlists (already filtered to public ones by the backend)
 export interface PublicPlaylist {
   id: string;

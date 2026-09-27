@@ -10,6 +10,9 @@ const {
   skipToPrevious,
   getRecentlyPlayed,
   getPublicPlaylists,
+  getMyProfile,
+  getFollowingCount,
+  getTopGenres,
 } = require('../lib/spotifyClient');
 const { getValidAccessToken } = require('../lib/authHelper');
 const { getTokensBySpotifyUserId } = require('../db/tokenStore');
@@ -234,7 +237,7 @@ router.get('/user/:spotifyUserId', async (req, res) => {
 router.get('/recently-played', async (req, res) => {
   try {
     const accessToken = await getValidAccessToken(req.userId);
-    const items = await getRecentlyPlayed(accessToken, 10);
+    const items = await getRecentlyPlayed(accessToken, 5);
     res.json({ items });
   } catch (err) {
     const status = err.response?.status;
@@ -266,6 +269,36 @@ router.get('/playlists', async (req, res) => {
     }
     console.error('playlists failed:', err.response?.data || err.message);
     res.status(500).json({ error: 'Could not fetch playlists' });
+  }
+});
+
+// GET /spotify/stats - follower count, following (artists) count, and top
+// 5 genres for the profile page. Requires user-top-read and
+// user-follow-read (see routes/auth.js) - anyone who logged in before those
+// scopes were added needs to log out and back in once, same pattern as
+// recently-played/playlists above.
+router.get('/stats', async (req, res) => {
+  try {
+    const accessToken = await getValidAccessToken(req.userId);
+    const [profile, following, topGenres] = await Promise.all([
+      getMyProfile(accessToken),
+      getFollowingCount(accessToken),
+      getTopGenres(accessToken),
+    ]);
+    res.json({
+      followers: profile.followers,
+      following,
+      topGenres,
+    });
+  } catch (err) {
+    const status = err.response?.status;
+    if (status === 403) {
+      return res.status(403).json({
+        error: 'Missing permission for followers/following/top genres. Log out and log in again to grant it.',
+      });
+    }
+    console.error('stats failed:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Could not fetch profile stats' });
   }
 });
 

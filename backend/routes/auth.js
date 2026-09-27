@@ -16,9 +16,14 @@ const { SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI, FRONTEND_URL } = process.env;
 // won't be stored at all.
 const NEEDS_SECURE_COOKIES = (FRONTEND_URL || '').startsWith('https://');
 
+// user-top-read (top artists, for the profile page's top-genres derivation)
+// and user-follow-read (followed-artists count) were added alongside the
+// existing user-read-recently-played/playlist-read-private scopes - same
+// deal as those: anyone who logged in before this change needs to log out
+// and back in once for /spotify/stats to actually work.
 const SCOPES =
   'user-read-currently-playing user-read-playback-state user-modify-playback-state ' +
-  'user-read-email user-read-recently-played playlist-read-private';
+  'user-read-email user-read-recently-played playlist-read-private user-top-read user-follow-read';
 
 // GET /auth/login - frontend sends the user here to start the flow
 router.get('/login', (req, res) => {

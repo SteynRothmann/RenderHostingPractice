@@ -3,8 +3,8 @@ import { ExternalLink, ListMusic } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { useData } from '../../data/DataContext';
 import { useAuth } from '../../data/AuthContext';
-import { fetchRecentlyPlayed, fetchPublicPlaylists } from '../../lib/api';
-import type { RecentTrack, PublicPlaylist } from '../../data/types';
+import { fetchRecentlyPlayed, fetchPublicPlaylists, fetchProfileStats } from '../../lib/api';
+import type { RecentTrack, PublicPlaylist, ProfileStats } from '../../data/types';
 
 // "played 5m ago" / "played 3h ago" / "played 2d ago" from an ISO timestamp.
 function timeAgo(iso: string): string {
@@ -24,21 +24,22 @@ export default function MyProfilePage() {
   const { me } = db;
   const [nickname, setNickname] = useState(me.nickname);
   const [bio, setBio] = useState(me.bio);
-  const [genreInput, setGenreInput] = useState('');
   const [toast, setToast] = useState(false);
 
   const [recentTracks, setRecentTracks] = useState<RecentTrack[]>([]);
   const [recentError, setRecentError] = useState('');
   const [playlists, setPlaylists] = useState<PublicPlaylist[]>([]);
   const [playlistsError, setPlaylistsError] = useState('');
+  const [stats, setStats] = useState<ProfileStats | null>(null);
+  const [statsError, setStatsError] = useState('');
 
   const groupsCount = Object.values(db.groups).filter((g) => g.members.includes('me')).length;
 
-  // Real Spotify data for this page - separate from the mock nickname/bio/
-  // genres above, which are still app-only local state (no backend for
-  // those yet). Both need the user-read-recently-played / playlist-read-
-  // private scopes, so this quietly fails with a clear message for anyone
-  // who logged in before those scopes were added (see routes/auth.js).
+  // Real Spotify data for this page - separate from the mock nickname/bio
+  // above, which is still app-only local state (no backend for that yet).
+  // All three need scopes added to the OAuth flow at various points (see
+  // routes/auth.js), so each quietly fails with its own clear message for
+  // anyone who logged in before the relevant scope was added.
   useEffect(() => {
     fetchRecentlyPlayed()
       .then(setRecentTracks)
@@ -46,19 +47,10 @@ export default function MyProfilePage() {
     fetchPublicPlaylists()
       .then(setPlaylists)
       .catch((err) => setPlaylistsError(err instanceof Error ? err.message : 'Could not load playlists'));
+    fetchProfileStats()
+      .then(setStats)
+      .catch((err) => setStatsError(err instanceof Error ? err.message : 'Could not load profile stats'));
   }, []);
-
-  function addGenre(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key !== 'Enter') return;
-    const value = genreInput.trim();
-    if (!value) return;
-    mutate((d) => { d.me.genres.push(value); });
-    setGenreInput('');
-  }
-
-  function removeGenre(index: number) {
-    mutate((d) => { d.me.genres.splice(index, 1); });
-  }
 
   function save() {
     mutate((d) => {
@@ -123,33 +115,37 @@ export default function MyProfilePage() {
             <p className="text-xs uppercase tracking-wider text-cyan-300">Groups</p>
           </div>
           <div>
-            <p className="text-xl font-bold text-cyan-100">{me.genres.length}</p>
-            <p className="text-xs uppercase tracking-wider text-cyan-300">Genres</p>
+            <p className="text-xl font-bold text-cyan-100">{stats?.followers != null ? stats.followers : '—'}</p>
+            <p className="text-xs uppercase tracking-wider text-cyan-300">Followers</p>
+          </div>
+          <div>
+            <p className="text-xl font-bold text-cyan-100">{stats ? stats.following : '—'}</p>
+            <p className="text-xs uppercase tracking-wider text-cyan-300">Following</p>
           </div>
         </div>
 
-        {/* Genre pills */}
+        {/* Top genres - real Spotify listening data, read-only (no more
+            manual add/remove; the mock d.me.genres field itself is left
+            alone for other parts of the app that may still use it). */}
         <div className="border-b border-cyan-500/20 py-6">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-cyan-300">Genres you like</h3>
-          <div className="mb-3 flex flex-wrap gap-2">
-            {me.genres.map((g, i) => (
-              <span
-                key={g + i}
-                className="flex items-center gap-1.5 rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-900 shadow-sm"
-              >
-                {g}
-                <button onClick={() => removeGenre(i)} aria-label={`Remove ${g}`} className="text-slate-500" type="button">&times;</button>
-              </span>
-            ))}
-            {me.genres.length === 0 && <span className="text-xs text-slate-400">No genres added yet.</span>}
-          </div>
-          <input
-            value={genreInput}
-            onChange={(e) => setGenreInput(e.target.value)}
-            onKeyDown={addGenre}
-            placeholder="+ Add genre, press Enter"
-            className="w-full rounded-lg border border-dashed border-cyan-500/30 bg-transparent px-3 py-2 text-sm text-white placeholder:text-slate-500"
-          />
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-cyan-300">Top genres</h3>
+          {statsError ? (
+            <p className="text-xs text-red-400">{statsError}</p>
+          ) : stats && stats.topGenres.length === 0 ? (
+            <p className="text-xs text-slate-400">Not enough listening history yet to tell your top genres.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {(stats?.topGenres ?? []).map((g) => (
+                <span
+                  key={g}
+                  className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-900 shadow-sm"
+                >
+                  {g}
+                </span>
+              ))}
+              {!stats && !statsError && <span className="text-xs text-slate-400">Loading…</span>}
+            </div>
+          )}
         </div>
 
         {/* Recently played - real Spotify listening history */}
@@ -185,23 +181,23 @@ export default function MyProfilePage() {
           ) : playlists.length === 0 ? (
             <p className="text-xs text-slate-400">No public playlists on this account.</p>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
               {playlists.map((p) => (
                 <a
                   key={p.id}
                   href={p.url ?? undefined}
                   target="_blank"
                   rel="noreferrer"
-                  className="group rounded-lg border border-cyan-500/10 bg-[#02182b] p-2 transition hover:border-cyan-500/30"
+                  className="group flex flex-col items-center rounded-lg border border-cyan-500/10 bg-[#02182b] p-2 text-center transition hover:border-cyan-500/30"
                 >
-                  <div className="mb-2 flex aspect-square items-center justify-center overflow-hidden rounded-md bg-cyan-950">
+                  <div className="mb-2 flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-cyan-950">
                     {p.image ? (
                       <img src={p.image} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <ListMusic className="h-6 w-6 text-cyan-500/50" />
+                      <ListMusic className="h-5 w-5 text-cyan-500/50" />
                     )}
                   </div>
-                  <p className="truncate text-xs font-medium text-cyan-100 group-hover:text-cyan-300">{p.name}</p>
+                  <p className="w-full truncate text-xs font-medium text-cyan-100 group-hover:text-cyan-300">{p.name}</p>
                   <p className="text-[11px] text-slate-500">{p.trackCount} tracks</p>
                 </a>
               ))}

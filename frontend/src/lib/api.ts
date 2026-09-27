@@ -9,7 +9,7 @@
 // src/data/AuthContext.tsx), and kept in localStorage from then on. See
 // socket.ts for the companion Socket.IO connection used for live
 // 'oceanUpdate' events (that one's just a public broadcast, no auth).
-import type { ChatRequest, HostProfile, MyPlayback, PublicPlaylist, RecentTrack, SpotifyProfile } from '../data/types';
+import type { ChatRequest, HostProfile, MyPlayback, ProfileStats, PublicPlaylist, RecentTrack, SpotifyProfile } from '../data/types';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -150,6 +150,13 @@ export async function fetchPublicPlaylists(): Promise<PublicPlaylist[]> {
   if (!res.ok) throw new Error(await errorFrom(res, 'Could not fetch playlists'));
   const body = await res.json();
   return body.items;
+}
+
+// Follower/following counts and top genres for the profile page.
+export async function fetchProfileStats(): Promise<ProfileStats> {
+  const res = await apiFetch('/spotify/stats');
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not fetch profile stats'));
+  return res.json();
 }
 
 // Sends a chat request to someone else's real Spotify account. Chat
