@@ -184,7 +184,7 @@ function getSession(sessionId) {
 // followerSessionId explicitly wants to keep following whatever
 // hostSessionId is listening to, even across song changes.
 function setFollow(followerSessionId, hostSessionId) {
-  follows.set(followerSessionId, { hostSessionId, followedAt: Date.now() });
+  follows.set(followerSessionId, { hostSessionId, followedAt: Date.now(), lastError: null });
 }
 
 function clearFollow(followerSessionId) {
@@ -196,11 +196,32 @@ function isFollowing(followerSessionId) {
 }
 
 // Unlike isFollowing (just a boolean), this tells the caller WHO they're
-// following - used by GET /spotify/follow-status so the frontend can
-// correctly restore the Follow Along toggle when a song panel is reopened,
-// instead of always assuming "not following".
+// following (plus the last sync error, if any) - used by
+// GET /spotify/follow-status so the frontend can correctly restore the
+// Follow Along toggle when a song panel is reopened, instead of always
+// assuming "not following", AND so it can actually show the person why
+// they're not moving with the host if the background sync keeps failing
+// (e.g. no Spotify Premium, or no active device) - previously that failure
+// only ever reached the server's own console.error, so Follow Along could
+// look "on" while silently never doing anything.
 function getFollow(followerSessionId) {
   return follows.get(followerSessionId) || null;
+}
+
+// Records why the last sync attempt for this follower failed, so
+// GET /spotify/follow-status can report it. A no-op if they're not
+// following anyone anymore (e.g. they turned it off in the meantime).
+function setFollowSyncError(followerSessionId, message) {
+  const entry = follows.get(followerSessionId);
+  if (entry) follows.set(followerSessionId, { ...entry, lastError: message });
+}
+
+// Called whenever a sync attempt succeeds (or wasn't needed because the
+// follower's already on the host's track) - clears any previously
+// recorded error so the frontend stops showing a stale failure message.
+function clearFollowSyncError(followerSessionId) {
+  const entry = follows.get(followerSessionId);
+  if (entry && entry.lastError) follows.set(followerSessionId, { ...entry, lastError: null });
 }
 
 // Runs host succession: if a followed host's session is gone (sunk or
@@ -236,6 +257,7 @@ function reconcileFollowsAndGetSyncList() {
       follows.set(f.followerSessionId, {
         hostSessionId: promoted.followerSessionId,
         followedAt: f.followedAt,
+        lastError: null, // fresh host - give the next sync attempt a clean slate
       });
     }
   }
@@ -257,5 +279,7 @@ module.exports = {
   clearFollow,
   isFollowing,
   getFollow,
+  setFollowSyncError,
+  clearFollowSyncError,
   reconcileFollowsAndGetSyncList,
 };

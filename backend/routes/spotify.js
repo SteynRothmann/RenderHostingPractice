@@ -178,10 +178,17 @@ router.post('/unfollow', (req, res) => {
 
 // GET /spotify/follow-status - lets the frontend correctly restore the
 // Follow Along toggle when a song panel is reopened (or the page is
-// refreshed), instead of always assuming "not following".
+// refreshed), instead of always assuming "not following". Also reports the
+// last background-sync error (if any) - see spotifyPoller.js's
+// syncFollowers() - so a Follow Along that's silently failing every cycle
+// (no Premium, no active device, etc.) actually tells the person why,
+// instead of just sitting there looking "on" and doing nothing.
 router.get('/follow-status', (req, res) => {
   const follow = oceanState.getFollow(req.userId);
-  res.json({ followingHostSessionId: follow?.hostSessionId ?? null });
+  res.json({
+    followingHostSessionId: follow?.hostSessionId ?? null,
+    lastError: follow?.lastError ?? null,
+  });
 });
 
 // GET /spotify/user/:spotifyUserId - a host's read-only Wavelength

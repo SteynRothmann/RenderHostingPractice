@@ -57,6 +57,7 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
   const [joining, setJoining] = useState(false);
   const [following, setFollowing] = useState(false);
   const [error, setError] = useState('');
+  const [followError, setFollowError] = useState('');
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   // Reset transient UI state whenever a different song is opened, and tick
@@ -75,22 +76,37 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
   // Restore the REAL Follow Along state from the backend whenever a song
   // is opened, rather than always assuming "not following" - the
   // relationship persists on the server even if this panel gets closed
-  // and reopened, or the page is refreshed.
+  // and reopened, or the page is refreshed. Then, while actively
+  // following, keep polling the same endpoint so a background sync
+  // failure (see spotifyPoller.js's syncFollowers()) actually reaches the
+  // person instead of the toggle just sitting there looking "on" forever
+  // with nothing visibly happening - that silence was indistinguishable
+  // from a genuine bug.
   useEffect(() => {
     if (!group || !isLoggedIn) {
       setFollowing(false);
+      setFollowError('');
       return;
     }
     let cancelled = false;
-    fetchFollowStatus()
-      .then(({ followingHostSessionId }) => {
-        if (!cancelled) setFollowing(followingHostSessionId === group.hostSessionId);
-      })
-      .catch(() => {
-        // non-fatal - leave it showing "not following" if the check fails
-      });
+
+    function poll() {
+      fetchFollowStatus()
+        .then(({ followingHostSessionId, lastError }) => {
+          if (cancelled) return;
+          setFollowing(followingHostSessionId === group!.hostSessionId);
+          setFollowError(followingHostSessionId === group!.hostSessionId ? lastError || '' : '');
+        })
+        .catch(() => {
+          // non-fatal - leave the last known state showing if a poll fails
+        });
+    }
+
+    poll();
+    const id = setInterval(poll, 3000);
     return () => {
       cancelled = true;
+      clearInterval(id);
     };
     // Only re-check when the song or its host actually changes - not on
     // every ~1s socket update, which would create a new `group` object
@@ -128,9 +144,11 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
       if (following) {
         await unfollowHost();
         setFollowing(false);
+        setFollowError('');
       } else {
         await followHost(group.trackId);
         setFollowing(true);
+        setFollowError(''); // fresh follow - give the next background sync a clean slate
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not update Follow Along');
@@ -221,6 +239,9 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
                 ? "You'll automatically switch whenever the host skips."
                 : "You'll finish this song even if the host skips ahead."}
             </p>
+            {followError && (
+              <p className="-mt-1 text-center text-xs text-red-400">{followError}</p>
+            )}
 
             {error && (
               <div className="text-center text-xs text-red-400">

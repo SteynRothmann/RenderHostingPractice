@@ -117,8 +117,12 @@ export async function unfollowHost(): Promise<{ success: true }> {
 }
 
 // Which host (if any) I'm currently Following Along with, keyed by their
-// session id - used to correctly restore the panel's toggle state.
-export async function fetchFollowStatus(): Promise<{ followingHostSessionId: string | null }> {
+// session id - used to correctly restore the panel's toggle state. Also
+// carries the last background-sync error, if the poller's been unable to
+// actually move my playback onto the host's track (e.g. no Premium, no
+// active device) - that used to only ever show up in the backend's own
+// logs, so Follow Along could look "on" while silently doing nothing.
+export async function fetchFollowStatus(): Promise<{ followingHostSessionId: string | null; lastError: string | null }> {
   const res = await apiFetch('/spotify/follow-status');
   if (!res.ok) throw new Error(await errorFrom(res, 'Could not check Follow Along status'));
   return res.json();

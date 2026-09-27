@@ -50,7 +50,10 @@ async function syncFollowers() {
 
       const followerSession = oceanState.getSession(followerSessionId);
       const alreadyOnHostTrack = followerSession && followerSession.trackId === hostSession.trackId;
-      if (alreadyOnHostTrack) return;
+      if (alreadyOnHostTrack) {
+        oceanState.clearFollowSyncError(followerSessionId);
+        return;
+      }
 
       try {
         const accessToken = await getValidAccessToken(followerSessionId);
@@ -61,10 +64,28 @@ async function syncFollowers() {
             )
           : hostSession.progressMs;
         await playTrackAt(accessToken, hostSession.trackUri, positionMs);
+        oceanState.clearFollowSyncError(followerSessionId);
       } catch (err) {
-        // Common causes: follower has no active device, isn't Premium,
-        // or their token needs re-login - none of these should crash
-        // the sync loop for everyone else.
+        // This used to only ever reach the server's own console - Follow
+        // Along's toggle would show "on" in the UI forever with no way to
+        // tell it was actually failing every single cycle. Now the reason
+        // is recorded and surfaced through GET /spotify/follow-status (see
+        // routes/spotify.js), same friendly-message treatment as the
+        // manual Join button already gets for these exact Spotify error
+        // codes - the common cases being no Premium (403) or no active
+        // Spotify device anywhere (404) on the follower's account.
+        const status = err.response?.status;
+        const spotifyMessage = err.response?.data?.error?.message;
+        let message = 'Could not sync with the host - try again shortly.';
+        if (status === 401 && spotifyMessage === 'Permissions missing') {
+          message = 'Your login is missing the playback-control permission. Log out and log in again to grant it.';
+        } else if (status === 403) {
+          message = 'Following along requires Spotify Premium.';
+        } else if (status === 404) {
+          message = 'No active Spotify device found - open Spotify on a device to follow along.';
+        }
+        oceanState.setFollowSyncError(followerSessionId, message);
+
         console.error(
           `Follow-sync failed for follower ${followerSessionId}:`,
           err.response?.data || err.message

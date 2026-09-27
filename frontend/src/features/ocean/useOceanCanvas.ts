@@ -79,6 +79,17 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
   markersRef.current = markers;
   const pointerRef = useRef({ x: -9999, y: -9999 });
   const hoveredRef = useRef<string | null>(null);
+  // Every marker's last-drawn hit box (in canvas-local px), refreshed each
+  // frame in draw(). Clicks are hit-tested against THIS directly (see
+  // onClick below) rather than reusing whatever hoveredRef happened to be
+  // set to - hoveredRef only ever gets updated by pointermove, which touch
+  // devices never fire before a tap (there's no "hover" on a touchscreen),
+  // so a tap's own click event would find hoveredRef still at its initial
+  // null and silently do nothing. That's almost certainly why the panel
+  // wouldn't open for at least some people - it had nothing to do with any
+  // particular song or account, just whichever input device/browser
+  // happened to skip pointermove before click.
+  const hitBoxesRef = useRef<Map<string, { left: number; top: number; size: number }>>(new Map());
 
   // The canvas/animation-loop effect below only runs once on mount (an
   // expensive setup we don't want to tear down and rebuild every render).
@@ -223,18 +234,49 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
       // Markers: drift left -> right along their assigned wave, wrapping around.
       // A marker whose song just ended keeps drawing from its frozen runtime
       // snapshot while it sinks (see syncRuntime) instead of vanishing.
-      let hovered: string | null = null;
+      //
+      // Position update happens here, BEFORE any drawing, in its own pass -
+      // so the per-lane spacing pass right after it can see every marker's
+      // post-drift x before anything is rendered. Without doing it as a
+      // separate pass first, spacing could only ever compare a marker
+      // against ones already drawn earlier in the same loop, missing half
+      // the pairs and letting bubbles later in iteration order sail
+      // straight through ones drawn before them.
       runtimeRef.current.forEach((rt) => {
-        const sinking = rt.sinkStartTime !== null;
-        const sinkP = sinking ? Math.min(1, (time - rt.sinkStartTime!) / SINK_DURATION_MS) : 0;
-
-        // Sinking bubbles stop drifting and bobbing - they just settle in
-        // place and go under, mirroring the backend's
-        // "animation-play-state: paused" on .floater.sinking.
-        if (!sinking) {
+        if (rt.sinkStartTime === null) {
           rt.x += rt.speed * dt;
           if (rt.x > w + MARKER_RADIUS) rt.x = -MARKER_RADIUS;
         }
+      });
+
+      // Enforce a minimum horizontal gap between bubbles sharing the same
+      // wave lane, so a faster bubble catching up to a slower one ahead of
+      // it queues up right behind instead of visibly overlapping it -
+      // bubbles only ever move left-to-right, so this is the same trick as
+      // cars queuing on a single lane: walk from the leader (largest x)
+      // backward, and pull any follower that's gotten too close back to a
+      // fixed distance behind. Sinking bubbles are frozen in place and
+      // left out of this - they're on their way out, not worth spacing
+      // against.
+      const MIN_GAP = MARKER_SIZE * 1.15;
+      const byLane: MarkerRuntime[][] = Array.from({ length: WAVE_COUNT }, () => []);
+      runtimeRef.current.forEach((rt) => {
+        if (rt.sinkStartTime === null) byLane[rt.lane].push(rt);
+      });
+      byLane.forEach((lane) => {
+        lane.sort((a, b) => a.x - b.x);
+        for (let i = lane.length - 2; i >= 0; i--) {
+          if (lane[i + 1].x - lane[i].x < MIN_GAP) {
+            lane[i].x = lane[i + 1].x - MIN_GAP;
+          }
+        }
+      });
+
+      let hovered: string | null = null;
+      hitBoxesRef.current.clear();
+      runtimeRef.current.forEach((rt) => {
+        const sinking = rt.sinkStartTime !== null;
+        const sinkP = sinking ? Math.min(1, (time - rt.sinkStartTime!) / SINK_DURATION_MS) : 0;
 
         const surfaceY = waveY(rt.lane, rt.x, t, w, h);
         const bob = sinking ? 0 : Math.sin(t * 1.4 + rt.phase) * 4;
@@ -314,8 +356,13 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
         ctx.restore();
 
         // Square hit test - sinking bubbles are non-interactive, matching
-        // the backend's "pointer-events: none" on .floater.sinking.
+        // the backend's "pointer-events: none" on .floater.sinking. Also
+        // recorded into hitBoxesRef regardless of the mouse's last known
+        // position, so a click can be tested directly against its own
+        // coordinates (see onClick below) instead of only against whatever
+        // hoveredRef happened to be set to by the last pointermove.
         if (!sinking) {
+          hitBoxesRef.current.set(rt.id, { left, top, size });
           const px = pointerRef.current.x;
           const py = pointerRef.current.y;
           if (px >= left && px <= left + size && py >= top && py <= top + size) {
@@ -338,8 +385,24 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
       pointerRef.current.x = e.clientX - rect.left;
       pointerRef.current.y = e.clientY - rect.top;
     }
-    function onClick() {
-      if (hoveredRef.current) onSelectRef.current(hoveredRef.current);
+    // Hit-tests the click's OWN coordinates against the latest hit boxes,
+    // rather than trusting hoveredRef - hoveredRef is only ever updated by
+    // pointermove, which touch devices never fire before a tap (there's no
+    // concept of "hovering" without a mouse), so on touch this used to
+    // always find hoveredRef still null and silently do nothing. This is
+    // click-through-to-tap correct on every input type: mouse, pen, or
+    // touch all report accurate clientX/clientY on their synthetic click
+    // event either way.
+    function onClick(e: MouseEvent) {
+      const rect = canvas!.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      for (const [id, box] of hitBoxesRef.current) {
+        if (x >= box.left && x <= box.left + box.size && y >= box.top && y <= box.top + box.size) {
+          onSelectRef.current(id);
+          return;
+        }
+      }
     }
     function onPointerLeave() {
       pointerRef.current.x = -9999;
