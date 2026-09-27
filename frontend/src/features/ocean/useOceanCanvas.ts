@@ -97,7 +97,7 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
   // new. Markers that disappear from `markers` (song ended / everyone left)
   // aren't deleted immediately - they're flagged to sink (see draw()) and
   // only removed once that animation finishes.
-  function syncRuntime(width: number, time: number) {
+  function syncRuntime(time: number) {
     const seen = new Set<string>();
     markersRef.current.forEach((m) => {
       seen.add(m.id);
@@ -194,7 +194,7 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
       lastTime = time;
       const t = time / 1000;
 
-      syncRuntime(w, time);
+      syncRuntime(time);
 
       ctx.clearRect(0, 0, w, h);
 
