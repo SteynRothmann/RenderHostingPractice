@@ -32,6 +32,21 @@ const WAVE_BANDS = [
   { baseline: 0.86, amplitude: 24, wavelength: 300, speed: 0.7, color: 'rgba(34,211,238,0.38)' },
 ];
 
+// Light-ray shafts (fraction of canvas width/height) - base geometry only;
+// draw() applies a slow sway + width/opacity pulse on top of these each
+// frame (see LIGHT_RAYS.forEach below). `seed` just staggers each ray's
+// cycle so they don't all sway/pulse in lockstep.
+const LIGHT_RAYS = [
+  { topStart: 0.32, topEnd: 0.43, bottomStart: 0.48, bottomEnd: 0.59, bottomHeightFrac: 0.72, seed: 0 },
+  { topStart: 0.57, topEnd: 0.64, bottomStart: 0.68, bottomEnd: 0.75, bottomHeightFrac: 0.58, seed: 2.1 },
+];
+
+// Ring/particle colors for a marker that's the viewer's OWN currently-
+// playing track ("isMine") vs. one they're just hovering - kept visually
+// distinct so the two states never look identical.
+const MINE_RING_COLOR = '#3b82f6'; // vivid azure/electric blue
+const HOVER_RING_COLOR = '#22d3ee'; // existing cyan
+
 // A stable per-song hash so a track's wave lane (and starting speed/phase)
 // depends on its own Spotify track ID, not on its position in the current
 // list. Index-based assignment (i % 3) meant a song's lane was really just
@@ -221,25 +236,35 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
       // (ported from the redesigned mockup's ocean background layer) -
       // purely decorative, drawn after the base gradient and before the
       // wave bands so the bands still read clearly on top of it.
+      //
+      // Each ray slowly sways side to side and pulses its width/opacity,
+      // all on very long (~100s+) periods with small amplitudes, so it
+      // reads as ambient underwater light shifting rather than anything
+      // that draws the eye on its own.
       ctx.save();
-      const rayGradient = ctx.createLinearGradient(0, 0, 0, h * 0.7);
-      rayGradient.addColorStop(0, 'rgba(125, 211, 252, 0.055)');
-      rayGradient.addColorStop(1, 'rgba(125, 211, 252, 0)');
-      ctx.fillStyle = rayGradient;
-      ctx.beginPath();
-      ctx.moveTo(w * 0.32, 0);
-      ctx.lineTo(w * 0.43, 0);
-      ctx.lineTo(w * 0.59, h * 0.72);
-      ctx.lineTo(w * 0.48, h * 0.72);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(w * 0.57, 0);
-      ctx.lineTo(w * 0.64, 0);
-      ctx.lineTo(w * 0.75, h * 0.58);
-      ctx.lineTo(w * 0.68, h * 0.58);
-      ctx.closePath();
-      ctx.fill();
+      LIGHT_RAYS.forEach((ray) => {
+        const sway = Math.sin(t * 0.06 + ray.seed) * 0.02; // +-2% of width, slow drift
+        const widthScale = 1 + Math.sin(t * 0.045 + ray.seed * 1.6) * 0.18; // gentle width pulse
+        const alphaScale = 0.7 + Math.sin(t * 0.05 + ray.seed * 2.3) * 0.3; // gentle brightness pulse
+
+        const topCenter = (ray.topStart + ray.topEnd) / 2 + sway;
+        const topHalfWidth = ((ray.topEnd - ray.topStart) / 2) * widthScale;
+        const bottomCenter = (ray.bottomStart + ray.bottomEnd) / 2 + sway;
+        const bottomHalfWidth = ((ray.bottomEnd - ray.bottomStart) / 2) * widthScale;
+        const bottomY = h * ray.bottomHeightFrac;
+
+        const rayGradient = ctx.createLinearGradient(0, 0, 0, bottomY);
+        rayGradient.addColorStop(0, `rgba(125, 211, 252, ${(0.055 * alphaScale).toFixed(4)})`);
+        rayGradient.addColorStop(1, 'rgba(125, 211, 252, 0)');
+        ctx.fillStyle = rayGradient;
+        ctx.beginPath();
+        ctx.moveTo(w * (topCenter - topHalfWidth), 0);
+        ctx.lineTo(w * (topCenter + topHalfWidth), 0);
+        ctx.lineTo(w * (bottomCenter + bottomHalfWidth), bottomY);
+        ctx.lineTo(w * (bottomCenter - bottomHalfWidth), bottomY);
+        ctx.closePath();
+        ctx.fill();
+      });
       ctx.restore();
 
       for (let i = 0; i < 24; i++) {
@@ -361,16 +386,19 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
 
         if (!sinking && (rt.isMine || hoveredRef.current === rt.id)) {
           roundedRect(ctx, left - 2, top - 2, size + 4, size + 4, CORNER + 2);
-          ctx.strokeStyle = rt.isMine ? '#1ED760' : '#22d3ee';
+          ctx.strokeStyle = rt.isMine ? MINE_RING_COLOR : HOVER_RING_COLOR;
           ctx.lineWidth = 3;
           ctx.stroke();
         }
 
-        // Hover bubble effect - same visual family as OceanButton's bubble
-        // animation, done procedurally (no particle state to manage) since
-        // these markers are canvas-drawn, not DOM elements. Only drawn for
-        // the currently-hovered, non-sinking marker.
-        if (!sinking && hoveredRef.current === rt.id) {
+        // Bubble/particle effect - same visual family as OceanButton's
+        // bubble animation, done procedurally (no particle state to manage)
+        // since these markers are canvas-drawn, not DOM elements. Now tied
+        // to "isMine" (this is the song the viewer is currently listening
+        // to) rather than hover, so it acts as a continuous now-playing
+        // indicator instead of a one-off hover flourish. Hover keeps its
+        // own separate ring highlight above, just without the particles.
+        if (!sinking && rt.isMine) {
           for (let i = 0; i < 5; i++) {
             const seed = hashString(rt.id + '-bubble-' + i);
             const cycle = (t * (0.6 + (seed % 5) * 0.15) + seed * 0.13) % 1;

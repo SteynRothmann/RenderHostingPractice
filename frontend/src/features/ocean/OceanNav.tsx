@@ -9,10 +9,9 @@ import OceanButton from '../../components/OceanButton';
 interface Props {
   onSearch: (query: string) => void;
   onOpenNotifications: () => void;
-  onOpenChallenge: () => void;
 }
 
-export default function OceanNav({ onSearch, onOpenNotifications, onOpenChallenge }: Props) {
+export default function OceanNav({ onSearch, onOpenNotifications }: Props) {
   const { db } = useData();
   const { isLoggedIn, logout, profile } = useAuth();
   const navigate = useNavigate();
@@ -77,14 +76,6 @@ export default function OceanNav({ onSearch, onOpenNotifications, onOpenChalleng
             >
               <Bell className="h-5 w-5" />
               {pendingCount > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />}
-            </OceanButton>
-
-            <OceanButton
-              onClick={onOpenChallenge}
-              aria-label="Weekly Challenge"
-              className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/20"
-            >
-              Weekly Challenge
             </OceanButton>
           </>
         ) : (

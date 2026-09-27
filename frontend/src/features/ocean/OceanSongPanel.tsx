@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { X, ExternalLink, Play, Pause } from 'lucide-react';
+import { X, ExternalLink, Play, Pause, Radio } from 'lucide-react';
 import { useAuth } from '../../data/AuthContext';
 import { joinTrack, followHost, unfollowHost, fetchFollowStatus } from '../../lib/api';
 import type { OceanGroup } from '../../data/types';
@@ -159,7 +159,7 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
     <AnimatePresence>
       {group && (
         <motion.div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-[#07102a]/65 p-4 backdrop-blur-md"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -167,84 +167,169 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
         >
           <motion.div
             onClick={(e) => e.stopPropagation()}
-            className="no-scrollbar flex max-h-[85vh] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl border border-cyan-500/20 bg-[#04385a] p-6 shadow-2xl"
-            initial={{ opacity: 0, scale: 0.95, y: 8 }}
+            className="no-scrollbar relative max-h-[90vh] w-full max-w-md overflow-x-hidden overflow-y-auto rounded-3xl border border-white/20 bg-gradient-to-br from-[#4034a5]/95 via-[#285eb1]/95 to-[#137f9e]/95 p-6 text-white shadow-[0_24px_80px_rgba(5,10,40,0.45)] backdrop-blur-xl"
+            initial={{ opacity: 0, scale: 0.95, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 8 }}
+            exit={{ opacity: 0, scale: 0.95, y: 12 }}
             transition={{ type: 'spring', damping: 26, stiffness: 300 }}
           >
-            <button onClick={onClose} aria-label="Close" className="self-end text-cyan-300/70 hover:text-cyan-200" type="button">
-              <X className="h-5 w-5" />
-            </button>
+            {/* Background glow */}
+            <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-cyan-300/10 blur-3xl" />
 
-            {/* shrink-0 matters here: this panel is a flex-col column, and
-                without it the browser can compress this box's HEIGHT (but
-                not its width) to fit everything within max-h-[85vh] once
-                enough content is added below - turning a square into a
-                short wide rectangle. shrink-0 locks it at a true 256x256
-                regardless of how much else is in the panel; the panel
-                scrolls instead. */}
-            <div className="mx-auto flex aspect-square h-64 w-64 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-cyan-950 shadow-lg">
-              {group.albumArt ? (
-                <img src={group.albumArt} alt={`${group.trackName} cover art`} className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-6xl font-light text-cyan-100/80">
-                  {group.trackName.trim().charAt(0).toUpperCase() || '♪'}
-                </span>
-              )}
+            {/* Close */}
+            <div className="relative flex justify-end">
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/70 transition hover:bg-white/20 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            <div className="h-1 overflow-hidden rounded-full bg-white/10">
-              <div className="h-full bg-gradient-to-r from-[#543ab7] to-cyan-400" style={{ width: `${progressPct}%` }} />
+            {/* Album art */}
+            <div className="relative mx-auto mt-1 flex h-48 w-48 items-center justify-center">
+              <div className="absolute -inset-3 rounded-3xl bg-gradient-to-br from-purple-300/30 via-blue-300/25 to-cyan-300/30 blur-xl" />
+              <div className="relative z-10 flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border border-white/30 bg-cyan-950 shadow-2xl">
+                {group.albumArt ? (
+                  <img src={group.albumArt} alt={`${group.trackName} cover art`} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-6xl font-light text-cyan-100/80">
+                    {group.trackName.trim().charAt(0).toUpperCase() || '♪'}
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="-mt-3 flex justify-between text-[11px] text-slate-400">
+
+            {/* Live progress bar - real data, ticked locally between server updates (see nowMs above) */}
+            <div className="relative mt-4 h-1 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full bg-gradient-to-r from-cyan-300 to-cyan-400" style={{ width: `${progressPct}%` }} />
+            </div>
+            <div className="-mt-1 flex justify-between text-[11px] text-white/50">
               <span>{formatMs(liveProgressMs)}</span>
               <span>{formatMs(group.durationMs)}</span>
             </div>
 
-            <div className="flex items-center justify-center gap-1.5 text-cyan-300/70">
+            <div className="mt-1 flex items-center justify-center gap-1.5 text-cyan-200/70">
               {group.isPlaying ? <Play className="h-3.5 w-3.5 fill-current" /> : <Pause className="h-3.5 w-3.5 fill-current" />}
               <span className="text-xs">{group.isPlaying ? 'Playing' : 'Paused'}</span>
             </div>
 
-            <div className="text-center">
-              <div className="text-lg font-semibold text-cyan-100">{group.trackName}</div>
-              <div className="text-sm text-slate-400">{group.artist}</div>
-              <div className="mt-1 text-xs text-slate-500">
+            {/* Song Details */}
+            <div className="relative mt-3 text-center">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45">
+                Now floating in the Ocean
+              </p>
+
+              <h2 className="mt-2 text-2xl font-bold text-white">{group.trackName}</h2>
+
+              <p className="mt-1 text-sm text-white/60">{group.artist}</p>
+
+              <p className="mt-1 text-xs text-white/40">
                 {group.listenerCount} {group.listenerCount === 1 ? 'listener' : 'listeners'}
-              </div>
+              </p>
             </div>
 
-            <button
-              onClick={handleJoin}
-              disabled={isMyTrack || joining}
-              className="w-full rounded-full bg-[#1ED760] py-2.5 text-sm font-semibold text-black hover:bg-[#1fdf64] disabled:opacity-50"
-              type="button"
-            >
-              {isMyTrack ? 'Already listening' : joining ? 'Starting…' : 'Listen on Spotify'}
-            </button>
+            {/* Host with real attribution - links to their read-only Wavelength profile */}
+            {group.hostSpotifyUserId ? (
+              <Link
+                to={`/hosts/${group.hostSpotifyUserId}`}
+                onClick={onClose}
+                className="relative mt-5 flex w-full items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.08] p-3 text-left transition hover:bg-white/[0.13]"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-white/10">
+                  {group.hostProfileImage && (
+                    <img src={group.hostProfileImage} alt="" className="h-full w-full object-cover" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] uppercase tracking-[0.15em] text-white/40">Host</p>
+                  <p className="truncate text-sm font-semibold text-white">{group.hostDisplayName || 'someone'}</p>
+                </div>
+                <span className="text-xs text-white/40">View profile</span>
+              </Link>
+            ) : (
+              <div className="relative mt-5 flex w-full items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.08] p-3 text-left">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-white/10">
+                  {group.hostProfileImage && (
+                    <img src={group.hostProfileImage} alt="" className="h-full w-full object-cover" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] uppercase tracking-[0.15em] text-white/40">Host</p>
+                  <p className="truncate text-sm font-semibold text-white">{group.hostDisplayName || 'someone'}</p>
+                </div>
+              </div>
+            )}
 
-            <button
-              onClick={handleFollowToggle}
-              disabled={isMyTrack}
-              className={`rounded-full py-2 text-sm font-semibold disabled:opacity-40 ${
-                following ? 'bg-[#543ab7] text-white' : 'bg-white/10 text-white'
-              }`}
-              type="button"
-            >
-              {following ? 'Following Along ✓' : 'Follow Along'}
-            </button>
-            <p className="-mt-2 text-center text-[11px] text-slate-500">
-              {following
-                ? "You'll automatically switch whenever the host skips."
-                : "You'll finish this song even if the host skips ahead."}
-            </p>
+            {/* Primary actions */}
+            <div className="relative mt-5 space-y-3">
+              <button
+                onClick={handleJoin}
+                disabled={isMyTrack || joining}
+                type="button"
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#091533] py-3 text-sm font-semibold text-white shadow-md transition hover:bg-[#111d43] disabled:opacity-50"
+              >
+                <ExternalLink className="h-4 w-4 text-[#1ED760]" />
+                {isMyTrack ? 'Already listening' : joining ? 'Starting…' : 'Listen on Spotify'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleFollowToggle}
+                disabled={isMyTrack}
+                className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3.5 transition disabled:opacity-40 ${
+                  following
+                    ? 'border-cyan-200/50 bg-cyan-200/20'
+                    : 'border-white/15 bg-white/[0.08] hover:bg-white/[0.13]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                      following ? 'bg-cyan-200 text-[#173b6f]' : 'bg-white/10 text-cyan-100'
+                    }`}
+                  >
+                    <Radio className="h-4 w-4" />
+                  </div>
+
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-white">Follow Along</p>
+                    <p className="mt-0.5 text-[11px] text-white/45">
+                      {following
+                        ? "You'll automatically switch whenever the host skips."
+                        : "You'll finish this song even if the host skips ahead."}
+                    </p>
+                  </div>
+                </div>
+
+                <span
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition ${
+                    following ? 'bg-cyan-200' : 'bg-white/20'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${
+                      following ? 'left-6' : 'left-1'
+                    }`}
+                  />
+                </span>
+              </button>
+
+              {!isLoggedIn && (
+                <p className="text-center text-[11px] text-white/45">
+                  Log in with Spotify to follow along with another listener.
+                </p>
+              )}
+            </div>
+
             {followError && (
-              <p className="-mt-1 text-center text-xs text-red-400">{followError}</p>
+              <p className="relative mt-2 text-center text-xs text-red-300">{followError}</p>
             )}
 
             {error && (
-              <div className="text-center text-xs text-red-400">
+              <div className="relative mt-3 text-center text-xs text-red-300">
                 <p>{error}</p>
                 {/* If Join can't remote-control playback (no Premium, or no
                     active device anywhere), this is the fallback: opening
@@ -253,7 +338,7 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
                   href={trackUrl(group.trackUri)}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-1 inline-flex items-center gap-1 text-cyan-300 underline hover:text-cyan-200"
+                  className="mt-1 inline-flex items-center gap-1 text-cyan-200 underline hover:text-cyan-100"
                 >
                   <ExternalLink className="h-3 w-3" />
                   Open in Spotify instead
@@ -261,25 +346,9 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
               </div>
             )}
 
-            <div className="flex items-center gap-2 border-t border-white/10 pt-3">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-700">
-                {group.hostProfileImage && (
-                  <img src={group.hostProfileImage} alt="" className="h-full w-full object-cover" />
-                )}
-              </div>
-              <span className="flex-1 truncate text-left text-xs text-slate-300">
-                Started by <b className="font-medium text-white">{group.hostDisplayName || 'someone'}</b>
-              </span>
-              {group.hostSpotifyUserId && (
-                <Link
-                  to={`/hosts/${group.hostSpotifyUserId}`}
-                  onClick={onClose}
-                  className="whitespace-nowrap rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs text-white hover:bg-white/20"
-                >
-                  View Profile
-                </Link>
-              )}
-            </div>
+            <p className="relative mt-5 text-center text-[10px] text-white/30">
+              Song metadata and artwork provided by Spotify
+            </p>
           </motion.div>
         </motion.div>
       )}

@@ -7,6 +7,7 @@
   --wl-bg: #02182b;      /* page shell */
   --wl-panel: #04385a;   /* cards / panels */
   --wl-accent: #1ED760;  /* Spotify green, primary CTA */
+  --wl-treasure: #f59e0b; /* amber accent for the Weekly Challenge treasure-chest reveal */
 }
 
 html, body, #root {
