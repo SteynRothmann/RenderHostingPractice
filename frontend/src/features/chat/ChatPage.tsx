@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
@@ -9,7 +9,7 @@ import CreateGroupPanel from './CreateGroupPanel';
 type Active = { type: 'friend' | 'group'; id: string } | null;
 
 export default function ChatPage() {
-  const { friends, groups, unfriend, leaveGroup } = useChat();
+  const { friends, groups, unfriend, leaveGroup, unreadThreadIds, setActiveThread } = useChat();
   const [params] = useSearchParams();
 
   const withId = params.get('with');
@@ -24,6 +24,22 @@ export default function ChatPage() {
 
   const [groupPanelOpen, setGroupPanelOpen] = useState(false);
   const [showThread, setShowThread] = useState(Boolean(withId));
+
+  const hasUnreadFriends = friends.some((f) => unreadThreadIds.has(f.spotifyUserId));
+  const hasUnreadGroups = groups.some((g) => unreadThreadIds.has(g.id));
+
+  // Tell ChatContext which thread (if any) is on-screen right now, so it
+  // can suppress the unread dot for messages arriving in that thread and
+  // clear it the moment a thread is opened. Runs whenever `active` changes
+  // (covers selectFriend/selectGroup below, CreateGroupPanel's onCreated,
+  // and the deep-link-from-notifications initial state), and clears it on
+  // unmount so navigating away from Chat entirely doesn't leave a thread
+  // marked "active" forever (which would silently swallow its next unread
+  // dot).
+  useEffect(() => {
+    setActiveThread(active ? active.id : null);
+    return () => setActiveThread(null);
+  }, [active, setActiveThread]);
 
   function selectFriend(id: string) {
     setActive({ type: 'friend', id });
@@ -139,7 +155,12 @@ export default function ChatPage() {
                     : 'text-white/45 hover:text-white/75'
                 }`}
               >
-                {item}
+                <span className="inline-flex items-center gap-1.5">
+                  {item}
+                  {((item === 'friends' && hasUnreadFriends) || (item === 'groups' && hasUnreadGroups)) && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500" aria-label="Unread messages" />
+                  )}
+                </span>
 
                 {tab === item && (
                   <motion.span
@@ -204,23 +225,31 @@ export default function ChatPage() {
                         }
                       `}
                     >
-                      <div
-                        className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-slate-700 transition ${
-                          selected
-                            ? 'border-cyan-300/60 shadow-[0_0_14px_rgba(34,211,238,0.35)]'
-                            : 'border-white/10'
-                        }`}
-                      >
-                        {friend.profileImage ? (
-                          <img
-                            src={friend.profileImage}
-                            alt={friend.displayName}
-                            className="h-full w-full object-cover"
+                      <div className="relative shrink-0">
+                        <div
+                          className={`flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border bg-slate-700 transition ${
+                            selected
+                              ? 'border-cyan-300/60 shadow-[0_0_14px_rgba(34,211,238,0.35)]'
+                              : 'border-white/10'
+                          }`}
+                        >
+                          {friend.profileImage ? (
+                            <img
+                              src={friend.profileImage}
+                              alt={friend.displayName}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-sm font-semibold text-white">
+                              {friend.displayName.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        {unreadThreadIds.has(friend.spotifyUserId) && (
+                          <span
+                            className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-[#071330] bg-red-500"
+                            aria-label="New message"
                           />
-                        ) : (
-                          <span className="text-sm font-semibold text-white">
-                            {friend.displayName.charAt(0).toUpperCase()}
-                          </span>
                         )}
                       </div>
 
@@ -262,17 +291,25 @@ export default function ChatPage() {
                           : 'hover:bg-white/5'
                       }`}
                     >
-                      {group.icon ? (
-                        <img
-                          src={group.icon}
-                          alt={group.name}
-                          className="h-11 w-11 shrink-0 rounded-xl object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-700 text-sm font-semibold text-white">
-                          {group.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
+                      <div className="relative shrink-0">
+                        {group.icon ? (
+                          <img
+                            src={group.icon}
+                            alt={group.name}
+                            className="h-11 w-11 rounded-xl object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-700 text-sm font-semibold text-white">
+                            {group.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        {unreadThreadIds.has(group.id) && (
+                          <span
+                            className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-[#071330] bg-red-500"
+                            aria-label="New message"
+                          />
+                        )}
+                      </div>
 
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[15px] font-semibold text-white">
@@ -321,7 +358,14 @@ export default function ChatPage() {
                   // spotifyUserId here. Falls back to the static "Chat"
                   // subtitle until that's built.
                   listeningSongTitle={null}
-                  onBack={() => setShowThread(false)}
+                  onBack={() => {
+                    // Hides the thread on mobile (desktop keeps it visible
+                    // via md:flex) - either way, the user's no longer
+                    // looking at it, so it can go back to being markable
+                    // unread.
+                    setShowThread(false);
+                    setActiveThread(null);
+                  }}
                   menuLabel="Unfriend"
                   onMenuAction={() => {
                     if (
@@ -348,7 +392,10 @@ export default function ChatPage() {
                   threadId={group.id}
                   title={group.name}
                   icon={group.icon}
-                  onBack={() => setShowThread(false)}
+                  onBack={() => {
+                    setShowThread(false);
+                    setActiveThread(null);
+                  }}
                   menuLabel="Leave group"
                   onMenuAction={() => {
                     if (confirm(`Leave and delete "${group.name}"?`)) {

@@ -126,12 +126,30 @@ io.on('connection', (socket) => {
   // real-time socket flow itself should stay the same.
 
   // When a user opens a private chat, we put them into a room for that 1:1 chat.
-  socket.on('private:join', ({ otherUserId }) => {
-    if (!currentUserId || !otherUserId) return;
-    if (!canOpenPrivateChat(currentUserId, otherUserId)) return;
+  //
+  // Acknowledged (like group:join below) so the client actually knows
+  // whether the join landed, instead of firing this blind. Without an ack,
+  // a join emitted while the socket is mid-reconnect (e.g. right after
+  // AuthContext's reauthSocket() tears the connection down) can be silently
+  // dropped by the client's own send buffer with no way for either side to
+  // notice - the client would believe it had joined the room (it already
+  // marked the friend as "joined" locally) while the server never actually
+  // put this socket in it, so live messages for that thread would never
+  // arrive until the next full socket reconnect. See ChatContext.tsx's
+  // private:join emit for the client-side retry this enables.
+  socket.on('private:join', ({ otherUserId } = {}, acknowledge) => {
+    if (!currentUserId || !otherUserId) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'otherUserId is required' });
+      return;
+    }
+    if (!canOpenPrivateChat(currentUserId, otherUserId)) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'No accepted chat request with this person' });
+      return;
+    }
 
     const roomId = getPrivateRoomId(currentUserId, otherUserId);
     socket.join(roomId);
+    if (typeof acknowledge === 'function') acknowledge({ ok: true });
   });
 
   // Called when the user sends a message in a private chat.

@@ -13,6 +13,7 @@ const {
   getMyProfile,
   getFollowingCount,
   getTopGenres,
+  saveTrackToLibrary,
 } = require('../lib/spotifyClient');
 const { getValidAccessToken } = require('../lib/authHelper');
 const { getTokensBySpotifyUserId } = require('../db/tokenStore');
@@ -299,6 +300,43 @@ router.get('/stats', async (req, res) => {
     }
     console.error('stats failed:', err.response?.data || err.message);
     res.status(500).json({ error: 'Could not fetch profile stats' });
+  }
+});
+
+// PUT /spotify/save-track - "Save to Liked Songs" from the song panel.
+// Requires the user-library-modify scope (see routes/auth.js) - anyone who
+// logged in before that scope was added needs to log out and back in once,
+// same pattern as recently-played/playlists/stats above.
+router.put('/save-track', async (req, res) => {
+  const { trackId } = req.body || {};
+  if (!trackId) {
+    return res.status(400).json({ error: 'trackId is required' });
+  }
+
+  try {
+    const accessToken = await getValidAccessToken(req.userId);
+    await saveTrackToLibrary(accessToken, trackId);
+    res.json({ success: true });
+  } catch (err) {
+    const status = err.response?.status;
+    const spotifyMessage = err.response?.data?.error?.message;
+
+    if (status === 401 && spotifyMessage === 'Permissions missing') {
+      return res.status(401).json({
+        error: 'Your login is missing the save-to-library permission. Log out and log in again to grant it.',
+      });
+    }
+    if (status === 403) {
+      return res.status(403).json({
+        error: 'Missing permission to save songs. Log out and log in again to grant it.',
+      });
+    }
+    if (status === 404) {
+      return res.status(404).json({ error: 'This song could not be found on Spotify.' });
+    }
+
+    console.error('save-track failed:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Could not save this song' });
   }
 });
 

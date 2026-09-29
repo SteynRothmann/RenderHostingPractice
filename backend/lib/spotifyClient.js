@@ -212,6 +212,17 @@ async function skipToPrevious(accessToken) {
   );
 }
 
+// "Save to Liked Songs" - Spotify's actual Liked Songs library IS the
+// user's saved-tracks list, so saving here is the same thing as adding a
+// track to it. Requires the user-library-modify scope (see routes/auth.js).
+async function saveTrackToLibrary(accessToken, trackId) {
+  await axios.put(
+    'https://api.spotify.com/v1/me/tracks',
+    { ids: [trackId] },
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+}
+
 // NOTE: this used to also export getPublicProfile/getPublicPlaylistsForUser
 // (GET /v1/users/{id} and GET /v1/users/{id}/playlists), for viewing an
 // ocean host's page. Spotify removed BOTH of those endpoints outright in
@@ -235,4 +246,5 @@ module.exports = {
   pausePlayback,
   skipToNext,
   skipToPrevious,
+  saveTrackToLibrary,
 };

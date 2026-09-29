@@ -25,16 +25,22 @@ interface ChatContextValue {
   createGroup: (name: string, icon: string | null, memberSpotifyUserIds: string[]) => Promise<string>;
   leaveGroup: (groupId: string) => Promise<void>;
   refresh: () => Promise<void>;
+  // Unread tracking (client-side only, in-memory for the session - see
+  // setActiveThread below for how a thread stops being "unread").
+  unreadThreadIds: Set<string>;
+  hasAnyUnread: boolean;
+  setActiveThread: (threadId: string | null) => void;
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null);
 
 export function ChatProvider({ children }: { children: ReactNode }) {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, profile } = useAuth();
   const [friends, setFriends] = useState<ChatFriend[]>([]);
   const [groups, setGroups] = useState<RealGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Record<string, RealChatMessage[]>>({});
+  const [unreadThreadIds, setUnreadThreadIds] = useState<Set<string>>(new Set());
 
   // Keep latest friends/groups available inside socket callbacks/closures
   // without re-subscribing every render.
@@ -45,6 +51,42 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const joinedPrivate = useRef<Set<string>>(new Set());
   const joinedGroups = useRef<Set<string>>(new Set());
+
+  // Which thread (if any) ChatPage currently has open. A message for this
+  // exact thread should never be marked unread - the user's already
+  // looking at it. Set from ChatPage via setActiveThread whenever `active`
+  // changes there (including clearing it on navigating away/back).
+  const activeThreadRef = useRef<string | null>(null);
+  const myUserIdRef = useRef<string | null>(null);
+  myUserIdRef.current = profile?.spotifyUserId ?? null;
+
+  const setActiveThread = useCallback((threadId: string | null) => {
+    activeThreadRef.current = threadId;
+    if (!threadId) return;
+    // Opening a thread marks it read immediately, regardless of whether it
+    // had any unread messages.
+    setUnreadThreadIds((prev) => {
+      if (!prev.has(threadId)) return prev;
+      const next = new Set(prev);
+      next.delete(threadId);
+      return next;
+    });
+  }, []);
+
+  // Marks a thread unread unless it's my own message coming back over the
+  // socket (private:send/group:send both echo the sender's own message
+  // back - that's never "unread" for the sender) or the thread the user
+  // currently has open.
+  const markUnread = useCallback((threadId: string, fromUserId: string) => {
+    if (fromUserId === myUserIdRef.current) return;
+    if (activeThreadRef.current === threadId) return;
+    setUnreadThreadIds((prev) => {
+      if (prev.has(threadId)) return prev;
+      const next = new Set(prev);
+      next.add(threadId);
+      return next;
+    });
+  }, []);
 
   const appendMessage = useCallback((threadId: string, message: RealChatMessage) => {
     setMessages((prev) => ({ ...prev, [threadId]: [...(prev[threadId] || []), message] }));
@@ -77,6 +119,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setFriends([]);
       setGroups([]);
       setMessages({});
+      setUnreadThreadIds(new Set());
       joinedPrivate.current.clear();
       joinedGroups.current.clear();
       return;
@@ -114,10 +157,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const myFriendIds = new Set(friendsRef.current.map((f) => f.spotifyUserId));
       const otherId = myFriendIds.has(message.from) ? message.from : message.to;
       appendMessage(otherId, message);
+      markUnread(otherId, message.from);
     }
 
     function onGroupMessage(message: RealChatMessage & { groupId: string }) {
       appendMessage(message.groupId, message);
+      markUnread(message.groupId, message.from);
     }
 
     socket.on('private:message', onPrivateMessage);
@@ -126,16 +171,27 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       socket.off('private:message', onPrivateMessage);
       socket.off('group:message', onGroupMessage);
     };
-  }, [appendMessage]);
+  }, [appendMessage, markUnread]);
 
-  // Join a private room for every accepted friend once loaded.
+  // Join a private room for every accepted friend once loaded. Acked (see
+  // server.js's private:join handler) so a join that never actually lands
+  // - e.g. emitted right as reauthSocket() is tearing the connection down
+  // for a reconnect - gets noticed and retried, instead of the friend
+  // being silently marked "joined" locally while the server never put this
+  // socket in their room (which would otherwise mean private messages for
+  // that thread never arrive live until some unrelated future reconnect).
   useEffect(() => {
     if (!isLoggedIn) return;
     const socket = getSocket();
     for (const friend of friends) {
       if (joinedPrivate.current.has(friend.spotifyUserId)) continue;
       joinedPrivate.current.add(friend.spotifyUserId);
-      socket.emit('private:join', { otherUserId: friend.spotifyUserId });
+      socket.emit('private:join', { otherUserId: friend.spotifyUserId }, (ack: { ok: boolean; error?: string }) => {
+        if (!ack?.ok) {
+          console.error(`Could not join private room with ${friend.spotifyUserId}:`, ack?.error);
+          joinedPrivate.current.delete(friend.spotifyUserId); // allow a retry on the next render
+        }
+      });
     }
   }, [friends, isLoggedIn]);
 
@@ -164,7 +220,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       joinedGroups.current.clear();
       for (const friend of friendsRef.current) {
         joinedPrivate.current.add(friend.spotifyUserId);
-        socket.emit('private:join', { otherUserId: friend.spotifyUserId });
+        socket.emit('private:join', { otherUserId: friend.spotifyUserId }, (ack: { ok: boolean; error?: string }) => {
+          if (!ack?.ok) {
+            console.error(`Could not join private room with ${friend.spotifyUserId}:`, ack?.error);
+            joinedPrivate.current.delete(friend.spotifyUserId);
+          }
+        });
       }
       for (const group of groupsRef.current) {
         joinedGroups.current.add(group.id);
@@ -210,6 +271,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       delete next[spotifyUserId];
       return next;
     });
+    setUnreadThreadIds((prev) => {
+      if (!prev.has(spotifyUserId)) return prev;
+      const next = new Set(prev);
+      next.delete(spotifyUserId);
+      return next;
+    });
     joinedPrivate.current.delete(spotifyUserId);
   }, []);
 
@@ -230,13 +297,34 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       delete next[groupId];
       return next;
     });
+    setUnreadThreadIds((prev) => {
+      if (!prev.has(groupId)) return prev;
+      const next = new Set(prev);
+      next.delete(groupId);
+      return next;
+    });
     joinedGroups.current.delete(groupId);
     getSocket().emit('group:leave', { groupId });
   }, []);
 
+  const hasAnyUnread = unreadThreadIds.size > 0;
+
   return (
     <ChatContext.Provider
-      value={{ friends, groups, loading, messagesFor, sendMessage, unfriend, createGroup, leaveGroup, refresh }}
+      value={{
+        friends,
+        groups,
+        loading,
+        messagesFor,
+        sendMessage,
+        unfriend,
+        createGroup,
+        leaveGroup,
+        refresh,
+        unreadThreadIds,
+        hasAnyUnread,
+        setActiveThread,
+      }}
     >
       {children}
     </ChatContext.Provider>

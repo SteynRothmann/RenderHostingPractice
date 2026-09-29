@@ -2,8 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Bell, LogOut, MessageCircle, Search } from 'lucide-react';
-import { useData } from '../../data/DataContext';
 import { useAuth } from '../../data/AuthContext';
+import { useChat } from '../../data/ChatContext';
 import { fetchIncomingChatRequests } from '../../lib/api';
 import OceanButton from '../../components/OceanButton';
 import BrandLogo from '../../components/BrandLogo';
@@ -31,8 +31,8 @@ function NavBob({ index, children }: { index: number; children: ReactNode }) {
 }
 
 export default function OceanNav({ onSearch, onOpenNotifications }: Props) {
-  const { db } = useData();
   const { isLoggedIn, logout, profile } = useAuth();
+  const { hasAnyUnread } = useChat();
   const navigate = useNavigate();
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -109,7 +109,7 @@ export default function OceanNav({ onSearch, onOpenNotifications }: Props) {
                 className="relative flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium hover:bg-cyan-500/10 hover:text-white"
               >
                 <MessageCircle className="h-5 w-5" />
-                {db.hasChatDot && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />}
+                {hasAnyUnread && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />}
               </OceanButton>
             </Tooltip>
           </NavBob>

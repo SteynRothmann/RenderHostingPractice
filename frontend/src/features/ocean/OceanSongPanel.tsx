@@ -1,9 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { X, ExternalLink, Play, Pause, Radio } from 'lucide-react';
+import { X, ExternalLink, Play, Pause, Radio, Check, Heart } from 'lucide-react';
 import { useAuth } from '../../data/AuthContext';
-import { joinTrack, followHost, unfollowHost, fetchFollowStatus } from '../../lib/api';
+import { joinTrack, followHost, unfollowHost, fetchFollowStatus, saveTrackToLibrary } from '../../lib/api';
 import type { OceanGroup } from '../../data/types';
 
 function formatMs(ms: number): string {
@@ -59,12 +59,18 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
   const [error, setError] = useState('');
   const [followError, setFollowError] = useState('');
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // Reset transient UI state whenever a different song is opened, and tick
   // a local clock so the progress bar keeps moving between server updates
   // (mirrors getLiveProgressMs on the backend).
   useEffect(() => {
     setError('');
+    setSaved(false);
+    setSaving(false);
+    setSaveError('');
   }, [group?.trackId]);
 
   useEffect(() => {
@@ -152,6 +158,22 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not update Follow Along');
+    }
+  }
+
+  async function handleSave() {
+    if (!group) return;
+    if (!isLoggedIn) return login();
+    if (saved || saving) return;
+    setSaveError('');
+    setSaving(true);
+    try {
+      await saveTrackToLibrary(group.trackId);
+      setSaved(true);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not save this song');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -265,15 +287,40 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
 
             {/* Primary actions */}
             <div className="relative mt-5 space-y-3">
-              <button
-                onClick={handleJoin}
-                disabled={isMyTrack || joining}
-                type="button"
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#091533] py-3 text-sm font-semibold text-white shadow-md transition hover:bg-[#111d43] disabled:opacity-50"
-              >
-                <ExternalLink className="h-4 w-4 text-[#1ED760]" />
-                {isMyTrack ? 'Already listening' : joining ? 'Starting…' : 'Listen on Spotify'}
-              </button>
+              <div className="flex items-stretch gap-2">
+                <button
+                  onClick={handleJoin}
+                  disabled={isMyTrack || joining}
+                  type="button"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#091533] py-3 text-sm font-semibold text-white shadow-md transition hover:bg-[#111d43] disabled:opacity-50"
+                >
+                  <ExternalLink className="h-4 w-4 text-[#1ED760]" />
+                  {isMyTrack ? 'Already listening' : joining ? 'Starting…' : 'Listen on Spotify'}
+                </button>
+
+                <button
+                  onClick={handleSave}
+                  disabled={saved || saving}
+                  type="button"
+                  aria-label={saved ? 'Saved to Liked Songs' : 'Save to Playlist'}
+                  title={saved ? 'Saved to Liked Songs' : 'Save to Playlist'}
+                  className={`flex shrink-0 items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-md transition disabled:cursor-not-allowed ${
+                    saved
+                      ? 'bg-cyan-200/20 text-cyan-200'
+                      : 'bg-[#091533] text-white hover:bg-[#111d43] disabled:opacity-50'
+                  }`}
+                >
+                  {saved ? <Check className="h-4 w-4" /> : <Heart className="h-4 w-4 text-[#1ED760]" />}
+                  <span className="hidden sm:inline">{saved ? 'Saved' : saving ? 'Saving…' : 'Save to Playlist'}</span>
+                </button>
+              </div>
+
+              {saved && (
+                <p className="text-center text-[11px] text-white/45">Saved to Liked Songs</p>
+              )}
+              {saveError && (
+                <p className="text-center text-xs text-red-300">{saveError}</p>
+              )}
 
               <button
                 type="button"

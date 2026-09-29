@@ -21,9 +21,15 @@ const NEEDS_SECURE_COOKIES = (FRONTEND_URL || '').startsWith('https://');
 // existing user-read-recently-played/playlist-read-private scopes - same
 // deal as those: anyone who logged in before this change needs to log out
 // and back in once for /spotify/stats to actually work.
+//
+// user-library-modify was added for the song panel's "Save to Liked Songs"
+// button (PUT /v1/me/tracks) - same deal again: anyone already logged in
+// before this change needs to log out and back in once to grant it, or
+// that button will fail with a permissions error until they do.
 const SCOPES =
   'user-read-currently-playing user-read-playback-state user-modify-playback-state ' +
-  'user-read-email user-read-recently-played playlist-read-private user-top-read user-follow-read';
+  'user-read-email user-read-recently-played playlist-read-private user-top-read user-follow-read ' +
+  'user-library-modify';
 
 // GET /auth/login - frontend sends the user here to start the flow
 router.get('/login', (req, res) => {

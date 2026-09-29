@@ -208,6 +208,15 @@ export async function skipPrevious(): Promise<void> {
   if (!res.ok) throw new Error(await errorFrom(res, 'Could not skip to previous track'));
 }
 
+// Saves a track to the user's Liked Songs (Spotify's saved-tracks library).
+export async function saveTrackToLibrary(trackId: string): Promise<void> {
+  const res = await apiFetch('/spotify/save-track', {
+    method: 'PUT',
+    body: JSON.stringify({ trackId }),
+  });
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not save this song'));
+}
+
 // --- Real chat/groups (backend/routes/chatRequests.js, backend/routes/groups.js) ---
 
 export async function fetchAcceptedChats(): Promise<ChatFriend[]> {

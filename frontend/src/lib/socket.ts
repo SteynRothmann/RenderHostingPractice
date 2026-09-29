@@ -15,10 +15,13 @@ import { API_URL, getStoredToken } from './api';
 // *.onrender.com subdomains, so a cookie here would be a blocked
 // third-party cookie.
 let socket: Socket | null = null;
+let reauthedToken: string | null | undefined; // token the socket last connected/reconnected with
 
 export function getSocket(): Socket {
   if (!socket) {
-    socket = io(API_URL, { withCredentials: true, auth: { token: getStoredToken() } });
+    const token = getStoredToken();
+    reauthedToken = token;
+    socket = io(API_URL, { withCredentials: true, auth: { token } });
   }
   return socket;
 }
@@ -28,9 +31,22 @@ export function getSocket(): Socket {
 // stale socket auth would keep the private/group chat channels working -
 // or not working - as whichever account was logged in when the socket
 // first connected, regardless of who's actually logged in now).
+//
+// No-ops when the token hasn't actually changed since the last reauth
+// (e.g. AuthContext's refresh() calls this on every successful /auth/me
+// check, not just ones where login status changed). Without this guard,
+// a redundant disconnect()+connect() cycle can race with ChatContext's
+// room-join effects: a private:join/group:join emitted right as this
+// forces a fresh reconnect can land on the socket in the moment between
+// "about to disconnect" and "reconnected", which is exactly the kind of
+// timing that can cause a room join to silently not stick until some
+// later, unrelated reconnect.
 export function reauthSocket(): void {
   if (!socket) return;
-  socket.auth = { token: getStoredToken() };
+  const token = getStoredToken();
+  if (token === reauthedToken) return;
+  reauthedToken = token;
+  socket.auth = { token };
   socket.disconnect();
   socket.connect();
 }
