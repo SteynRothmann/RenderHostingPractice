@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { ExternalLink, MessageCircle } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { useAuth } from '../../data/AuthContext';
+import { useChat } from '../../data/ChatContext';
 import { fetchHostProfile, sendChatRequest } from '../../lib/api';
 import type { HostProfile } from '../../data/types';
 
@@ -27,6 +28,7 @@ import type { HostProfile } from '../../data/types';
 export default function HostProfilePage() {
   const { spotifyUserId } = useParams<{ spotifyUserId: string }>();
   const { profile: myProfile } = useAuth();
+  const { friends } = useChat();
   const [profile, setProfile] = useState<HostProfile | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -46,6 +48,11 @@ export default function HostProfilePage() {
   }, [spotifyUserId]);
 
   const isMe = !!myProfile && myProfile.spotifyUserId === spotifyUserId;
+  // Already an accepted chat/friend - don't offer "Request Chat" again;
+  // the backend would reject it as a duplicate now anyway (see
+  // backend/routes/chatRequests.js), but disabling it here avoids a
+  // pointless error round-trip and makes the state obvious at a glance.
+  const isAlreadyFriend = !!spotifyUserId && friends.some((f) => f.spotifyUserId === spotifyUserId);
 
   async function handleRequestChat() {
     if (!spotifyUserId) return;
@@ -99,16 +106,18 @@ export default function HostProfilePage() {
               <div className="flex flex-col items-center gap-1 sm:items-end">
                 <button
                   onClick={handleRequestChat}
-                  disabled={chatRequestState === 'sending' || chatRequestState === 'sent'}
+                  disabled={isAlreadyFriend || chatRequestState === 'sending' || chatRequestState === 'sent'}
                   type="button"
                   className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[#543ab7] px-4 py-2 text-sm font-semibold text-white hover:bg-[#4a319f] disabled:opacity-50"
                 >
                   <MessageCircle className="h-4 w-4" />
-                  {chatRequestState === 'sent'
-                    ? 'Request sent'
-                    : chatRequestState === 'sending'
-                      ? 'Sending…'
-                      : 'Request Chat'}
+                  {isAlreadyFriend
+                    ? 'Already friends'
+                    : chatRequestState === 'sent'
+                      ? 'Request sent'
+                      : chatRequestState === 'sending'
+                        ? 'Sending…'
+                        : 'Request Chat'}
                 </button>
                 {chatRequestState === 'error' && <p className="text-xs text-red-400">{chatRequestError}</p>}
               </div>

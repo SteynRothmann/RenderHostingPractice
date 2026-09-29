@@ -35,6 +35,9 @@ router.post('/', async (req, res) => {
   if (me.spotifyUserId === toSpotifyUserId) {
     return res.status(400).json({ error: "You can't request a chat with yourself" });
   }
+  if (chatRequests.hasAcceptedPrivateChatRequest(me.spotifyUserId, toSpotifyUserId)) {
+    return res.status(400).json({ error: "You're already chatting with this person" });
+  }
 
   const request = chatRequests.createRequest({
     fromSpotifyUserId: me.spotifyUserId,

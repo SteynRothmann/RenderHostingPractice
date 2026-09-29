@@ -46,6 +46,16 @@ router.get('/login', (req, res) => {
     redirect_uri: SPOTIFY_REDIRECT_URI,
     scope: SCOPES,
     state,
+    // Without this, Spotify silently skips the consent screen for anyone
+    // who already authorized this app before (even when the scope list
+    // has grown since then) and just re-issues a token with whatever
+    // scopes they originally granted - so a "log out and log back in" to
+    // pick up a newly added scope (user-top-read, user-library-modify,
+    // etc.) would appear to do nothing, over and over, because Spotify
+    // never actually re-prompted. Forcing the dialog every time makes
+    // every login/re-login an explicit, current consent for the full
+    // SCOPES list above.
+    show_dialog: 'true',
   });
 
   res.redirect(`https://accounts.spotify.com/authorize?${params.toString()}`);
