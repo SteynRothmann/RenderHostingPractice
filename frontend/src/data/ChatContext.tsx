@@ -24,6 +24,7 @@ interface ChatContextValue {
   unfriend: (spotifyUserId: string) => Promise<void>;
   createGroup: (name: string, icon: string | null, memberSpotifyUserIds: string[]) => Promise<string>;
   leaveGroup: (groupId: string) => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -49,6 +50,26 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setMessages((prev) => ({ ...prev, [threadId]: [...(prev[threadId] || []), message] }));
   }, []);
 
+  // Fetches friends + groups and updates state - shared by the initial
+  // load, the periodic poll below, and NotificationsPanel's "refresh right
+  // after I accept a request" call. `showLoading` is only true for the
+  // very first load, so background polls/refreshes don't flash a loading
+  // state over an already-populated Chat page.
+  const loadChats = useCallback((showLoading: boolean) => {
+    if (showLoading) setLoading(true);
+    return Promise.all([fetchAcceptedChats(), fetchMyGroups()])
+      .then(([chats, myGroups]) => {
+        setFriends(chats);
+        setGroups(myGroups);
+      })
+      .catch((err) => {
+        console.error('Could not load chats/groups:', err);
+      })
+      .finally(() => {
+        if (showLoading) setLoading(false);
+      });
+  }, []);
+
   // Load friends + groups whenever login status turns on; clear everything
   // when logged out.
   useEffect(() => {
@@ -61,25 +82,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    let cancelled = false;
-    setLoading(true);
-    Promise.all([fetchAcceptedChats(), fetchMyGroups()])
-      .then(([chats, myGroups]) => {
-        if (cancelled) return;
-        setFriends(chats);
-        setGroups(myGroups);
-      })
-      .catch((err) => {
-        console.error('Could not load chats/groups:', err);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    loadChats(true);
+  }, [isLoggedIn, loadChats]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoggedIn]);
+  // Poll for newly-accepted friends/groups every 8s while logged in - same
+  // pattern as OceanNav's pending chat-request-count poll. Without this,
+  // neither side of an accepted chat request sees the other show up until
+  // a full page reload: NotificationsPanel manages its own separate
+  // `requests` state and (aside from the immediate refresh() call below)
+  // has no way to tell ChatContext "a friend was just added", and the
+  // other person's browser has no push notification for it either.
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const id = setInterval(() => {
+      loadChats(false);
+    }, 8000);
+    return () => clearInterval(id);
+  }, [isLoggedIn, loadChats]);
+
+  const refresh = useCallback(() => loadChats(false), [loadChats]);
 
   // Subscribe to incoming message events once.
   useEffect(() => {
@@ -215,7 +236,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   return (
     <ChatContext.Provider
-      value={{ friends, groups, loading, messagesFor, sendMessage, unfriend, createGroup, leaveGroup }}
+      value={{ friends, groups, loading, messagesFor, sendMessage, unfriend, createGroup, leaveGroup, refresh }}
     >
       {children}
     </ChatContext.Provider>

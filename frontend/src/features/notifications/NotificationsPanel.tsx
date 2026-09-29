@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Check, MessageCircle, X } from 'lucide-react';
 import NavPanel from '../../components/NavPanel';
 import { fetchIncomingChatRequests, respondToChatRequest } from '../../lib/api';
+import { useChat } from '../../data/ChatContext';
 import type { ChatRequest } from '../../data/types';
 
 // Real chat requests, addressed to your actual Spotify account (see
@@ -11,6 +12,7 @@ export default function NotificationsPanel({ open, onClose }: { open: boolean; o
   const [requests, setRequests] = useState<ChatRequest[]>([]);
   const [error, setError] = useState('');
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const { refresh: refreshChats } = useChat();
 
   useEffect(() => {
     if (!open) return;
@@ -25,6 +27,13 @@ export default function NotificationsPanel({ open, onClose }: { open: boolean; o
     try {
       await respondToChatRequest(id, accept);
       setRequests((prev) => prev.filter((r) => r.id !== id));
+      if (accept) {
+        // Don't wait for the next 8s poll tick - the accepting person's
+        // own Chat page should show the new friend right away.
+        refreshChats().catch(() => {
+          // non-fatal - the next poll tick will pick it up anyway
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not respond to chat request');
     } finally {

@@ -199,7 +199,7 @@ function removeSession(sessionId) {
 // followerSessionId explicitly wants to keep following whatever
 // hostSessionId is listening to, even across song changes.
 function setFollow(followerSessionId, hostSessionId) {
-  follows.set(followerSessionId, { hostSessionId, followedAt: Date.now(), lastError: null });
+  follows.set(followerSessionId, { hostSessionId, followedAt: Date.now(), lastError: null, lastSyncedTrackId: null });
 }
 
 function clearFollow(followerSessionId) {
@@ -229,6 +229,16 @@ function getFollow(followerSessionId) {
 function setFollowSyncError(followerSessionId, message) {
   const entry = follows.get(followerSessionId);
   if (entry) follows.set(followerSessionId, { ...entry, lastError: message });
+}
+
+// Records the trackId we just pushed a follower's own playback onto, so
+// the next poll cycle can tell "still catching up to what we last synced
+// them to" apart from "they moved to something else on their own" (see
+// syncFollowers() in spotifyPoller.js). A no-op if they're not following
+// anyone anymore, same pattern as setFollowSyncError.
+function setLastSyncedTrackId(followerSessionId, trackId) {
+  const entry = follows.get(followerSessionId);
+  if (entry) follows.set(followerSessionId, { ...entry, lastSyncedTrackId: trackId });
 }
 
 // Called whenever a sync attempt succeeds (or wasn't needed because the
@@ -273,6 +283,7 @@ function reconcileFollowsAndGetSyncList() {
         hostSessionId: promoted.followerSessionId,
         followedAt: f.followedAt,
         lastError: null, // fresh host - give the next sync attempt a clean slate
+        lastSyncedTrackId: null, // new host relationship - treat like a fresh follow for sync purposes
       });
     }
   }
@@ -297,5 +308,6 @@ module.exports = {
   getFollow,
   setFollowSyncError,
   clearFollowSyncError,
+  setLastSyncedTrackId,
   reconcileFollowsAndGetSyncList,
 };

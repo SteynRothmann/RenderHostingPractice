@@ -55,6 +55,34 @@ async function syncFollowers() {
         return;
       }
 
+      // Not on the host's track yet - before blindly resyncing, tell apart
+      // "the host just moved on and we haven't caught the follower up yet"
+      // (should sync) from "the follower manually picked a different song
+      // on their own Spotify" (should NOT be overwritten - turn Follow
+      // Along off for them instead). Three cases:
+      //   1. Freshly followed, never synced yet (lastSyncedTrackId === null)
+      //      -> sync, regardless of whatever they happen to be on already.
+      //   2. Nothing currently playing for them, or they're still sitting
+      //      on exactly what we last synced them onto -> sync (catch up
+      //      to the host's latest change).
+      //   3. They're on some OTHER track that isn't what we last synced
+      //      them to and isn't the host's current track -> they changed
+      //      it themselves -> respect that and clear Follow Along instead
+      //      of overwriting it again.
+      const followEntry = oceanState.getFollow(followerSessionId);
+      const neverSyncedYet = !followEntry || followEntry.lastSyncedTrackId === null;
+      const nothingPlayingForFollower = !followerSession?.trackId;
+      const stillOnLastSynced =
+        !!followerSession && followEntry && followerSession.trackId === followEntry.lastSyncedTrackId;
+      const okToSync = neverSyncedYet || nothingPlayingForFollower || stillOnLastSynced;
+
+      if (!okToSync) {
+        // Manual override detected - turn Follow Along off for them rather
+        // than fighting their own choice every cycle.
+        oceanState.clearFollow(followerSessionId);
+        return;
+      }
+
       try {
         const accessToken = await getValidAccessToken(followerSessionId);
         const positionMs = hostSession.isPlaying
@@ -65,6 +93,7 @@ async function syncFollowers() {
           : hostSession.progressMs;
         await playTrackAt(accessToken, hostSession.trackUri, positionMs);
         oceanState.clearFollowSyncError(followerSessionId);
+        oceanState.setLastSyncedTrackId(followerSessionId, hostSession.trackId);
       } catch (err) {
         // This used to only ever reach the server's own console - Follow
         // Along's toggle would show "on" in the UI forever with no way to

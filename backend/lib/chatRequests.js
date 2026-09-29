@@ -24,6 +24,20 @@ function createRequest({ fromSpotifyUserId, fromDisplayName, fromProfileImage, t
       return r;
     }
   }
+
+  // Mutual intent: the target already has a pending request out to the
+  // sender (they both clicked "Request Chat" on each other, most likely
+  // because neither realized Accept lives in Notifications). Rather than
+  // creating a second pending request that would just sit there forever
+  // waiting for someone to go find Notifications, treat this as an
+  // immediate accept of the existing reverse request.
+  for (const r of requests.values()) {
+    if (r.fromSpotifyUserId === toSpotifyUserId && r.toSpotifyUserId === fromSpotifyUserId && r.status === 'pending') {
+      r.status = 'accepted';
+      return r;
+    }
+  }
+
   const id = String(nextId++);
   const request = {
     id,
