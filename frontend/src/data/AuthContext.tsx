@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { fetchMe, logout as apiLogout, pausePlayback, spotifyLoginUrl, setStoredToken } from '../lib/api';
+import { reauthSocket } from '../lib/socket';
 import type { SpotifyProfile } from './types';
 
 // Real Spotify auth, backed by the Express backend (see
@@ -45,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(({ loggedIn, profile }) => {
         setIsLoggedIn(loggedIn);
         setProfile(profile);
+        reauthSocket(); // keep the chat socket's identity in sync with login status
       })
       .catch(() => {
         setIsLoggedIn(false);
@@ -79,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         apiLogout().finally(() => {
           setIsLoggedIn(false);
           setProfile(null);
+          reauthSocket(); // tear down/reconnect the chat socket so it stops acting as the old identity
         });
       });
   }, []);

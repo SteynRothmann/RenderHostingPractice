@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import NavPanel from '../../components/NavPanel';
-import { useData } from '../../data/DataContext';
+import { useChat } from '../../data/ChatContext';
 
 const PREDEFINED_ICONS = ['/avatars/avatar1.svg', '/avatars/avatar2.svg', '/avatars/avatar3.svg', '/avatars/avatar4.svg', '/avatars/avatar5.svg', '/avatars/avatar6.svg'];
 
@@ -13,24 +13,30 @@ export default function CreateGroupPanel({
   onClose: () => void;
   onCreated: (groupId: string) => void;
 }) {
-  const { db, createGroup } = useData();
+  const { friends, createGroup } = useChat();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState(PREDEFINED_ICONS[0]);
   const [members, setMembers] = useState<string[]>([]);
-
-  const friendIds = Object.keys(db.users).filter((id) => db.users[id].chatStatus === 'friend');
+  const [creating, setCreating] = useState(false);
 
   function toggleMember(id: string) {
     setMembers((prev) => (prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]));
   }
 
-  function submit() {
-    if (!name.trim()) return;
-    const id = createGroup(name.trim(), icon, members);
-    setName('');
-    setMembers([]);
-    onClose();
-    onCreated(id);
+  async function submit() {
+    if (!name.trim() || creating) return;
+    setCreating(true);
+    try {
+      const id = await createGroup(name.trim(), icon, members);
+      setName('');
+      setMembers([]);
+      onClose();
+      onCreated(id);
+    } catch (err) {
+      console.error('Could not create group:', err);
+    } finally {
+      setCreating(false);
+    }
   }
 
   return (
@@ -116,19 +122,18 @@ export default function CreateGroupPanel({
           </p>
         </div>
 
-        {friendIds.length === 0 ? (
+        {friends.length === 0 ? (
           <p className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-white/40">
             No friends yet to add.
           </p>
         ) : (
           <div className="flex flex-col gap-2">
-            {friendIds.map((id) => {
-              const user = db.users[id];
-              const selected = members.includes(id);
+            {friends.map((friend) => {
+              const selected = members.includes(friend.spotifyUserId);
 
               return (
                 <label
-                  key={id}
+                  key={friend.spotifyUserId}
                   className={`
                     flex cursor-pointer items-center gap-3
                     rounded-xl border px-3 py-2.5
@@ -143,18 +148,26 @@ export default function CreateGroupPanel({
                   <input
                     type="checkbox"
                     checked={selected}
-                    onChange={() => toggleMember(id)}
+                    onChange={() => toggleMember(friend.spotifyUserId)}
                     className="accent-cyan-400"
                   />
 
-                  <img
-                    src={user.pic}
-                    alt=""
-                    className="h-8 w-8 rounded-full object-cover"
-                  />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-700">
+                    {friend.profileImage ? (
+                      <img
+                        src={friend.profileImage}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xs font-semibold text-white">
+                        {friend.displayName.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
 
                   <span className="text-sm text-white/85">
-                    {user.name}
+                    {friend.displayName}
                   </span>
                 </label>
               );
@@ -167,7 +180,7 @@ export default function CreateGroupPanel({
       <button
         onClick={submit}
         type="button"
-        disabled={!name.trim()}
+        disabled={!name.trim() || creating}
         className="
           rounded-full
           bg-gradient-to-r from-blue-500 to-cyan-400

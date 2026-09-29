@@ -183,3 +183,44 @@ export interface PublicPlaylist {
   trackCount: number;
   url: string | null;
 }
+
+/* ---------- Real chat/group data (real backend, not MockApi) ----------
+   See backend/routes/chatRequests.js (GET /chat-requests/accepted, POST
+   /chat-requests/:id/revoke) and backend/routes/groups.js. Kept separate
+   from the AppState/Group mock types above, which still back nickname/bio
+   and the rest of the not-yet-real social features. */
+
+// GET /chat-requests/accepted - a real chat "friend": someone with an
+// accepted chat request in either direction.
+export interface ChatFriend {
+  requestId: string; // needed to call revokeChatRequest() ("Unfriend")
+  spotifyUserId: string;
+  displayName: string;
+  profileImage: string | null;
+}
+
+export interface RealGroupMember {
+  spotifyUserId: string;
+  role: 'owner' | 'moderator' | 'member';
+  joinedAt: number;
+  displayName: string;
+  profileImage: string | null;
+}
+
+export interface RealGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  visibility: 'public' | 'private';
+  ownerSpotifyUserId: string;
+  members: RealGroupMember[];
+}
+
+// private:message / group:message socket events
+export interface RealChatMessage {
+  id: string;
+  from: string; // spotifyUserId
+  text: string;
+  ts: number;
+}

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { motion } from 'framer-motion';
-import { useData } from '../../data/DataContext';
+import { useChat } from '../../data/ChatContext';
+import { useAuth } from '../../data/AuthContext';
 
 interface Props {
   threadId: string;
   title: string;
-  icon: string;
+  icon: string | null;
   listeningSongTitle?: string | null;
   onJoinListening?: () => void;
   onMenuAction: () => void;
@@ -23,11 +24,12 @@ export default function Conversation({
   menuLabel,
   onBack,
 }: Props) {
-  const { db, sendMessage } = useData();
+  const { messagesFor, sendMessage } = useChat();
+  const { profile } = useAuth();
   const [text, setText] = useState('');
   const endRef = useRef<HTMLDivElement | null>(null);
 
-  const messages = db.chats[threadId] || [];
+  const messages = messagesFor(threadId);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -67,11 +69,15 @@ export default function Conversation({
           </button>
         )}
 
-        <img
-          src={icon}
-          alt={title}
-          className="h-11 w-11 shrink-0 rounded-full object-cover"
-        />
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-700">
+          {icon ? (
+            <img src={icon} alt={title} className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-sm font-semibold text-white">
+              {(title || '?').charAt(0).toUpperCase()}
+            </span>
+          )}
+        </div>
 
         <div className="min-w-0">
           <h2 className="truncate text-base font-semibold text-white">
@@ -117,12 +123,12 @@ export default function Conversation({
           </p>
         )}
 
-        {messages.map((message, index) => {
-          const mine = message.from === 'me';
+        {messages.map((message) => {
+          const mine = message.from === profile?.spotifyUserId;
 
           return (
             <motion.div
-              key={index}
+              key={message.id}
               initial={{ opacity: 0, y: 8, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{

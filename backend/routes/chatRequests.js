@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { getTokens } = require('../db/tokenStore');
+const { getTokens, getTokensBySpotifyUserId } = require('../db/tokenStore');
 const chatRequests = require('../lib/chatRequests');
 
 // All three routes below need to know the REAL Spotify account behind
@@ -70,5 +70,52 @@ async function respondToRequest(req, res, accept) {
 
 router.post('/:id/accept', (req, res) => respondToRequest(req, res, true));
 router.post('/:id/decline', (req, res) => respondToRequest(req, res, false));
+
+// GET /chat-requests/accepted - real chat "friends": everyone with an
+// accepted request in either direction, with enough profile info to show
+// them in the Chat page's friends list.
+router.get('/accepted', async (req, res) => {
+  const me = await getMySpotifyIdentity(req);
+  if (!me) {
+    return res.status(401).json({ error: 'You need to log in first' });
+  }
+  try {
+    const requests = chatRequests.getAccepted(me.spotifyUserId);
+    const chats = await Promise.all(
+      requests.map(async (request) => {
+        const otherSpotifyUserId =
+          request.fromSpotifyUserId === me.spotifyUserId
+            ? request.toSpotifyUserId
+            : request.fromSpotifyUserId;
+        const profile = await getTokensBySpotifyUserId(otherSpotifyUserId);
+        return {
+          requestId: request.id,
+          spotifyUserId: otherSpotifyUserId,
+          displayName: profile?.displayName || otherSpotifyUserId,
+          profileImage: profile?.profileImage || null,
+        };
+      })
+    );
+    res.json({ chats });
+  } catch (error) {
+    console.error('Could not load accepted chats:', error.message);
+    res.status(500).json({ error: 'Could not load accepted chats' });
+  }
+});
+
+// POST /chat-requests/:id/revoke - "unfriend": either party can revoke an
+// already-accepted request, which immediately closes the private chat room
+// (hasAcceptedPrivateChatRequest starts returning false for this pair).
+router.post('/:id/revoke', async (req, res) => {
+  const me = await getMySpotifyIdentity(req);
+  if (!me) {
+    return res.status(401).json({ error: 'You need to log in first' });
+  }
+  const request = chatRequests.revoke(req.params.id, me.spotifyUserId);
+  if (!request) {
+    return res.status(404).json({ error: 'That request is not currently accepted' });
+  }
+  res.json({ request });
+});
 
 module.exports = router;

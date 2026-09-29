@@ -9,9 +9,12 @@ const cookieParser = require('cookie-parser');
 const authRouter = require('./routes/auth');
 const spotifyRouter = require('./routes/spotify');
 const chatRequestsRouter = require('./routes/chatRequests');
-const { useMemoryStore } = require('./db/tokenStore');
+const groupsRouter = require('./routes/groups');
+const { useMemoryStore, getTokens } = require('./db/tokenStore');
 const { startOceanPoller } = require('./lib/spotifyPoller');
 const { identifyRequest } = require('./lib/identity');
+const groupStore = require('./lib/groupStore');
+const { hasAcceptedPrivateChatRequest } = require('./lib/chatRequests');
 
 const app = express();
 app.set('trust proxy', 1); // needed behind Render's (or any) reverse proxy for req.ip/req.protocol to reflect the real client, not the proxy hop
@@ -59,6 +62,165 @@ app.use(identifyRequest);
 app.use('/auth', authRouter);
 app.use('/spotify', spotifyRouter);
 app.use('/chat-requests', chatRequestsRouter);
+app.use('/groups', groupsRouter);
+
+// --- Real-time chat (private 1:1 + group) over Socket.IO ---
+//
+// TEMPORARY PRIVATE CHAT FLOW: this uses an accepted chat request as the
+// access check for a live 1:1 room - if there's an accepted request, the
+// two users may join the room; if not, they can't send or receive
+// messages. Not the final chat architecture (no persistence yet), just a
+// live-room permission layer for now. See lib/chatRequests.js's
+// hasAcceptedPrivateChatRequest().
+
+// A private chat room is shared by exactly two users. Sorting the two IDs
+// keeps the room name the same no matter who started the chat first.
+function getPrivateRoomId(userA, userB) {
+  return [userA, userB].sort().join(':');
+}
+
+function canOpenPrivateChat(me, otherUserId) {
+  return hasAcceptedPrivateChatRequest(me, otherUserId);
+}
+
+function getGroupRoomId(groupId) {
+  return `group:${groupId}`;
+}
+
+// Authenticates Socket.IO connections with this repo's bearer-token
+// identity system - NOT a session cookie. The frontend connects with
+// `io(URL, { auth: { token } })`, where `token` is the same bearer token
+// sent as `Authorization: Bearer <token>` on REST calls (see
+// lib/identity.js). socket.handshake.auth.token is that token; we look it
+// up the same way identifyRequest does for REST, via getTokens(), and
+// store the resulting real Spotify account id on socket.data for the
+// handlers below.
+io.use(async (socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) {
+    socket.data.spotifyUserId = null; // anonymous/guest connections still get public oceanUpdate broadcasts
+    return next();
+  }
+  try {
+    const stored = await getTokens(token);
+    socket.data.spotifyUserId = stored?.spotifyUserId ?? null;
+    next();
+  } catch {
+    next(new Error('Could not authenticate socket'));
+  }
+});
+
+// This runs every time a browser connects to the Socket.IO server.
+io.on('connection', (socket) => {
+  // Populated above by the io.use() bearer-token auth middleware.
+  const currentUserId = socket.data.spotifyUserId;
+
+  if (!currentUserId) {
+    console.log('Socket connected without userId');
+    return;
+  }
+
+  // NOTE: we check the accepted request each time before joining or
+  // sending. In a database-backed version this may be replaced by a
+  // lookup against a persisted conversation/permission record, but the
+  // real-time socket flow itself should stay the same.
+
+  // When a user opens a private chat, we put them into a room for that 1:1 chat.
+  socket.on('private:join', ({ otherUserId }) => {
+    if (!currentUserId || !otherUserId) return;
+    if (!canOpenPrivateChat(currentUserId, otherUserId)) return;
+
+    const roomId = getPrivateRoomId(currentUserId, otherUserId);
+    socket.join(roomId);
+  });
+
+  // Called when the user sends a message in a private chat.
+  socket.on('private:send', ({ toUserId, text }) => {
+    if (!currentUserId || !toUserId || !text || !text.trim()) return;
+    if (!canOpenPrivateChat(currentUserId, toUserId)) return;
+
+    const roomId = getPrivateRoomId(currentUserId, toUserId);
+    const message = {
+      id: Date.now().toString(),
+      from: currentUserId,
+      to: toUserId,
+      text: text.trim(),
+      ts: Date.now(),
+    };
+
+    io.to(roomId).emit('private:message', message);
+  });
+
+  // Group rooms use group IDs and current membership, not private-chat requests.
+  socket.on('group:join', ({ groupId } = {}, acknowledge) => {
+    if (!groupId) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Group ID is required' });
+      return;
+    }
+    if (!groupStore.isMember(groupId, currentUserId)) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'You are not a member of this group' });
+      return;
+    }
+
+    socket.join(getGroupRoomId(groupId));
+    if (typeof acknowledge === 'function') acknowledge({ ok: true });
+  });
+
+  socket.on('group:leave', ({ groupId } = {}, acknowledge) => {
+    if (!groupId) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Group ID is required' });
+      return;
+    }
+
+    socket.leave(getGroupRoomId(groupId));
+    if (typeof acknowledge === 'function') acknowledge({ ok: true });
+  });
+
+  socket.on('group:send', async ({ groupId, text } = {}, acknowledge) => {
+    const trimmedText = typeof text === 'string' ? text.trim() : '';
+    if (!groupId || !trimmedText) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Group ID and message text are required' });
+      return;
+    }
+    if (trimmedText.length > 4000) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Messages must be 4000 characters or fewer' });
+      return;
+    }
+    if (!groupStore.isMember(groupId, currentUserId)) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'You are not a member of this group' });
+      return;
+    }
+
+    const roomId = getGroupRoomId(groupId);
+    if (!socket.rooms.has(roomId)) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Join the group before sending messages' });
+      return;
+    }
+
+    const message = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      groupId,
+      from: currentUserId,
+      text: trimmedText,
+      ts: Date.now(),
+    };
+
+    // Recheck membership when broadcasting so a removed member with an old
+    // room connection no longer receives new messages.
+    try {
+      const roomSockets = await io.in(roomId).fetchSockets();
+      for (const roomSocket of roomSockets) {
+        if (groupStore.isMember(groupId, roomSocket.data.spotifyUserId)) {
+          roomSocket.emit('group:message', message);
+        }
+      }
+      if (typeof acknowledge === 'function') acknowledge({ ok: true, messageId: message.id });
+    } catch (error) {
+      console.error('Could not broadcast group message:', error.message);
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Could not send group message' });
+    }
+  });
+});
 
 app.get('/', (req, res) => {
   res.send('WaveLength backend is running.');

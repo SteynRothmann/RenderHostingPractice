@@ -56,4 +56,72 @@ function respond(id, spotifyUserId, accept) {
   return r;
 }
 
-module.exports = { createRequest, getIncoming, respond };
+// IMPORTANT: this is not a chat record and it is not the final database
+// model. It is only a temporary permission check for the live private chat
+// room.
+//
+// TEMPORARY RULE: if an accepted request exists between these two users in
+// either direction, allow the private Socket.IO room to open. This is a
+// permission gate for live chat access, not a conversation history.
+//
+// FUTURE DATABASE VERSION: when chat persistence is added, the real source
+// of truth may become a persisted conversation/acceptance record. For now,
+// the request status is used as the gate because there's no database-backed
+// messages or chat rooms yet.
+function hasAcceptedPrivateChatRequest(userA, userB) {
+  for (const request of requests.values()) {
+    const aToB = request.fromSpotifyUserId === userA && request.toSpotifyUserId === userB;
+    const bToA = request.fromSpotifyUserId === userB && request.toSpotifyUserId === userA;
+
+    if ((aToB || bToA) && request.status === 'accepted') {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Accepted requests involving this person, deduped by the other party - the
+// "friends list" for the real chat feature.
+function getAccepted(spotifyUserId) {
+  const acceptedByOtherUser = new Map();
+
+  for (const request of requests.values()) {
+    if (request.status !== 'accepted') continue;
+
+    const involvesUser =
+      request.fromSpotifyUserId === spotifyUserId ||
+      request.toSpotifyUserId === spotifyUserId;
+
+    if (!involvesUser) continue;
+
+    const otherUserId =
+      request.fromSpotifyUserId === spotifyUserId
+        ? request.toSpotifyUserId
+        : request.fromSpotifyUserId;
+
+    acceptedByOtherUser.set(otherUserId, request);
+  }
+
+  return Array.from(acceptedByOtherUser.values());
+}
+
+// Revokes an already-accepted request (either party can do this - "unfriending"
+// someone should work the same from either side). Sets it back to 'declined' so
+// hasAcceptedPrivateChatRequest() correctly stops allowing the private chat room.
+function revoke(id, spotifyUserId) {
+  const r = requests.get(id);
+  if (!r || r.status !== 'accepted') return null;
+  if (r.fromSpotifyUserId !== spotifyUserId && r.toSpotifyUserId !== spotifyUserId) return null;
+  r.status = 'declined';
+  return r;
+}
+
+module.exports = {
+  createRequest,
+  getIncoming,
+  respond,
+  hasAcceptedPrivateChatRequest,
+  getAccepted,
+  revoke,
+};

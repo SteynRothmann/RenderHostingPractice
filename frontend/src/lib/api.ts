@@ -9,7 +9,7 @@
 // src/data/AuthContext.tsx), and kept in localStorage from then on. See
 // socket.ts for the companion Socket.IO connection used for live
 // 'oceanUpdate' events (that one's just a public broadcast, no auth).
-import type { ChatRequest, HostProfile, MyPlayback, ProfileStats, PublicPlaylist, RecentTrack, SpotifyProfile } from '../data/types';
+import type { ChatFriend, ChatRequest, HostProfile, MyPlayback, ProfileStats, PublicPlaylist, RealGroup, RecentTrack, SpotifyProfile } from '../data/types';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -206,4 +206,49 @@ export async function skipNext(): Promise<void> {
 export async function skipPrevious(): Promise<void> {
   const res = await apiFetch('/spotify/previous', { method: 'POST' });
   if (!res.ok) throw new Error(await errorFrom(res, 'Could not skip to previous track'));
+}
+
+// --- Real chat/groups (backend/routes/chatRequests.js, backend/routes/groups.js) ---
+
+export async function fetchAcceptedChats(): Promise<ChatFriend[]> {
+  const res = await apiFetch('/chat-requests/accepted');
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not load your chats'));
+  const body = await res.json();
+  return body.chats;
+}
+
+export async function revokeChatRequest(requestId: string): Promise<void> {
+  const res = await apiFetch(`/chat-requests/${encodeURIComponent(requestId)}/revoke`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not unfriend this person'));
+}
+
+export async function fetchMyGroups(): Promise<RealGroup[]> {
+  const res = await apiFetch('/groups/mine');
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not load your groups'));
+  const body = await res.json();
+  return body.groups;
+}
+
+// Creates a private group (no "browse public groups" feature in this app
+// yet) with the given members added directly, matching CreateGroupPanel's
+// "pick friends up front" UX.
+export async function createRealGroup(
+  name: string,
+  icon: string | null,
+  memberSpotifyUserIds: string[]
+): Promise<RealGroup> {
+  const res = await apiFetch('/groups', {
+    method: 'POST',
+    body: JSON.stringify({ name, icon, visibility: 'private', memberSpotifyUserIds }),
+  });
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not create group'));
+  const body = await res.json();
+  return body.group;
+}
+
+export async function leaveRealGroup(groupId: string): Promise<void> {
+  const res = await apiFetch(`/groups/${encodeURIComponent(groupId)}/leave`, { method: 'POST' });
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not leave group'));
 }

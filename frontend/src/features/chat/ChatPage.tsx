@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
-import { useData } from '../../data/DataContext';
+import { useChat } from '../../data/ChatContext';
 import Conversation from './Conversation';
 import CreateGroupPanel from './CreateGroupPanel';
 
 type Active = { type: 'friend' | 'group'; id: string } | null;
 
 export default function ChatPage() {
-  const { db, unfriend, leaveGroup } = useData();
-  const navigate = useNavigate();
+  const { friends, groups, unfriend, leaveGroup } = useChat();
   const [params] = useSearchParams();
 
   const withId = params.get('with');
@@ -18,19 +17,13 @@ export default function ChatPage() {
   const [tab, setTab] = useState<'friends' | 'groups'>('friends');
 
   const [active, setActive] = useState<Active>(
-    withId && db.users[withId]?.chatStatus === 'friend'
+    withId && friends.some((f) => f.spotifyUserId === withId)
       ? { type: 'friend', id: withId }
       : null
   );
 
   const [groupPanelOpen, setGroupPanelOpen] = useState(false);
   const [showThread, setShowThread] = useState(Boolean(withId));
-
-  const friendIds = Object.keys(db.users).filter(
-    (id) => db.users[id].chatStatus === 'friend'
-  );
-
-  const groupIds = Object.keys(db.groups);
 
   function selectFriend(id: string) {
     setActive({ type: 'friend', id });
@@ -184,29 +177,22 @@ export default function ChatPage() {
           <div className="min-h-0 flex-1 overflow-y-auto">
             {tab === 'friends' && (
               <>
-                {friendIds.length === 0 && (
+                {friends.length === 0 && (
                   <p className="px-4 py-8 text-center text-sm text-white/40">
                     No chats yet — accept a request from Notifications.
                   </p>
                 )}
 
-                {friendIds.map((id) => {
-                  const user = db.users[id];
-
-                  const listening =
-                    user.listening && db.songs[user.listening]
-                      ? db.songs[user.listening].title
-                      : null;
-
+                {friends.map((friend) => {
                   const selected =
-                    active?.type === 'friend' && active.id === id;
+                    active?.type === 'friend' && active.id === friend.spotifyUserId;
 
                   return (
                     <button
-                      key={id}
+                      key={friend.spotifyUserId}
                       type="button"
-                      onClick={() => selectFriend(id)}
-                      
+                      onClick={() => selectFriend(friend.spotifyUserId)}
+
                       className={`
                         mx-2 my-1 flex w-[calc(100%-1rem)] items-center gap-3
                         rounded-xl border px-3 py-3 text-left
@@ -218,33 +204,33 @@ export default function ChatPage() {
                         }
                       `}
                     >
-                      <img
-                        src={user.pic}
-                        alt={user.name}
-                        className={`h-11 w-11 shrink-0 rounded-full border object-cover transition ${
+                      <div
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-slate-700 transition ${
                           selected
                             ? 'border-cyan-300/60 shadow-[0_0_14px_rgba(34,211,238,0.35)]'
                             : 'border-white/10'
-                        }`}                      
-                        />
+                        }`}
+                      >
+                        {friend.profileImage ? (
+                          <img
+                            src={friend.profileImage}
+                            alt={friend.displayName}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-sm font-semibold text-white">
+                            {friend.displayName.charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
 
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[15px] font-semibold text-white">
-                          {user.name}
+                          {friend.displayName}
                         </span>
 
-                        <span
-                          className={`flex items-center gap-1 truncate text-xs ${
-                            listening
-                              ? 'text-cyan-100/80'
-                              : 'text-white/40'
-                          }`}
-                        >
-                          {listening && <span aria-hidden>🎧</span>}
-
-                          <span className="truncate">
-                            {listening ?? 'Tap to chat'}
-                          </span>
+                        <span className="flex items-center gap-1 truncate text-xs text-white/40">
+                          <span className="truncate">Tap to chat</span>
                         </span>
                       </span>
                     </button>
@@ -255,34 +241,38 @@ export default function ChatPage() {
 
             {tab === 'groups' && (
               <>
-                {groupIds.length === 0 && (
+                {groups.length === 0 && (
                   <p className="px-4 py-8 text-center text-sm text-white/40">
                     No groups yet.
                   </p>
                 )}
 
-                {groupIds.map((id) => {
-                  const group = db.groups[id];
-
+                {groups.map((group) => {
                   const selected =
-                    active?.type === 'group' && active.id === id;
+                    active?.type === 'group' && active.id === group.id;
 
                   return (
                     <button
-                      key={id}
+                      key={group.id}
                       type="button"
-                      onClick={() => selectGroup(id)}
+                      onClick={() => selectGroup(group.id)}
                       className={`flex w-full items-center gap-3 px-4 py-3 text-left transition ${
                         selected
                           ? 'bg-cyan-400/15'
                           : 'hover:bg-white/5'
                       }`}
                     >
-                      <img
-                        src={group.icon}
-                        alt={group.name}
-                        className="h-11 w-11 shrink-0 rounded-xl object-cover"
-                      />
+                      {group.icon ? (
+                        <img
+                          src={group.icon}
+                          alt={group.name}
+                          className="h-11 w-11 shrink-0 rounded-xl object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-700 text-sm font-semibold text-white">
+                          {group.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
 
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[15px] font-semibold text-white">
@@ -315,30 +305,31 @@ export default function ChatPage() {
 
           {active?.type === 'friend' &&
             (() => {
-              const user = db.users[active.id];
+              const friend = friends.find((f) => f.spotifyUserId === active.id);
+              if (!friend) return null;
 
               return (
                 <Conversation
-                  threadId={user.id}
-                  title={user.name}
-                  icon={user.pic}
-                  listeningSongTitle={
-                    user.listening
-                      ? db.songs[user.listening]?.title ?? null
-                      : null
-                  }
-                  onJoinListening={() =>
-                    navigate(`/?song=${user.listening}`)
-                  }
+                  threadId={friend.spotifyUserId}
+                  title={friend.displayName}
+                  icon={friend.profileImage}
+                  // No real backend support yet for looking up an arbitrary
+                  // Spotify account's live listening status by
+                  // spotifyUserId from the chat feature - the Ocean page
+                  // only knows sessions by internal bearer-token userId,
+                  // broadcast publicly by trackId, not searchable by
+                  // spotifyUserId here. Falls back to the static "Chat"
+                  // subtitle until that's built.
+                  listeningSongTitle={null}
                   onBack={() => setShowThread(false)}
                   menuLabel="Unfriend"
                   onMenuAction={() => {
                     if (
                       confirm(
-                        `Unfriend and delete this chat with ${user.name}? This will also unfollow them.`
+                        `Unfriend and delete this chat with ${friend.displayName}? This will also unfollow them.`
                       )
                     ) {
-                      unfriend(user.id);
+                      unfriend(friend.spotifyUserId);
                       setActive(null);
                       setShowThread(false);
                     }
@@ -349,7 +340,8 @@ export default function ChatPage() {
 
           {active?.type === 'group' &&
             (() => {
-              const group = db.groups[active.id];
+              const group = groups.find((g) => g.id === active.id);
+              if (!group) return null;
 
               return (
                 <Conversation

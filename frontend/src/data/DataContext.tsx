@@ -2,6 +2,13 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import type { AppState, ChatStatus } from './types';
 import * as api from './mockData';
 
+// NOTE: real chat/group data (friends list, group membership, messages) now
+// lives in ChatContext.tsx, backed by the real backend - see
+// backend/routes/chatRequests.js and backend/routes/groups.js. This context
+// keeps only what's still mock/local: nickname/bio, floaterOrder, the
+// weekly challenge, and follow/chat-request bookkeeping used elsewhere
+// (profile pages, notifications).
+
 interface DataContextValue {
   db: AppState;
   // Generic escape hatch: mutate the db draft in place, then persist + re-render.
@@ -9,10 +16,6 @@ interface DataContextValue {
   followUser: (userId: string, follow: boolean) => void;
   sendChatRequest: (userId: string) => void;
   resolveNotification: (id: string, status: 'accepted' | 'declined') => void;
-  sendMessage: (threadId: string, text: string) => void;
-  unfriend: (userId: string) => void;
-  createGroup: (name: string, icon: string, memberIds: string[]) => string;
-  leaveGroup: (groupId: string) => void;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -60,40 +63,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   }, [mutate]);
 
-  const sendMessage = useCallback((threadId: string, text: string) => {
-    if (!text.trim()) return;
-    mutate((d) => {
-      if (!d.chats[threadId]) d.chats[threadId] = [];
-      d.chats[threadId].push({ from: 'me', text: text.trim(), ts: Date.now() });
-    });
-  }, [mutate]);
-
-  const unfriend = useCallback((userId: string) => {
-    mutate((d) => {
-      d.users[userId].chatStatus = 'none';
-      d.users[userId].followedByMe = false;
-      delete d.chats[userId];
-    });
-  }, [mutate]);
-
-  const createGroup = useCallback((name: string, icon: string, memberIds: string[]) => {
-    const id = 'g' + Date.now();
-    mutate((d) => {
-      d.groups[id] = { id, name, icon, members: ['me', ...memberIds] };
-      d.chats[id] = [];
-    });
-    return id;
-  }, [mutate]);
-
-  const leaveGroup = useCallback((groupId: string) => {
-    mutate((d) => {
-      delete d.groups[groupId];
-      delete d.chats[groupId];
-    });
-  }, [mutate]);
-
   return (
-    <DataContext.Provider value={{ db, mutate, followUser, sendChatRequest, resolveNotification, sendMessage, unfriend, createGroup, leaveGroup }}>
+    <DataContext.Provider value={{ db, mutate, followUser, sendChatRequest, resolveNotification }}>
       {children}
     </DataContext.Provider>
   );
