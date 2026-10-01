@@ -76,16 +76,19 @@ export default function ChatPage() {
           }}
         />
 
-        {/* Soft underwater glow */}
-        <div className="absolute -left-32 top-16 h-[500px] w-[500px] rounded-full bg-blue-500/10 blur-[120px]" />
-        <div className="absolute -right-32 bottom-0 h-[500px] w-[500px] rounded-full bg-cyan-400/10 blur-[120px]" />
+        {/* Soft underwater glow - dark keeps the exact original cyan/blue
+            glow; light mode gets a brighter, sun-through-water counterpart
+            instead of the same glow sitting oddly on a bright background. */}
+        <div className={`absolute -left-32 top-16 h-[500px] w-[500px] rounded-full blur-[120px] ${isDark ? 'bg-blue-500/10' : 'bg-sky-300/25'}`} />
+        <div className={`absolute -right-32 bottom-0 h-[500px] w-[500px] rounded-full blur-[120px] ${isDark ? 'bg-cyan-400/10' : 'bg-amber-100/30'}`} />
 
-        {/* Light rays */}
-        <div className="absolute -top-40 left-[15%] h-[700px] w-32 rotate-[18deg] bg-gradient-to-b from-cyan-200/[0.08] to-transparent blur-xl" />
+        {/* Light rays - same swap: faint cyan shafts at night, brighter
+            warm-white sunlight shafts during the day. */}
+        <div className={`absolute -top-40 left-[15%] h-[700px] w-32 rotate-[18deg] bg-gradient-to-b to-transparent blur-xl ${isDark ? 'from-cyan-200/[0.08]' : 'from-white/40'}`} />
 
-        <div className="absolute -top-40 left-[45%] h-[650px] w-44 rotate-[14deg] bg-gradient-to-b from-blue-200/[0.06] to-transparent blur-2xl" />
+        <div className={`absolute -top-40 left-[45%] h-[650px] w-44 rotate-[14deg] bg-gradient-to-b to-transparent blur-2xl ${isDark ? 'from-blue-200/[0.06]' : 'from-amber-100/30'}`} />
 
-        <div className="absolute -top-40 right-[12%] h-[700px] w-28 rotate-[20deg] bg-gradient-to-b from-cyan-200/[0.05] to-transparent blur-xl" />
+        <div className={`absolute -top-40 right-[12%] h-[700px] w-28 rotate-[20deg] bg-gradient-to-b to-transparent blur-xl ${isDark ? 'from-cyan-200/[0.05]' : 'from-white/30'}`} />
 
         {/* Floating bubbles */}
         <motion.span

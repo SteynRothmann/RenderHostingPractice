@@ -3,6 +3,7 @@ import { ExternalLink, ListMusic } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { useData } from '../../data/DataContext';
 import { useAuth } from '../../data/AuthContext';
+import { useTheme } from '../../data/ThemeContext';
 import { fetchRecentlyPlayed, fetchPublicPlaylists, fetchProfileStats } from '../../lib/api';
 import type { RecentTrack, PublicPlaylist, ProfileStats } from '../../data/types';
 
@@ -21,6 +22,7 @@ function timeAgo(iso: string): string {
 export default function MyProfilePage() {
   const { db, mutate } = useData();
   const { profile } = useAuth();
+  const { isDark } = useTheme();
   const { me } = db;
   const [nickname, setNickname] = useState(me.nickname);
   const [bio, setBio] = useState(me.bio);
@@ -62,8 +64,27 @@ export default function MyProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-wl-bg pb-24 text-wl-fg">
-      <PageHeader title="Your Profile" />
+    <div className="relative isolate min-h-screen overflow-hidden bg-wl-bg pb-24 text-wl-fg">
+      {/* Background atmosphere - this page was previously a flat, static
+          bg-wl-bg with nothing else, which is why it didn't read as
+          "theming" when the token colors swapped underneath it. Gives it
+          the same kind of soft gradient + glow treatment as the Ocean/Chat
+          pages so the light/dark switch is actually visible here too. */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div
+          className="absolute inset-0"
+          style={{
+            background: isDark
+              ? 'linear-gradient(to bottom, #0a2140, #071c3d, #031426)'
+              : 'linear-gradient(to bottom, var(--wl-bg), var(--wl-panel), var(--wl-bg))',
+          }}
+        />
+        <div className={`absolute -left-40 top-0 h-[480px] w-[480px] rounded-full blur-[130px] ${isDark ? 'bg-blue-500/10' : 'bg-sky-300/25'}`} />
+        <div className={`absolute -right-40 bottom-0 h-[480px] w-[480px] rounded-full blur-[130px] ${isDark ? 'bg-cyan-400/10' : 'bg-amber-100/30'}`} />
+      </div>
+
+      <div className="relative z-10">
+        <PageHeader title="Your Profile" />
 
       <div className="mx-auto my-8 max-w-4xl rounded-3xl border border-cyan-500/20 bg-wl-panel/90 p-6 shadow-2xl backdrop-blur-md md:p-8">
         {/* Header: real Spotify avatar + name + editable fields */}
@@ -250,6 +271,7 @@ export default function MyProfilePage() {
         className={`fixed bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-950 transition-opacity ${toast ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
       >
         Profile saved
+      </div>
       </div>
     </div>
   );

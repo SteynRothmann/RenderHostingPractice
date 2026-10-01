@@ -3,21 +3,45 @@ import { useParams } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
 import Cover from '../../components/Cover';
 import { useData } from '../../data/DataContext';
+import { useTheme } from '../../data/ThemeContext';
 import { tierFromFollowers } from '../../data/mockData';
 import SongDetailsPanel from '../song-details/SongDetailsPanel';
+
+// Same soft gradient + glow atmosphere as MyProfilePage/ChatPage, so this
+// page's light/dark switch is actually visible instead of a flat bg-wl-bg.
+function PageAtmosphere({ isDark }: { isDark: boolean }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div
+        className="absolute inset-0"
+        style={{
+          background: isDark
+            ? 'linear-gradient(to bottom, #0a2140, #071c3d, #031426)'
+            : 'linear-gradient(to bottom, var(--wl-bg), var(--wl-panel), var(--wl-bg))',
+        }}
+      />
+      <div className={`absolute -left-40 top-0 h-[480px] w-[480px] rounded-full blur-[130px] ${isDark ? 'bg-blue-500/10' : 'bg-sky-300/25'}`} />
+      <div className={`absolute -right-40 bottom-0 h-[480px] w-[480px] rounded-full blur-[130px] ${isDark ? 'bg-cyan-400/10' : 'bg-amber-100/30'}`} />
+    </div>
+  );
+}
 
 export default function UserProfilePage() {
   const { id } = useParams<{ id: string }>();
   const { db, followUser, sendChatRequest } = useData();
+  const { isDark } = useTheme();
   const [selectedSong, setSelectedSong] = useState<string | null>(null);
   const [requestSent, setRequestSent] = useState(false);
 
   const user = id ? db.users[id] : undefined;
   if (!user) {
     return (
-      <div className="min-h-screen bg-wl-bg text-wl-fg">
-        <PageHeader title="Profile" />
-        <p className="p-6 text-sm text-wl-muted">User not found.</p>
+      <div className="relative isolate min-h-screen overflow-hidden bg-wl-bg text-wl-fg">
+        <PageAtmosphere isDark={isDark} />
+        <div className="relative z-10">
+          <PageHeader title="Profile" />
+          <p className="p-6 text-sm text-wl-muted">User not found.</p>
+        </div>
       </div>
     );
   }
@@ -27,7 +51,9 @@ export default function UserProfilePage() {
   const username = user.name.toLowerCase().replace(/\s+/g, '.');
 
   return (
-    <div className="min-h-screen bg-wl-bg pb-16 text-wl-fg">
+    <div className="relative isolate min-h-screen overflow-hidden bg-wl-bg pb-16 text-wl-fg">
+      <PageAtmosphere isDark={isDark} />
+      <div className="relative z-10">
       <PageHeader title={user.name} />
 
       <div className="mx-auto my-8 max-w-4xl rounded-3xl border border-cyan-500/20 bg-wl-panel/90 p-6 shadow-2xl backdrop-blur-md md:p-8">
@@ -116,6 +142,7 @@ export default function UserProfilePage() {
       </div>
 
       <SongDetailsPanel songId={selectedSong} onClose={() => setSelectedSong(null)} />
+      </div>
     </div>
   );
 }
