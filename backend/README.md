@@ -193,10 +193,17 @@ If this project's Supabase tables already exist (the
 `group_join_requests`/`group_messages` tables), there is **one required,
 additive migration** to run once, before setting `DATABASE_URL`: open
 `db/schema-additions.sql` in this repo and run its contents in Supabase's
-SQL editor. It only adds two constraints the app's upsert-style queries
-need (a uniqueness constraint on conversation pairs, and a partial unique
-index so at most one pending chat request can exist per direction) - it
-does not touch any existing data or create any new tables.
+SQL editor. It adds two constraints the app's upsert-style queries need (a
+uniqueness constraint on conversation pairs, and a partial unique index so
+at most one pending chat request can exist per direction), plus one new
+table, `known_profiles` - a small permanent cache of each person's display
+name/avatar, kept separate from `spotify_tokens` so that logging out (which
+deletes that session's `spotify_tokens` row outright, so the poller stops
+retrying a dead session) doesn't also erase the only copy of their name.
+Without it, anyone who still had a pending chat request from someone, or an
+accepted chat with them, would see that person's raw Spotify account id
+instead of their name once they logged out. This migration does not touch
+any existing data.
 
 Two Supabase-specific things worth knowing:
 

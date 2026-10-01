@@ -21,9 +21,50 @@ const pool = require('./pool');
 
 const memoryStore = new Map();
 
+// A separate "last known" profile cache, keyed by real Spotify account id
+// rather than by session - mirrors the known_profiles Postgres table (see
+// db/schema-additions.sql) for memory-store/local-dev mode. Unlike
+// memoryStore/spotify_tokens, nothing ever deletes from this: it's updated
+// on every login, but a logout only removes the session's live token entry,
+// not this cache - see deleteTokens and getTokensBySpotifyUserId below.
+const knownProfiles = new Map();
+
+async function upsertKnownProfile({ spotifyUserId, displayName, profileUrl, profileImage }) {
+  if (!spotifyUserId) return;
+
+  if (useMemoryStore) {
+    const existing = knownProfiles.get(spotifyUserId) || {};
+    knownProfiles.set(spotifyUserId, {
+      spotifyUserId,
+      displayName: displayName !== undefined ? displayName : existing.displayName,
+      profileUrl: profileUrl !== undefined ? profileUrl : existing.profileUrl,
+      profileImage: profileImage !== undefined ? profileImage : existing.profileImage,
+    });
+    return;
+  }
+
+  await pool.query(
+    `INSERT INTO known_profiles (spotify_user_id, display_name, profile_url, profile_image, updated_at)
+     VALUES ($1, $2, $3, $4, now())
+     ON CONFLICT (spotify_user_id) DO UPDATE SET
+       display_name = COALESCE($2, known_profiles.display_name),
+       profile_url = COALESCE($3, known_profiles.profile_url),
+       profile_image = COALESCE($4, known_profiles.profile_image),
+       updated_at = now()`,
+    [spotifyUserId, displayName ?? null, profileUrl ?? null, profileImage ?? null]
+  );
+}
+
 async function saveTokens(userId, tokenData) {
   const { accessToken, refreshToken, expiresAt, spotifyUserId, displayName, profileUrl, email, profileImage } =
     tokenData;
+
+  // Keep the permanent name/avatar cache current too, independent of the
+  // live session token - see knownProfiles/known_profiles above. Best
+  // effort: never let this block or fail an actual login/refresh.
+  upsertKnownProfile({ spotifyUserId, displayName, profileUrl, profileImage }).catch((err) => {
+    console.error('Could not update known_profiles cache:', err.message);
+  });
 
   if (useMemoryStore) {
     // A refresh-only save doesn't include the profile fields - merge so
@@ -134,7 +175,10 @@ async function getTokensBySpotifyUserId(spotifyUserId) {
     for (const entry of memoryStore.values()) {
       if (entry.spotifyUserId === spotifyUserId) return entry;
     }
-    return null;
+    // Not currently logged in anywhere (or just logged out) - fall back to
+    // the permanent name/avatar cache so they still show up as themselves,
+    // not their raw account id, to friends/requests.
+    return knownProfiles.get(spotifyUserId) || null;
   }
 
   const result = await pool.query(
@@ -147,7 +191,23 @@ async function getTokensBySpotifyUserId(spotifyUserId) {
      LIMIT 1`,
     [spotifyUserId]
   );
-  return result.rows[0] || null;
+  if (result.rows[0]) return result.rows[0];
+
+  // Same fallback as above, for someone who has since logged out - their
+  // spotify_tokens row is gone (deleteTokens deletes it outright so the
+  // poller stops retrying a dead session), but known_profiles never gets
+  // cleared, so their last known name/avatar is still here.
+  const cached = await pool.query(
+    `SELECT spotify_user_id AS "spotifyUserId",
+            display_name AS "displayName",
+            profile_url AS "profileUrl",
+            profile_image AS "profileImage"
+     FROM known_profiles
+     WHERE spotify_user_id = $1
+     LIMIT 1`,
+    [spotifyUserId]
+  );
+  return cached.rows[0] || null;
 }
 
 module.exports = { saveTokens, getTokens, deleteTokens, getTokensBySpotifyUserId, getAllUserIds, useMemoryStore };

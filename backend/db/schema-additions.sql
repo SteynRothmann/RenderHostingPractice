@@ -7,3 +7,20 @@ ALTER TABLE public.private_conversations
 CREATE UNIQUE INDEX IF NOT EXISTS chat_requests_one_pending_pair
   ON public.chat_requests (from_spotify_user_id, to_spotify_user_id)
   WHERE status = 'pending';
+
+-- A small, permanent cache of "last known" display name/avatar per real
+-- Spotify account, separate from spotify_tokens. spotify_tokens' row for a
+-- user is deleted outright on logout (see tokenStore.deleteTokens) so the
+-- poller stops retrying a dead session - but that also wiped the only copy
+-- of that person's name/photo, so anyone who still had a pending request
+-- or an accepted chat with them would see their raw Spotify account id
+-- ("client id") instead of a name once they logged out. This table is
+-- upserted on every login/token save and is never deleted, so a name
+-- keeps showing even after the owner logs out.
+CREATE TABLE IF NOT EXISTS public.known_profiles (
+  spotify_user_id TEXT PRIMARY KEY,
+  display_name TEXT,
+  profile_url TEXT,
+  profile_image TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
