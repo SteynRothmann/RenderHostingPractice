@@ -148,7 +148,7 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
           container, below the logo/search row), and only switches to the
           absolutely-centered treatment at `sm:`. */}
       {isLoggedIn && (
-        <div className="order-last flex w-full items-center justify-center gap-6 sm:order-none sm:static sm:w-auto sm:absolute sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:gap-8">
+        <div className="order-last flex w-full items-center justify-center gap-6 sm:order-none sm:w-auto sm:absolute sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:gap-8">
           <NavBob index={0}>
             <Tooltip label="Profile">
               <Link to="/profile" aria-label="Your profile" className="flex items-center">
@@ -205,7 +205,7 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
               onChange={(e) => handleSearchChange(e.target.value)}
               onFocus={handleSearchFocus}
               onBlur={handleSearchBlur}
-              className="w-20 bg-transparent text-sm text-wl-title placeholder:text-wl-faint outline-none sm:w-32 md:w-48"
+              className="w-20 bg-transparent text-sm text-wl-title placeholder:text-wl-faint outline-none sm:w-48"
             />
           </div>
 
