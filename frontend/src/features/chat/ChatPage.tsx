@@ -5,6 +5,7 @@ import PageHeader from '../../components/PageHeader';
 import { useChat } from '../../data/ChatContext';
 import Conversation from './Conversation';
 import CreateGroupPanel from './CreateGroupPanel';
+import ChatProfileOverlay from './ChatProfileOverlay';
 
 type Active = { type: 'friend' | 'group'; id: string } | null;
 
@@ -24,6 +25,10 @@ export default function ChatPage() {
 
   const [groupPanelOpen, setGroupPanelOpen] = useState(false);
   const [showThread, setShowThread] = useState(Boolean(withId));
+  // spotifyUserId of whoever's inline profile overlay (part 5) is open, or
+  // null when closed - triggered from a friend's header or a group
+  // message's sender name/avatar (see Conversation.tsx's onPersonClick).
+  const [profileOverlayId, setProfileOverlayId] = useState<string | null>(null);
 
   const hasUnreadFriends = friends.some((f) => unreadThreadIds.has(f.spotifyUserId));
   const hasUnreadGroups = groups.some((g) => unreadThreadIds.has(g.id));
@@ -358,6 +363,8 @@ export default function ChatPage() {
                   // spotifyUserId here. Falls back to the static "Chat"
                   // subtitle until that's built.
                   listeningSongTitle={null}
+                  onHeaderClick={() => setProfileOverlayId(friend.spotifyUserId)}
+                  onPersonClick={(id) => setProfileOverlayId(id)}
                   onBack={() => {
                     // Hides the thread on mobile (desktop keeps it visible
                     // via md:flex) - either way, the user's no longer
@@ -392,6 +399,8 @@ export default function ChatPage() {
                   threadId={group.id}
                   title={group.name}
                   icon={group.icon}
+                  members={group.members}
+                  onPersonClick={(id) => setProfileOverlayId(id)}
                   onBack={() => {
                     setShowThread(false);
                     setActiveThread(null);
@@ -417,6 +426,17 @@ export default function ChatPage() {
           setTab('groups');
           setActive({ type: 'group', id });
           setShowThread(true);
+        }}
+      />
+
+      <ChatProfileOverlay
+        spotifyUserId={profileOverlayId}
+        onClose={() => setProfileOverlayId(null)}
+        onUnfriended={() => {
+          // Same cleanup as the existing "⋮" → Unfriend flow above: the
+          // friend (and their chat) no longer exists, so close the thread.
+          setActive(null);
+          setShowThread(false);
         }}
       />
     </div>

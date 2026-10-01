@@ -30,6 +30,12 @@ interface ChatContextValue {
   unreadThreadIds: Set<string>;
   hasAnyUnread: boolean;
   setActiveThread: (threadId: string | null) => void;
+  // Brief "You were added to <group>" toast, surfaced from a global spot
+  // (App.tsx) rather than only on /chat - see loadChats below for how a
+  // newly-appeared group id (that I didn't just create myself) triggers
+  // this. null means no toast is currently showing.
+  newGroupNotice: string | null;
+  dismissGroupNotice: () => void;
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -41,6 +47,34 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Record<string, RealChatMessage[]>>({});
   const [unreadThreadIds, setUnreadThreadIds] = useState<Set<string>>(new Set());
+  const [newGroupNotice, setNewGroupNotice] = useState<string | null>(null);
+  const groupNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Which group ids we've already accounted for - null until the very
+  // first successful loadChats() after login, which seeds it WITHOUT
+  // firing a notice (so existing groups never "pop" one on initial load).
+  // After that, any group id that shows up on a later poll tick that
+  // isn't already in here is either one I just created myself (createGroup
+  // adds it here immediately, see below) or one someone else added me to -
+  // only the latter should ever reach this point.
+  const seenGroupIdsRef = useRef<Set<string> | null>(null);
+
+  const dismissGroupNotice = useCallback(() => {
+    if (groupNoticeTimerRef.current) {
+      clearTimeout(groupNoticeTimerRef.current);
+      groupNoticeTimerRef.current = null;
+    }
+    setNewGroupNotice(null);
+  }, []);
+
+  const showGroupNotice = useCallback((groupName: string) => {
+    if (groupNoticeTimerRef.current) clearTimeout(groupNoticeTimerRef.current);
+    setNewGroupNotice(`You were added to ${groupName}`);
+    groupNoticeTimerRef.current = setTimeout(() => {
+      setNewGroupNotice(null);
+      groupNoticeTimerRef.current = null;
+    }, 3500);
+  }, []);
 
   // Keep latest friends/groups available inside socket callbacks/closures
   // without re-subscribing every render.
@@ -103,6 +137,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       .then(([chats, myGroups]) => {
         setFriends(chats);
         setGroups(myGroups);
+
+        const currentIds = new Set(myGroups.map((g) => g.id));
+        if (seenGroupIdsRef.current === null) {
+          // First load since login - just seed, never notify.
+          seenGroupIdsRef.current = currentIds;
+        } else {
+          const newlyAdded = myGroups.find((g) => !seenGroupIdsRef.current!.has(g.id));
+          seenGroupIdsRef.current = currentIds;
+          if (newlyAdded) showGroupNotice(newlyAdded.name);
+        }
       })
       .catch((err) => {
         console.error('Could not load chats/groups:', err);
@@ -110,7 +154,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       .finally(() => {
         if (showLoading) setLoading(false);
       });
-  }, []);
+  }, [showGroupNotice]);
 
   // Load friends + groups whenever login status turns on; clear everything
   // when logged out.
@@ -122,11 +166,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setUnreadThreadIds(new Set());
       joinedPrivate.current.clear();
       joinedGroups.current.clear();
+      seenGroupIdsRef.current = null; // re-seed without notifying on next login
+      dismissGroupNotice();
       return;
     }
 
     loadChats(true);
-  }, [isLoggedIn, loadChats]);
+  }, [isLoggedIn, loadChats, dismissGroupNotice]);
 
   // Poll for newly-accepted friends/groups every 8s while logged in - same
   // pattern as OceanNav's pending chat-request-count poll. Without this,
@@ -283,6 +329,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const createGroup = useCallback(async (name: string, icon: string | null, memberSpotifyUserIds: string[]) => {
     const group = await createRealGroup(name, icon, memberSpotifyUserIds);
     setGroups((prev) => [...prev, group]);
+    // Mark this group as already-seen immediately so the next poll tick
+    // doesn't treat "a group I just made myself" as "I was added to a
+    // group" and fire a spurious notice.
+    seenGroupIdsRef.current?.add(group.id);
     const socket = getSocket();
     joinedGroups.current.add(group.id);
     socket.emit('group:join', { groupId: group.id });
@@ -309,6 +359,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const hasAnyUnread = unreadThreadIds.size > 0;
 
+  // Clear any pending auto-dismiss timer on unmount (ChatProvider lives
+  // for the whole app session, but this is cheap insurance regardless).
+  useEffect(() => {
+    return () => {
+      if (groupNoticeTimerRef.current) clearTimeout(groupNoticeTimerRef.current);
+    };
+  }, []);
+
   return (
     <ChatContext.Provider
       value={{
@@ -324,6 +382,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         unreadThreadIds,
         hasAnyUnread,
         setActiveThread,
+        newGroupNotice,
+        dismissGroupNotice,
       }}
     >
       {children}

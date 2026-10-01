@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Bell, LogOut, MessageCircle, Search } from 'lucide-react';
@@ -9,9 +9,25 @@ import OceanButton from '../../components/OceanButton';
 import BrandLogo from '../../components/BrandLogo';
 import Tooltip from '../../components/Tooltip';
 
+// A single live search match, as handed down from OceanPage (which owns
+// the actual `groups` data) for the search-as-you-type dropdown below.
+export interface SearchResultItem {
+  trackId: string;
+  trackName: string;
+  artist: string;
+  albumArt: string | null;
+}
+
 interface Props {
   onSearch: (query: string) => void;
   onOpenNotifications: () => void;
+  // Top ~6 matches for whatever's currently in the search box, computed by
+  // OceanPage from its live ocean-groups data - empty when the query is
+  // empty. Rendered as a dropdown while the input is focused.
+  searchResults: SearchResultItem[];
+  // Clicking a dropdown row does the same thing as clicking that song's
+  // bubble on the canvas (opens its OceanSongPanel).
+  onSelectSearchResult: (trackId: string) => void;
 }
 
 // Same slowed-down idle "bob" used by WeeklyChallengeButton (7.2s, was
@@ -30,11 +46,48 @@ function NavBob({ index, children }: { index: number; children: ReactNode }) {
   );
 }
 
-export default function OceanNav({ onSearch, onOpenNotifications }: Props) {
+export default function OceanNav({ onSearch, onOpenNotifications, searchResults, onSelectSearchResult }: Props) {
   const { isLoggedIn, logout, profile } = useAuth();
   const { hasAnyUnread } = useChat();
   const navigate = useNavigate();
   const [pendingCount, setPendingCount] = useState(0);
+
+  // Local copy of the search text (the input used to be fully
+  // uncontrolled) plus whether it's focused - together these decide when
+  // the live-results dropdown should be visible: focused AND non-empty.
+  // Clicking a result clears both so the dropdown collapses, per the PM's
+  // "click a result... then clear/collapse the dropdown" ask.
+  const [searchText, setSearchText] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleSearchChange(value: string) {
+    setSearchText(value);
+    onSearch(value);
+  }
+
+  function handleSearchFocus() {
+    if (blurTimerRef.current) {
+      clearTimeout(blurTimerRef.current);
+      blurTimerRef.current = null;
+    }
+    setSearchFocused(true);
+  }
+
+  function handleSearchBlur() {
+    // Delay closing so a click on a dropdown row (which blurs the input
+    // first) still gets to run its onClick before the dropdown unmounts.
+    blurTimerRef.current = setTimeout(() => setSearchFocused(false), 150);
+  }
+
+  function handleSelectResult(trackId: string) {
+    onSelectSearchResult(trackId);
+    setSearchText('');
+    onSearch('');
+    setSearchFocused(false);
+  }
+
+  const showDropdown = searchFocused && searchText.trim() !== '';
 
   // Real pending chat-request count, for the red dot - polled rather than
   // pushed, so it can lag a few seconds behind an incoming request; fine
@@ -130,15 +183,54 @@ export default function OceanNav({ onSearch, onOpenNotifications }: Props) {
       )}
 
       <div className="flex items-center justify-end gap-3">
-        <div className="flex items-center gap-2 rounded-full border border-cyan-500/20 bg-[#04385a]/60 px-3 py-1.5">
-          <Search className="h-4 w-4 text-cyan-400" />
-          <input
-            type="text"
-            placeholder="Search / filter"
-            aria-label="Search or filter"
-            onChange={(e) => onSearch(e.target.value)}
-            className="w-32 bg-transparent text-sm text-cyan-100 placeholder:text-cyan-100/40 outline-none sm:w-48"
-          />
+        <div className="relative">
+          <div className="flex items-center gap-2 rounded-full border border-cyan-500/20 bg-[#04385a]/60 px-3 py-1.5">
+            <Search className="h-4 w-4 text-cyan-400" />
+            <input
+              type="text"
+              value={searchText}
+              placeholder="Search / filter"
+              aria-label="Search or filter"
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onFocus={handleSearchFocus}
+              onBlur={handleSearchBlur}
+              className="w-32 bg-transparent text-sm text-cyan-100 placeholder:text-cyan-100/40 outline-none sm:w-48"
+            />
+          </div>
+
+          {/* Live search-as-you-type results dropdown, Claude.ai-style:
+              shows while the input is focused and non-empty, including a
+              "No matches" row so an empty result set doesn't just look
+              broken. Clicking a row opens that song's panel, same as
+              clicking its bubble on the canvas. */}
+          {showDropdown && (
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-72 overflow-hidden rounded-xl border border-cyan-500/20 bg-[#02182b]/95 shadow-xl backdrop-blur">
+              {searchResults.length === 0 ? (
+                <p className="px-4 py-3 text-sm text-cyan-100/40">No matches</p>
+              ) : (
+                searchResults.map((result) => (
+                  <button
+                    key={result.trackId}
+                    type="button"
+                    onClick={() => handleSelectResult(result.trackId)}
+                    className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-cyan-500/10"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-cyan-950">
+                      {result.albumArt ? (
+                        <img src={result.albumArt} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <Search className="h-3.5 w-3.5 text-cyan-500/50" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-cyan-100">{result.trackName}</p>
+                      <p className="truncate text-xs text-cyan-100/50">{result.artist}</p>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         {isLoggedIn ? (

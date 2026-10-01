@@ -12,6 +12,19 @@ import { getSocket } from '../../lib/socket';
 import { fetchCurrentlyPlaying } from '../../lib/api';
 import type { OceanGroup } from '../../data/types';
 
+// Multi-token, order-independent match ("like Claude's" search-as-you-type):
+// splits the query on whitespace and requires EVERY token to appear
+// somewhere in the haystack, case-insensitively - so "weeknd blind" matches
+// "Blinding Lights" / "The Weeknd" regardless of word order, which a plain
+// whole-string .includes() can't do. An empty query always matches
+// (preserves the existing "no filter" behavior).
+function matchesQuery(haystack: string, query: string): boolean {
+  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+  const hay = haystack.toLowerCase();
+  return tokens.every((token) => hay.includes(token));
+}
+
 export default function OceanPage() {
   const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
@@ -69,9 +82,8 @@ export default function OceanPage() {
   }, [isLoggedIn]);
 
   const markers: OceanMarker[] = useMemo(() => {
-    const q = query.trim().toLowerCase();
     return Object.values(groups)
-      .filter((g) => q === '' || g.trackName.toLowerCase().includes(q) || g.artist.toLowerCase().includes(q))
+      .filter((g) => matchesQuery(`${g.trackName} ${g.artist}`, query))
       .map((g) => ({
         id: g.trackId,
         song: { id: g.trackId, title: g.trackName, artist: g.artist, cover: g.albumArt, ownerId: g.hostSessionId },
@@ -80,18 +92,37 @@ export default function OceanPage() {
       }));
   }, [groups, query, myTrackId]);
 
+  // Jumps to a song's panel - shared by clicking its floating bubble on
+  // the canvas (via useOceanCanvas's onSelect below) and clicking it in
+  // the search dropdown (onSelectResult passed to OceanNav).
+  function selectTrack(trackId: string) {
+    if (!isLoggedIn) {
+      navigate('/login');
+      return;
+    }
+    setSelectedTrackId(trackId);
+  }
+
+  // Live search-results dropdown data (top ~6 matches) for OceanNav to
+  // render under the search bar while its input is focused and non-empty.
+  // Computed here (not in OceanNav) since it needs the live `groups` data
+  // that only exists on this page - OceanNav just renders what it's given
+  // and reports clicks back via onSelectResult.
+  const searchResults = useMemo(() => {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+    return Object.values(groups)
+      .filter((g) => matchesQuery(`${g.trackName} ${g.artist}`, trimmed))
+      .slice(0, 6)
+      .map((g) => ({ trackId: g.trackId, trackName: g.trackName, artist: g.artist, albumArt: g.albumArt }));
+  }, [groups, query]);
+
   const { canvasRef, containerRef, hoveredId } = useOceanCanvas({
     markers,
     // Guests can watch the ocean, but every interaction (join, follow,
     // even just opening a song's details) requires a real Spotify login -
     // send them to /login instead of opening the panel.
-    onSelect: (trackId) => {
-      if (!isLoggedIn) {
-        navigate('/login');
-        return;
-      }
-      setSelectedTrackId(trackId);
-    },
+    onSelect: selectTrack,
     imageResolver: (song) => song.cover,
   });
 
@@ -188,6 +219,8 @@ export default function OceanPage() {
       <OceanNav
         onSearch={setQuery}
         onOpenNotifications={() => setNotifOpen(true)}
+        searchResults={searchResults}
+        onSelectSearchResult={selectTrack}
       />
 
       {/* Weekly Challenge trigger - centered just below the nav bar.

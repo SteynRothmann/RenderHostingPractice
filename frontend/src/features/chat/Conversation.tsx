@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { useChat } from '../../data/ChatContext';
 import { useAuth } from '../../data/AuthContext';
+import type { RealGroupMember } from '../../data/types';
 
 interface Props {
   threadId: string;
@@ -12,6 +13,20 @@ interface Props {
   onMenuAction: () => void;
   menuLabel: string;
   onBack?: () => void;
+  // Group member roster, passed ONLY for a group thread - used to resolve
+  // each message's sender (RealChatMessage.from is just a spotifyUserId)
+  // into a displayName/avatar. A 1:1 friend thread leaves this undefined,
+  // which keeps that view exactly as before (no per-message sender label -
+  // left/right alignment already distinguishes the two speakers there).
+  members?: RealGroupMember[];
+  // Opens the inline chat profile overlay for a person. Called when the
+  // 1:1 header (via onHeaderClick below) or a group message's sender
+  // name/avatar is clicked.
+  onPersonClick?: (spotifyUserId: string) => void;
+  // Only supplied for a 1:1 friend thread - makes the header icon/title
+  // clickable to open that friend's profile overlay. Omitted for groups,
+  // since the header represents the whole group, not one person.
+  onHeaderClick?: () => void;
 }
 
 export default function Conversation({
@@ -23,6 +38,9 @@ export default function Conversation({
   onMenuAction,
   menuLabel,
   onBack,
+  members,
+  onPersonClick,
+  onHeaderClick,
 }: Props) {
   const { messagesFor, sendMessage } = useChat();
   const { profile } = useAuth();
@@ -69,7 +87,15 @@ export default function Conversation({
           </button>
         )}
 
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-700">
+        <button
+          type="button"
+          onClick={onHeaderClick}
+          disabled={!onHeaderClick}
+          title={onHeaderClick ? `View ${title}'s profile` : undefined}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-700 ${
+            onHeaderClick ? 'cursor-pointer transition hover:ring-2 hover:ring-cyan-300/60' : ''
+          }`}
+        >
           {icon ? (
             <img src={icon} alt={title} className="h-full w-full object-cover" />
           ) : (
@@ -77,10 +103,13 @@ export default function Conversation({
               {(title || '?').charAt(0).toUpperCase()}
             </span>
           )}
-        </div>
+        </button>
 
         <div className="min-w-0">
-          <h2 className="truncate text-base font-semibold text-white">
+          <h2
+            onClick={onHeaderClick}
+            className={`truncate text-base font-semibold text-white ${onHeaderClick ? 'cursor-pointer hover:underline' : ''}`}
+          >
             {title}
           </h2>
 
@@ -123,8 +152,21 @@ export default function Conversation({
           </p>
         )}
 
-        {messages.map((message) => {
+        {messages.map((message, index) => {
           const mine = message.from === profile?.spotifyUserId;
+          const time = new Date(message.ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+          // Group-only: resolve the sender against the member roster, and
+          // only show the name/avatar once per consecutive run of messages
+          // from the same sender (WhatsApp/Discord-style), never for mine.
+          const sender = members?.find((m) => m.spotifyUserId === message.from);
+          const senderLabel = sender?.displayName || message.from || 'Former member';
+          const prevMessage = index > 0 ? messages[index - 1] : null;
+          const showSenderHeader = Boolean(members) && !mine && prevMessage?.from !== message.from;
+
+          function handleSenderClick() {
+            if (!mine && onPersonClick) onPersonClick(message.from);
+          }
 
           return (
             <motion.div
@@ -142,6 +184,26 @@ export default function Conversation({
                   : 'items-start self-start'
               }`}
             >
+              {showSenderHeader && (
+                <button
+                  type="button"
+                  onClick={handleSenderClick}
+                  disabled={!onPersonClick}
+                  className={`mb-1 flex items-center gap-1.5 px-1 ${onPersonClick ? 'cursor-pointer hover:opacity-80' : ''}`}
+                >
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-600">
+                    {sender?.profileImage ? (
+                      <img src={sender.profileImage} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-[9px] font-semibold text-white">
+                        {senderLabel.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-xs font-medium text-cyan-200/80">{senderLabel}</span>
+                </button>
+              )}
+
               <p
                 className={`break-words px-4 py-2.5 text-sm leading-relaxed ${
                   mine
@@ -151,6 +213,7 @@ export default function Conversation({
               >
                 {message.text}
               </p>
+              <span className="mt-1 px-1 text-[11px] text-white/35">{time}</span>
             </motion.div>
           );
         })}
