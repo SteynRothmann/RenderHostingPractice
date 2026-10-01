@@ -1,7 +1,18 @@
-const { getAllUserIds, getTokens } = require('../db/tokenStore');
+const { getAllUserIds, getTokens, deleteTokens } = require('../db/tokenStore');
 const { getValidAccessToken } = require('./authHelper');
 const { getCurrentlyPlaying, playTrackAt } = require('./spotifyClient');
 const oceanState = require('./oceanState');
+
+// Spotify's token endpoint returns one of these in the error body when a
+// refresh can never succeed again (the refresh token was revoked, expired,
+// or was issued by a different Spotify app than this one's current
+// client id/secret) - as opposed to a transient network/5xx hiccup, which
+// should just be retried next poll cycle, not treated as dead.
+const PERMANENT_AUTH_ERRORS = new Set(['invalid_grant', 'invalid_client']);
+
+function isPermanentAuthFailure(err) {
+  return PERMANENT_AUTH_ERRORS.has(err.response?.data?.error);
+}
 
 const POLL_INTERVAL_MS = 2000; // how often we check each user's playback
 
@@ -28,6 +39,19 @@ async function pollAllSessions() {
         // A single user's poll failing (expired refresh token, revoked
         // access, etc.) shouldn't break the whole ocean update.
         console.error(`Poll failed for session ${userId}:`, err.response?.data || err.message);
+
+        // Without this, a session whose refresh token can never work again
+        // (e.g. left over from testing against a different/rotated Spotify
+        // app) would retry - and fail - every single poll cycle forever,
+        // now that tokens persist in Postgres instead of being wiped on
+        // every restart like the old in-memory store. Clean it up so it
+        // stops being retried and stops eating into the app's Spotify API
+        // rate limit for a session nobody can use anyway.
+        if (isPermanentAuthFailure(err)) {
+          console.error(`Session ${userId} has a permanently invalid Spotify token - deleting it.`);
+          oceanState.removeSession(userId);
+          await deleteTokens(userId).catch(() => {});
+        }
       }
     })
   );
