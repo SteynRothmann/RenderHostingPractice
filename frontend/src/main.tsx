@@ -6,17 +6,20 @@ import App from './App.tsx'
 import { DataProvider } from './data/DataContext.tsx'
 import { AuthProvider } from './data/AuthContext.tsx'
 import { ChatProvider } from './data/ChatContext.tsx'
+import { ThemeProvider } from './data/ThemeContext.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <DataProvider>
-          <ChatProvider>
-            <App />
-          </ChatProvider>
-        </DataProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <DataProvider>
+            <ChatProvider>
+              <App />
+            </ChatProvider>
+          </DataProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   </StrictMode>,
 )

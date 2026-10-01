@@ -213,18 +213,26 @@ export default function WeeklyChallengePanel({
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/60 px-3 pb-6 pt-[4vh] backdrop-blur-sm sm:px-4 sm:pt-[6vh]"
+          className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-wl-scrim px-3 pb-6 pt-[4vh] backdrop-blur-sm sm:px-4 sm:pt-[6vh]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
         >
+          {/* This panel's own interior (relic cards, "BACKEND REQUIRED"
+              callouts, canvas light-ray effect, etc.) is a deliberately
+              vivid dark "glass dashboard" treatment ported from an earlier
+              mockup round - kept as a theme-agnostic identity in both
+              modes, same judgment as OceanSongPanel/WeeklyChallengeButton.
+              Only the backdrop scrim and this outer card surface are
+              tokenized so the modal still sits correctly against either
+              theme's page behind it. */}
           <motion.div
             role="dialog"
             aria-modal="true"
             aria-label="Weekly Challenge"
             onClick={(e) => e.stopPropagation()}
-            className="relative flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-cyan-400/20 bg-[#071330]/90 shadow-[0_30px_80px_rgba(2,10,25,0.6)] backdrop-blur-xl lg:max-w-4xl"
+            className="relative flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-cyan-400/20 bg-wl-panel/90 shadow-[0_30px_80px_rgba(2,10,25,0.6)] backdrop-blur-xl lg:max-w-4xl"
             initial={{ opacity: 0, scale: 0.94, y: -24 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: -24 }}

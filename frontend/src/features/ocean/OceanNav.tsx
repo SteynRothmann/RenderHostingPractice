@@ -8,6 +8,7 @@ import { fetchIncomingChatRequests } from '../../lib/api';
 import OceanButton from '../../components/OceanButton';
 import BrandLogo from '../../components/BrandLogo';
 import Tooltip from '../../components/Tooltip';
+import ThemeToggle from '../../components/ThemeToggle';
 
 // A single live search match, as handed down from OceanPage (which owns
 // the actual `groups` data) for the search-as-you-type dropdown below.
@@ -116,7 +117,7 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
   }, [isLoggedIn]);
 
   return (
-    <div className="absolute inset-x-0 top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-cyan-500/20 bg-[#02182b]/80 px-4 py-2.5 text-cyan-100 backdrop-blur">
+    <div className="absolute inset-x-0 top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-cyan-500/20 bg-wl-bg/80 px-4 py-2.5 text-wl-title backdrop-blur">
       {/* Logo + wordmark, far left - the single Wavelength brand mark shown
           to everyone, logged in or not. There used to also be a second,
           smaller logo-only fallback rendered here for guests; it's removed
@@ -159,7 +160,7 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
               <OceanButton
                 onClick={() => navigate('/chat')}
                 aria-label="Chat"
-                className="relative flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium hover:bg-cyan-500/10 hover:text-white"
+                className="relative flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium hover:bg-cyan-500/10 hover:text-wl-title"
               >
                 <MessageCircle className="h-5 w-5" />
                 {hasAnyUnread && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />}
@@ -172,7 +173,7 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
               <OceanButton
                 onClick={onOpenNotifications}
                 aria-label="Notifications"
-                className="relative flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium hover:bg-cyan-500/10 hover:text-white"
+                className="relative flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium hover:bg-cyan-500/10 hover:text-wl-title"
               >
                 <Bell className="h-5 w-5" />
                 {pendingCount > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />}
@@ -184,8 +185,8 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
 
       <div className="flex items-center justify-end gap-3">
         <div className="relative">
-          <div className="flex items-center gap-2 rounded-full border border-cyan-500/20 bg-[#04385a]/60 px-3 py-1.5">
-            <Search className="h-4 w-4 text-cyan-400" />
+          <div className="flex items-center gap-2 rounded-full border border-cyan-500/20 bg-wl-panel/60 px-3 py-1.5">
+            <Search className="h-4 w-4 text-wl-icon" />
             <input
               type="text"
               value={searchText}
@@ -194,7 +195,7 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
               onChange={(e) => handleSearchChange(e.target.value)}
               onFocus={handleSearchFocus}
               onBlur={handleSearchBlur}
-              className="w-32 bg-transparent text-sm text-cyan-100 placeholder:text-cyan-100/40 outline-none sm:w-48"
+              className="w-32 bg-transparent text-sm text-wl-title placeholder:text-wl-faint outline-none sm:w-48"
             />
           </div>
 
@@ -204,9 +205,9 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
               broken. Clicking a row opens that song's panel, same as
               clicking its bubble on the canvas. */}
           {showDropdown && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-72 overflow-hidden rounded-xl border border-cyan-500/20 bg-[#02182b]/95 shadow-xl backdrop-blur">
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-72 overflow-hidden rounded-xl border border-cyan-500/20 bg-wl-bg/95 shadow-xl backdrop-blur">
               {searchResults.length === 0 ? (
-                <p className="px-4 py-3 text-sm text-cyan-100/40">No matches</p>
+                <p className="px-4 py-3 text-sm text-wl-faint">No matches</p>
               ) : (
                 searchResults.map((result) => (
                   <button
@@ -223,8 +224,8 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-cyan-100">{result.trackName}</p>
-                      <p className="truncate text-xs text-cyan-100/50">{result.artist}</p>
+                      <p className="truncate text-sm font-medium text-wl-title">{result.trackName}</p>
+                      <p className="truncate text-xs text-wl-muted">{result.artist}</p>
                     </div>
                   </button>
                 ))
@@ -233,20 +234,24 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
           )}
         </div>
 
+        <Tooltip label="Toggle theme">
+          <ThemeToggle />
+        </Tooltip>
+
         {isLoggedIn ? (
           <NavBob index={3}>
             <Tooltip label="Log out">
               <OceanButton
                 onClick={logout}
                 aria-label="Log out"
-                className="flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium text-cyan-300/70 hover:bg-cyan-500/10 hover:text-cyan-100"
+                className="flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium text-wl-cyan/70 hover:bg-cyan-500/10 hover:text-wl-title"
               >
                 <LogOut className="h-4 w-4" />
               </OceanButton>
             </Tooltip>
           </NavBob>
         ) : (
-          <Link to="/login" className="rounded-full bg-[#1ED760] px-4 py-1.5 text-sm font-semibold text-black hover:bg-[#1fdf64]">
+          <Link to="/login" className="rounded-full bg-wl-accent px-4 py-1.5 text-sm font-semibold text-black hover:bg-[#1fdf64]">
             Log in
           </Link>
         )}

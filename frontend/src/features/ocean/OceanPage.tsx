@@ -6,6 +6,7 @@ import OceanNav from './OceanNav';
 import WeeklyChallengeButton from './WeeklyChallengeButton';
 import { useOceanCanvas, type OceanMarker } from './useOceanCanvas';
 import OceanSongPanel from './OceanSongPanel';
+import SkyScene from './SkyScene';
 import NotificationsPanel from '../notifications/NotificationsPanel';
 import WeeklyChallengePanel from '../challenges/WeeklyChallengePanel';
 import { getSocket } from '../../lib/socket';
@@ -131,7 +132,7 @@ export default function OceanPage() {
   const isEmpty = Object.keys(groups).length === 0;
 
   return (
-    <div ref={containerRef} className="relative h-screen w-full overflow-hidden bg-[#02182b]">
+    <div ref={containerRef} className="relative h-screen w-full overflow-hidden bg-wl-bg">
       {/* Ocean viewport - pushed up when the Weekly Challenge panel opens,
           revealing the seabed/treasure overlay below (ported from the
           redesigned mockup's OceanPage). */}
@@ -140,6 +141,13 @@ export default function OceanPage() {
         animate={{ y: challengeOpen ? '-25%' : '0%' }}
         transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
       >
+        {/* The sky above the waterline - gradient, sun/moon, stars, clouds
+            and birds - lives as plain DOM/CSS behind the ocean canvas, which
+            only paints the sea + waves (transparent above the waterline) so
+            this shows through. See useOceanCanvas.ts's own theme-blending of
+            the sea/wave/marker colors, choreographed to fade in step with
+            this via --wl-theme-duration. */}
+        <SkyScene />
         <canvas ref={canvasRef} className={`absolute inset-0 z-0 ${hoveredId ? 'cursor-pointer' : 'cursor-default'}`} />
 
         {/* Underwater Seabed and Treasure Environment Overlay */}
@@ -150,10 +158,13 @@ export default function OceanPage() {
           transition={{ duration: 0.9 }}
         >
           {/* Deep Seabed Gradient - top edge is feathered through the same
-              cyan used by the bottom wave band (WAVE_BANDS[2].color in
+              cyan used by the bottom wave band (WAVE_BANDS[2].night in
               useOceanCanvas.ts is rgba(34,211,238,0.38)) so the seabed
               blends into the wave above it instead of showing a hard-edged
-              dark rectangle cutting across it. */}
+              dark rectangle cutting across it. The seabed itself stays an
+              underwater-depth effect (not a "sky" element), so it keeps a
+              dark gradient in both themes - only the chest accents below
+              switch to the light-mode treasure/panel tokens. */}
           <div
             className="absolute inset-0"
             style={{
@@ -176,10 +187,10 @@ export default function OceanPage() {
           <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-[#01040a] to-transparent opacity-90" />
 
           {/* Left Treasure Chest Cluster 1 */}
-          <div className="absolute left-[8%] bottom-16 h-20 w-32 rounded-xl border border-amber-400/50 bg-gradient-to-b from-amber-600/40 via-amber-900/60 to-amber-950/80 shadow-[0_0_35px_rgba(245,158,11,0.4)] backdrop-blur-sm">
-            <div className="absolute -top-3 left-1/2 h-4 w-28 -translate-x-1/2 rounded-t-lg border-t border-amber-300/60 bg-amber-500/30" />
-            <div className="absolute inset-x-0 top-1/2 h-1 bg-amber-400/40" />
-            <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-amber-300/80 bg-amber-400/60 shadow-[0_0_10px_rgba(251,191,36,0.8)]" />
+          <div className="wl-chest-body absolute left-[8%] bottom-16 h-20 w-32 rounded-xl border backdrop-blur-sm">
+            <div className="absolute -top-3 left-1/2 h-4 w-28 -translate-x-1/2 rounded-t-lg border-t border-wl-treasure/60 bg-wl-treasure/30" />
+            <div className="absolute inset-x-0 top-1/2 h-1 bg-wl-treasure/40" />
+            <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-wl-treasure/80 bg-wl-treasure/60 shadow-[0_0_10px_rgba(251,191,36,0.8)]" />
           </div>
 
           {/* Left Treasure Chest Cluster 2 (Smaller & Tilted) */}
@@ -189,8 +200,8 @@ export default function OceanPage() {
           </div>
 
           {/* Center Left Small Treasure Chest */}
-          <div className="absolute left-[33%] bottom-12 h-12 w-18 rotate-3 rounded-md border border-amber-300/40 bg-amber-700/30 shadow-[0_0_20px_rgba(245,158,11,0.3)] backdrop-blur-sm">
-            <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 bg-amber-300/70" />
+          <div className="absolute left-[33%] bottom-12 h-12 w-18 rotate-3 rounded-md border border-wl-treasure/40 bg-wl-treasure/30 shadow-[0_0_20px_rgba(245,158,11,0.3)] backdrop-blur-sm">
+            <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 bg-wl-treasure/70" />
           </div>
 
           {/* Center Right Small Treasure Chest */}
@@ -199,10 +210,10 @@ export default function OceanPage() {
           </div>
 
           {/* Right Treasure Chest Cluster 1 */}
-          <div className="absolute right-[10%] bottom-14 h-22 w-36 rounded-xl border border-amber-400/50 bg-gradient-to-b from-amber-600/40 via-amber-900/60 to-amber-950/80 shadow-[0_0_40px_rgba(245,158,11,0.4)] backdrop-blur-sm">
-            <div className="absolute -top-3 left-1/2 h-4 w-32 -translate-x-1/2 rounded-t-lg border-t border-amber-300/60 bg-amber-500/30" />
-            <div className="absolute inset-x-0 top-1/2 h-1 bg-amber-400/40" />
-            <div className="absolute left-1/2 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-amber-300/80 bg-amber-400/60 shadow-[0_0_12px_rgba(251,191,36,0.9)]" />
+          <div className="wl-chest-body absolute right-[10%] bottom-14 h-22 w-36 rounded-xl border backdrop-blur-sm">
+            <div className="absolute -top-3 left-1/2 h-4 w-32 -translate-x-1/2 rounded-t-lg border-t border-wl-treasure/60 bg-wl-treasure/30" />
+            <div className="absolute inset-x-0 top-1/2 h-1 bg-wl-treasure/40" />
+            <div className="absolute left-1/2 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-wl-treasure/80 bg-wl-treasure/60 shadow-[0_0_12px_rgba(251,191,36,0.9)]" />
           </div>
 
           {/* Right Treasure Chest Cluster 2 */}
@@ -212,7 +223,7 @@ export default function OceanPage() {
           </div>
 
           {/* Central Underwater Glow Anchor */}
-          <div className="absolute left-1/2 bottom-2 h-48 w-[600px] -translate-x-1/2 rounded-full bg-amber-400/10 blur-[80px]" />
+          <div className="absolute left-1/2 bottom-2 h-48 w-[600px] -translate-x-1/2 rounded-full bg-wl-treasure/10 blur-[80px]" />
         </motion.div>
       </motion.div>
 
@@ -235,13 +246,13 @@ export default function OceanPage() {
       )}
 
       {hoveredGroup && (
-        <div className="pointer-events-none absolute left-1/2 top-40 z-20 -translate-x-1/2 rounded-full border border-cyan-500/30 bg-[#02182b]/90 px-4 py-1.5 text-xs font-medium text-cyan-100">
+        <div className="pointer-events-none absolute left-1/2 top-40 z-20 -translate-x-1/2 rounded-full border border-cyan-500/30 bg-wl-bg/90 px-4 py-1.5 text-xs font-medium text-wl-title">
           {hoveredGroup.trackName} — {hoveredGroup.artist}
         </div>
       )}
 
       {isEmpty && (
-        <p className="pointer-events-none absolute left-1/2 top-1/3 z-10 max-w-xs -translate-x-1/2 text-center text-sm text-cyan-100/60">
+        <p className="pointer-events-none absolute left-1/2 top-1/3 z-10 max-w-xs -translate-x-1/2 text-center text-sm text-wl-muted">
           No one's listening yet — play something on Spotify to start a wave.
         </p>
       )}

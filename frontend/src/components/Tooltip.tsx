@@ -24,7 +24,7 @@ export default function Tooltip({ label, children, className = '', side = 'botto
         className={`
           pointer-events-none absolute left-1/2 ${positionClasses} z-50
           -translate-x-1/2 whitespace-nowrap rounded-md border border-cyan-500/30
-          bg-[#02182b] px-2 py-1 text-xs font-medium text-cyan-100
+          bg-wl-bg px-2 py-1 text-xs font-medium text-wl-title
           opacity-0 shadow-lg shadow-black/30 transition-opacity duration-150
           group-hover/tooltip:opacity-100 group-focus-within/tooltip:opacity-100
         `}

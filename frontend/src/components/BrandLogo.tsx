@@ -22,7 +22,7 @@ export default function BrandLogo({ className = 'h-8 w-8', withWordmark = false 
         className={`${className} object-contain drop-shadow-[0_0_6px_rgba(34,211,238,0.45)]`}
       />
       {withWordmark && (
-        <span className="text-lg font-semibold tracking-tight text-cyan-50">Wavelength</span>
+        <span className="text-lg font-semibold tracking-tight text-wl-title">Wavelength</span>
       )}
     </span>
   );

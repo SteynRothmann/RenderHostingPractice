@@ -64,15 +64,15 @@ export default function Conversation({
   }
 
   return (
-    <section className="flex h-full min-w-0 flex-1 flex-col bg-[#071c3d]/55 backdrop-blur-sm">
+    <section className="flex h-full min-w-0 flex-1 flex-col bg-wl-panel/55 backdrop-blur-sm">
       {/* Conversation header */}
-      <header className="flex items-center gap-3 border-b border-white/10 bg-[#071c3d]/45 px-5 py-4 backdrop-blur-md">
+      <header className="flex items-center gap-3 border-b border-wl-fg/10 bg-wl-panel/45 px-5 py-4 backdrop-blur-md">
         {onBack && (
           <button
             type="button"
             onClick={onBack}
             aria-label="Back to chats"
-            className="rounded-full p-1 text-white/70 transition hover:bg-white/10 md:hidden"
+            className="rounded-full p-1 text-wl-fg/70 transition hover:bg-wl-fg/10 md:hidden"
           >
             <svg
               viewBox="0 0 24 24"
@@ -99,7 +99,7 @@ export default function Conversation({
           {icon ? (
             <img src={icon} alt={title} className="h-full w-full object-cover" />
           ) : (
-            <span className="text-sm font-semibold text-white">
+            <span className="text-sm font-semibold text-wl-fg">
               {(title || '?').charAt(0).toUpperCase()}
             </span>
           )}
@@ -108,7 +108,7 @@ export default function Conversation({
         <div className="min-w-0">
           <h2
             onClick={onHeaderClick}
-            className={`truncate text-base font-semibold text-white ${onHeaderClick ? 'cursor-pointer hover:underline' : ''}`}
+            className={`truncate text-base font-semibold text-wl-fg ${onHeaderClick ? 'cursor-pointer hover:underline' : ''}`}
           >
             {title}
           </h2>
@@ -126,7 +126,7 @@ export default function Conversation({
               <span className="font-semibold text-cyan-300">Join</span>
             </button>
           ) : (
-            <p className="text-xs text-white/40">Chat</p>
+            <p className="text-xs text-wl-fg/40">Chat</p>
           )}
         </div>
 
@@ -135,7 +135,7 @@ export default function Conversation({
           onClick={onMenuAction}
           title={menuLabel}
           aria-label={menuLabel}
-          className="ml-auto rounded-full px-3 py-2 text-xl leading-none text-white/50 transition hover:bg-white/10 hover:text-white"
+          className="ml-auto rounded-full px-3 py-2 text-xl leading-none text-wl-fg/50 transition hover:bg-wl-fg/10 hover:text-wl-fg"
         >
           ⋮
         </button>
@@ -147,7 +147,7 @@ export default function Conversation({
         aria-live="polite"
       >
         {messages.length === 0 && (
-          <p className="m-auto text-sm text-white/40">
+          <p className="m-auto text-sm text-wl-fg/40">
             No messages yet. Say hello to {title}.
           </p>
         )}
@@ -195,12 +195,12 @@ export default function Conversation({
                     {sender?.profileImage ? (
                       <img src={sender.profileImage} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <span className="text-[9px] font-semibold text-white">
+                      <span className="text-[9px] font-semibold text-wl-fg">
                         {senderLabel.charAt(0).toUpperCase()}
                       </span>
                     )}
                   </span>
-                  <span className="text-xs font-medium text-cyan-200/80">{senderLabel}</span>
+                  <span className="text-xs font-medium text-wl-link/80">{senderLabel}</span>
                 </button>
               )}
 
@@ -208,12 +208,12 @@ export default function Conversation({
                 className={`break-words px-4 py-2.5 text-sm leading-relaxed ${
                   mine
                     ? 'rounded-2xl rounded-br-sm bg-gradient-to-r from-blue-500 to-cyan-400 text-white'
-                    : 'rounded-2xl rounded-bl-sm bg-white/10 text-white'
+                    : 'rounded-2xl rounded-bl-sm bg-wl-fg/10 text-wl-fg'
                 }`}
               >
                 {message.text}
               </p>
-              <span className="mt-1 px-1 text-[11px] text-white/35">{time}</span>
+              <span className="mt-1 px-1 text-[11px] text-wl-fg/35">{time}</span>
             </motion.div>
           );
         })}
@@ -224,7 +224,7 @@ export default function Conversation({
       {/* Composer */}
       <form
         onSubmit={submit}
-        className="flex items-center gap-3 border-t border-white/10 bg-[#071c3d]/45 px-5 py-4 backdrop-blur-md"
+        className="flex items-center gap-3 border-t border-wl-fg/10 bg-wl-panel/45 px-5 py-4 backdrop-blur-md"
       >
         <input
           value={text}
@@ -233,7 +233,7 @@ export default function Conversation({
           aria-label={`Message ${title}`}
           maxLength={2000}
           autoComplete="off"
-          className="min-w-0 flex-1 rounded-full border border-white/10 bg-white/10 px-5 py-3 text-sm text-white outline-none placeholder:text-white/40 transition focus:border-cyan-300/60 focus:bg-white/15"
+          className="min-w-0 flex-1 rounded-full border border-wl-fg/10 bg-wl-fg/10 px-5 py-3 text-sm text-wl-fg outline-none placeholder:text-wl-fg/40 transition focus:border-cyan-300/60 focus:bg-wl-fg/15"
         />
 
         <motion.button

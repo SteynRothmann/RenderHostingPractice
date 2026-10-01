@@ -71,9 +71,9 @@ export default function ChatProfileOverlay({ spotifyUserId, onClose, onUnfriende
     <NavPanel open={Boolean(spotifyUserId)} onClose={onClose} title={profile?.displayName || 'Profile'}>
       <div className="flex flex-col items-center gap-4 px-5 py-6">
         {loading ? (
-          <p className="text-sm text-slate-400">Loading…</p>
+          <p className="text-sm text-wl-muted">Loading…</p>
         ) : error && !profile ? (
-          <p className="text-sm text-red-400">{error}</p>
+          <p className="text-sm text-wl-danger">{error}</p>
         ) : (
           <>
             <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-400 bg-slate-300 shadow-md">
@@ -87,13 +87,13 @@ export default function ChatProfileOverlay({ spotifyUserId, onClose, onUnfriende
             </div>
 
             <div className="text-center">
-              <p className="text-base font-semibold text-cyan-100">{profile?.displayName}</p>
+              <p className="text-base font-semibold text-wl-title">{profile?.displayName}</p>
               {profile?.profileUrl && (
                 <a
                   href={profile.profileUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-1 inline-flex items-center gap-1 text-xs text-cyan-300 underline hover:text-cyan-200"
+                  className="mt-1 inline-flex items-center gap-1 text-xs text-wl-link underline hover:text-wl-cyan"
                 >
                   <ExternalLink className="h-3 w-3" />
                   Open Spotify profile
@@ -106,18 +106,18 @@ export default function ChatProfileOverlay({ spotifyUserId, onClose, onUnfriende
                 type="button"
                 onClick={handleUnfriend}
                 disabled={unfriending}
-                className="rounded-full bg-red-500/90 px-5 py-2 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-full bg-wl-danger/90 px-5 py-2 text-sm font-semibold text-white transition hover:bg-wl-danger disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {unfriending ? 'Unfriending…' : 'Unfriend'}
               </button>
             ) : (
-              <p className="max-w-xs text-center text-xs text-white/40">
+              <p className="max-w-xs text-center text-xs text-wl-muted">
                 Unfriending only applies to people you have a direct chat with - this person is a
                 group member, not a direct-chat friend.
               </p>
             )}
 
-            {error && <p className="text-xs text-red-400">{error}</p>}
+            {error && <p className="text-xs text-wl-danger">{error}</p>}
           </>
         )}
       </div>

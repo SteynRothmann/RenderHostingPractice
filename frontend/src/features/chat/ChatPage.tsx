@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
 import { useChat } from '../../data/ChatContext';
+import { useTheme } from '../../data/ThemeContext';
 import Conversation from './Conversation';
 import CreateGroupPanel from './CreateGroupPanel';
 import ChatProfileOverlay from './ChatProfileOverlay';
@@ -11,6 +12,7 @@ type Active = { type: 'friend' | 'group'; id: string } | null;
 
 export default function ChatPage() {
   const { friends, groups, unfriend, leaveGroup, unreadThreadIds, setActiveThread } = useChat();
+  const { isDark } = useTheme();
   const [params] = useSearchParams();
 
   const withId = params.get('with');
@@ -57,13 +59,22 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="relative isolate flex h-screen flex-col overflow-hidden bg-[#0a192f] text-white">
+    <div className="relative isolate flex h-screen flex-col overflow-hidden bg-wl-bg text-wl-fg">
 
       {/* Underwater atmosphere */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
 
-        {/* Deep ocean gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0a2140] via-[#071c3d] to-[#031426]" />
+        {/* Deep ocean gradient - exact dark-mode literal kept as-is so this
+            page stays pixel-identical; a brighter counterpart for light
+            mode built from the wl-bg/wl-panel tokens. */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: isDark
+              ? 'linear-gradient(to bottom, #0a2140, #071c3d, #031426)'
+              : 'linear-gradient(to bottom, var(--wl-bg), var(--wl-panel), var(--wl-bg))',
+          }}
+        />
 
         {/* Soft underwater glow */}
         <div className="absolute -left-32 top-16 h-[500px] w-[500px] rounded-full bg-blue-500/10 blur-[120px]" />
@@ -145,10 +156,10 @@ export default function ChatPage() {
         <aside
           className={`${
             showThread ? 'hidden' : 'flex'
-          } w-full flex-col overflow-hidden rounded-2xl border border-cyan-400/15 bg-[#071330]/55 shadow-[0_16px_50px_rgba(2,10,25,0.35)] backdrop-blur-xl md:flex md:w-[320px] md:shrink-0`}        >
+          } w-full flex-col overflow-hidden rounded-2xl border border-cyan-400/15 bg-wl-panel/55 shadow-[0_16px_50px_rgba(2,10,25,0.35)] backdrop-blur-xl md:flex md:w-[320px] md:shrink-0`}        >
 
           {/* Friends / Groups tabs */}
-          <nav className="flex border-b border-white/10 text-sm font-medium">
+          <nav className="flex border-b border-wl-fg/10 text-sm font-medium">
             {(['friends', 'groups'] as const).map((item) => (
               <button
                 key={item}
@@ -156,8 +167,8 @@ export default function ChatPage() {
                 onClick={() => setTab(item)}
                 className={`relative flex-1 py-4 capitalize transition ${
                   tab === item
-                    ? 'text-white'
-                    : 'text-white/45 hover:text-white/75'
+                    ? 'text-wl-fg'
+                    : 'text-wl-fg/45 hover:text-wl-fg/75'
                 }`}
               >
                 <span className="inline-flex items-center gap-1.5">
@@ -184,7 +195,7 @@ export default function ChatPage() {
 
           {/* Sidebar heading */}
           <div className="flex items-center justify-between px-4 py-3">
-            <span className="text-xs font-medium uppercase tracking-wider text-white/40">
+            <span className="text-xs font-medium uppercase tracking-wider text-wl-fg/40">
               {tab === 'groups' ? 'Your groups' : 'Friends'}
             </span>
 
@@ -192,7 +203,7 @@ export default function ChatPage() {
               <button
                 type="button"
                 onClick={() => setGroupPanelOpen(true)}
-                className="rounded-full border border-white/20 px-3 py-1.5 text-xs text-white/80 transition hover:bg-white/10 hover:text-white"
+                className="rounded-full border border-wl-fg/20 px-3 py-1.5 text-xs text-wl-fg/80 transition hover:bg-wl-fg/10 hover:text-wl-fg"
               >
                 + New group
               </button>
@@ -204,7 +215,7 @@ export default function ChatPage() {
             {tab === 'friends' && (
               <>
                 {friends.length === 0 && (
-                  <p className="px-4 py-8 text-center text-sm text-white/40">
+                  <p className="px-4 py-8 text-center text-sm text-wl-fg/40">
                     No chats yet — accept a request from Notifications.
                   </p>
                 )}
@@ -226,7 +237,7 @@ export default function ChatPage() {
                         ${
                           selected
                             ? 'border-cyan-300/25 bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.10)]'
-                            : 'border-transparent hover:border-white/10 hover:bg-white/[0.04]'
+                            : 'border-transparent hover:border-wl-fg/10 hover:bg-wl-fg/[0.04]'
                         }
                       `}
                     >
@@ -235,7 +246,7 @@ export default function ChatPage() {
                           className={`flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border bg-slate-700 transition ${
                             selected
                               ? 'border-cyan-300/60 shadow-[0_0_14px_rgba(34,211,238,0.35)]'
-                              : 'border-white/10'
+                              : 'border-wl-fg/10'
                           }`}
                         >
                           {friend.profileImage ? (
@@ -245,25 +256,25 @@ export default function ChatPage() {
                               className="h-full w-full object-cover"
                             />
                           ) : (
-                            <span className="text-sm font-semibold text-white">
+                            <span className="text-sm font-semibold text-wl-fg">
                               {friend.displayName.charAt(0).toUpperCase()}
                             </span>
                           )}
                         </div>
                         {unreadThreadIds.has(friend.spotifyUserId) && (
                           <span
-                            className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-[#071330] bg-red-500"
+                            className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-wl-panel bg-red-500"
                             aria-label="New message"
                           />
                         )}
                       </div>
 
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[15px] font-semibold text-white">
+                        <span className="block truncate text-[15px] font-semibold text-wl-fg">
                           {friend.displayName}
                         </span>
 
-                        <span className="flex items-center gap-1 truncate text-xs text-white/40">
+                        <span className="flex items-center gap-1 truncate text-xs text-wl-fg/40">
                           <span className="truncate">Tap to chat</span>
                         </span>
                       </span>
@@ -276,7 +287,7 @@ export default function ChatPage() {
             {tab === 'groups' && (
               <>
                 {groups.length === 0 && (
-                  <p className="px-4 py-8 text-center text-sm text-white/40">
+                  <p className="px-4 py-8 text-center text-sm text-wl-fg/40">
                     No groups yet.
                   </p>
                 )}
@@ -293,7 +304,7 @@ export default function ChatPage() {
                       className={`flex w-full items-center gap-3 px-4 py-3 text-left transition ${
                         selected
                           ? 'bg-cyan-400/15'
-                          : 'hover:bg-white/5'
+                          : 'hover:bg-wl-fg/5'
                       }`}
                     >
                       <div className="relative shrink-0">
@@ -304,24 +315,24 @@ export default function ChatPage() {
                             className="h-11 w-11 rounded-xl object-cover"
                           />
                         ) : (
-                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-700 text-sm font-semibold text-white">
+                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-700 text-sm font-semibold text-wl-fg">
                             {group.name.charAt(0).toUpperCase()}
                           </div>
                         )}
                         {unreadThreadIds.has(group.id) && (
                           <span
-                            className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-[#071330] bg-red-500"
+                            className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-wl-panel bg-red-500"
                             aria-label="New message"
                           />
                         )}
                       </div>
 
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[15px] font-semibold text-white">
+                        <span className="block truncate text-[15px] font-semibold text-wl-fg">
                           {group.name}
                         </span>
 
-                        <span className="block truncate text-xs text-white/40">
+                        <span className="block truncate text-xs text-wl-fg/40">
                           {group.members.length} members
                         </span>
                       </span>
@@ -337,10 +348,10 @@ export default function ChatPage() {
         <main
           className={`${
             showThread ? 'flex' : 'hidden'
-          } min-w-0 flex-1 overflow-hidden rounded-2xl border border-cyan-400/15 bg-[#071330]/35 shadow-[0_16px_50px_rgba(2,10,25,0.3)] backdrop-blur-xl md:flex`}
+          } min-w-0 flex-1 overflow-hidden rounded-2xl border border-cyan-400/15 bg-wl-panel/35 shadow-[0_16px_50px_rgba(2,10,25,0.3)] backdrop-blur-xl md:flex`}
         >
           {!active && (
-            <div className="hidden flex-1 items-center justify-center bg-[#071c3d]/35 text-sm text-white/40 md:flex">
+            <div className="hidden flex-1 items-center justify-center bg-wl-panel/35 text-sm text-wl-fg/40 md:flex">
               Pick a conversation to get started
             </div>
           )}

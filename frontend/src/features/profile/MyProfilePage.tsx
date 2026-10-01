@@ -62,10 +62,10 @@ export default function MyProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#02182b] pb-24 text-white">
+    <div className="min-h-screen bg-wl-bg pb-24 text-wl-fg">
       <PageHeader title="Your Profile" />
 
-      <div className="mx-auto my-8 max-w-4xl rounded-3xl border border-cyan-500/20 bg-[#04385a]/90 p-6 shadow-2xl backdrop-blur-md md:p-8">
+      <div className="mx-auto my-8 max-w-4xl rounded-3xl border border-cyan-500/20 bg-wl-panel/90 p-6 shadow-2xl backdrop-blur-md md:p-8">
         {/* Header: real Spotify avatar + name + editable fields */}
         <div className="flex flex-col items-center gap-6 border-b border-cyan-500/20 pb-6 sm:flex-row sm:items-start">
           <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-400 bg-slate-300 shadow-md">
@@ -80,29 +80,29 @@ export default function MyProfilePage() {
 
           <div className="flex-1 space-y-4">
             {profile?.displayName && (
-              <p className="text-sm text-cyan-300">
-                Spotify: <span className="font-semibold text-cyan-100">{profile.displayName}</span>
+              <p className="text-sm text-wl-link">
+                Spotify: <span className="font-semibold text-wl-title">{profile.displayName}</span>
               </p>
             )}
 
             <div>
-              <label className="mb-1 block text-sm font-semibold text-cyan-300">Nickname</label>
+              <label className="mb-1 block text-sm font-semibold text-wl-link">Nickname</label>
               <input
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
                 placeholder="What should people call you?"
-                className="w-full rounded-lg border border-cyan-500/20 bg-[#02182b] px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                className="w-full rounded-lg border border-cyan-500/20 bg-wl-bg px-3 py-2 text-sm text-wl-fg placeholder:text-wl-faint"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-semibold text-cyan-300">Bio</label>
+              <label className="mb-1 block text-sm font-semibold text-wl-link">Bio</label>
               <textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 rows={2}
                 placeholder="Say something about yourself…"
-                className="w-full rounded-lg border border-cyan-500/20 bg-[#02182b] px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                className="w-full rounded-lg border border-cyan-500/20 bg-wl-bg px-3 py-2 text-sm text-wl-fg placeholder:text-wl-faint"
               />
             </div>
           </div>
@@ -111,16 +111,16 @@ export default function MyProfilePage() {
         {/* Stats bar */}
         <div className="flex items-center justify-around border-b border-cyan-500/20 py-6 text-center">
           <div>
-            <p className="text-xl font-bold text-cyan-100">{groupsCount}</p>
-            <p className="text-xs uppercase tracking-wider text-cyan-300">Groups</p>
+            <p className="text-xl font-bold text-wl-title">{groupsCount}</p>
+            <p className="text-xs uppercase tracking-wider text-wl-link">Groups</p>
           </div>
           <div>
-            <p className="text-xl font-bold text-cyan-100">{stats?.followers != null ? stats.followers : '—'}</p>
-            <p className="text-xs uppercase tracking-wider text-cyan-300">Followers</p>
+            <p className="text-xl font-bold text-wl-title">{stats?.followers != null ? stats.followers : '—'}</p>
+            <p className="text-xs uppercase tracking-wider text-wl-link">Followers</p>
           </div>
           <div>
-            <p className="text-xl font-bold text-cyan-100">{stats ? stats.following : '—'}</p>
-            <p className="text-xs uppercase tracking-wider text-cyan-300">Following</p>
+            <p className="text-xl font-bold text-wl-title">{stats ? stats.following : '—'}</p>
+            <p className="text-xs uppercase tracking-wider text-wl-link">Following</p>
           </div>
         </div>
 
@@ -128,11 +128,11 @@ export default function MyProfilePage() {
             manual add/remove; the mock d.me.genres field itself is left
             alone for other parts of the app that may still use it). */}
         <div className="border-b border-cyan-500/20 py-6">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-cyan-300">Top genres</h3>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-wl-link">Top genres</h3>
           {statsError ? (
-            <p className="text-xs text-red-400">{statsError}</p>
+            <p className="text-xs text-wl-danger">{statsError}</p>
           ) : stats && stats.topGenres.length === 0 ? (
-            <p className="text-xs text-slate-400">Not enough listening history yet to tell your top genres.</p>
+            <p className="text-xs text-wl-muted">Not enough listening history yet to tell your top genres.</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {(stats?.topGenres ?? []).map((g) => (
@@ -143,18 +143,18 @@ export default function MyProfilePage() {
                   {g}
                 </span>
               ))}
-              {!stats && !statsError && <span className="text-xs text-slate-400">Loading…</span>}
+              {!stats && !statsError && <span className="text-xs text-wl-muted">Loading…</span>}
             </div>
           )}
         </div>
 
         {/* Recently played - real Spotify listening history */}
         <div className="border-b border-cyan-500/20 py-6">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-cyan-300">Recently played</h3>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-wl-link">Recently played</h3>
           {recentError ? (
-            <p className="text-xs text-red-400">{recentError}</p>
+            <p className="text-xs text-wl-danger">{recentError}</p>
           ) : recentTracks.length === 0 ? (
-            <p className="text-xs text-slate-400">Nothing played recently.</p>
+            <p className="text-xs text-wl-muted">Nothing played recently.</p>
           ) : (
             <ul className="space-y-2">
               {recentTracks.map((t, i) => (
@@ -163,10 +163,10 @@ export default function MyProfilePage() {
                     {t.albumArt && <img src={t.albumArt} alt="" className="h-full w-full object-cover" />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-cyan-100">{t.name}</p>
-                    <p className="truncate text-xs text-slate-400">{t.artist}</p>
+                    <p className="truncate text-sm font-medium text-wl-title">{t.name}</p>
+                    <p className="truncate text-xs text-wl-muted">{t.artist}</p>
                   </div>
-                  <span className="shrink-0 text-xs text-slate-500">{timeAgo(t.playedAt)}</span>
+                  <span className="shrink-0 text-xs text-wl-faint">{timeAgo(t.playedAt)}</span>
                 </li>
               ))}
             </ul>
@@ -175,11 +175,11 @@ export default function MyProfilePage() {
 
         {/* Public playlists */}
         <div className="border-b border-cyan-500/20 py-6">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-cyan-300">Public playlists</h3>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-wl-link">Public playlists</h3>
           {playlistsError ? (
-            <p className="text-xs text-red-400">{playlistsError}</p>
+            <p className="text-xs text-wl-danger">{playlistsError}</p>
           ) : playlists.length === 0 ? (
-            <p className="text-xs text-slate-400">No public playlists on this account.</p>
+            <p className="text-xs text-wl-muted">No public playlists on this account.</p>
           ) : (
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
               {playlists.map((p) => (
@@ -188,7 +188,7 @@ export default function MyProfilePage() {
                   href={p.url ?? undefined}
                   target="_blank"
                   rel="noreferrer"
-                  className="group flex flex-col items-center rounded-lg border border-cyan-500/10 bg-[#02182b] p-2 text-center transition hover:border-cyan-500/30"
+                  className="group flex flex-col items-center rounded-lg border border-cyan-500/10 bg-wl-bg p-2 text-center transition hover:border-cyan-500/30"
                 >
                   <div className="mb-2 flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-cyan-950">
                     {p.image ? (
@@ -197,8 +197,8 @@ export default function MyProfilePage() {
                       <ListMusic className="h-5 w-5 text-cyan-500/50" />
                     )}
                   </div>
-                  <p className="w-full truncate text-xs font-medium text-cyan-100 group-hover:text-cyan-300">{p.name}</p>
-                  <p className="text-[11px] text-slate-500">{p.trackCount} tracks</p>
+                  <p className="w-full truncate text-xs font-medium text-wl-title group-hover:text-wl-link">{p.name}</p>
+                  <p className="text-[11px] text-wl-faint">{p.trackCount} tracks</p>
                 </a>
               ))}
             </div>
@@ -207,19 +207,19 @@ export default function MyProfilePage() {
 
         {/* Real Spotify identity */}
         <div className="pt-6">
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-cyan-300">Connected to Spotify</h3>
-          <div className="flex items-center gap-3 rounded-lg border border-cyan-500/20 bg-[#02182b] px-3 py-2">
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-wl-link">Connected to Spotify</h3>
+          <div className="flex items-center gap-3 rounded-lg border border-cyan-500/20 bg-wl-bg px-3 py-2">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-700">
               {profile?.profileImage && <img src={profile.profileImage} alt="" className="h-full w-full object-cover" />}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm text-slate-200">{profile?.displayName || 'Unknown'}</p>
+              <p className="truncate text-sm text-wl-soft">{profile?.displayName || 'Unknown'}</p>
               {/* As of Spotify's February 2026 Web API changes, /me no
                   longer returns email at all - not a scope issue, Spotify
                   just stopped providing it to any app. profile.email will
                   always be null now; kept in the type/response in case
                   Spotify ever reverses this. */}
-              <p className="truncate text-xs text-slate-500">
+              <p className="truncate text-xs text-wl-faint">
                 {profile?.email || 'Spotify no longer shares account email with apps'}
               </p>
             </div>
@@ -228,7 +228,7 @@ export default function MyProfilePage() {
                 href={profile.profileUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs text-white hover:bg-white/20"
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-wl-fg/25 bg-wl-fg/10 px-3 py-1 text-xs text-wl-fg hover:bg-wl-fg/20"
               >
                 <ExternalLink className="h-3 w-3" />
                 View profile
@@ -240,7 +240,7 @@ export default function MyProfilePage() {
         <button
           onClick={save}
           type="button"
-          className="mt-6 w-full rounded-md bg-[#1ED760] py-2.5 text-sm font-semibold text-black transition hover:bg-[#1fdf64]"
+          className="mt-6 w-full rounded-md bg-wl-accent py-2.5 text-sm font-semibold text-black transition hover:bg-[#1fdf64]"
         >
           Save changes
         </button>

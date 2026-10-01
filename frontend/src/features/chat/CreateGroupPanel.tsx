@@ -45,7 +45,7 @@ export default function CreateGroupPanel({
 
       {/* Group name */}
       <div>
-        <label className="mb-2 block text-sm font-semibold text-cyan-100">
+        <label className="mb-2 block text-sm font-semibold text-wl-title">
           Group name
         </label>
 
@@ -57,14 +57,14 @@ export default function CreateGroupPanel({
           className="
             w-full rounded-xl
             border border-cyan-400/20
-            bg-[#050e26]/70
+            bg-wl-bg/70
             px-4 py-3
-            text-sm text-white
+            text-sm text-wl-fg
             outline-none
-            placeholder:text-cyan-200/30
+            placeholder:text-wl-faint
             transition
             focus:border-cyan-400/50
-            focus:bg-[#050e26]/90
+            focus:bg-wl-bg/90
           "
         />
       </div>
@@ -72,10 +72,10 @@ export default function CreateGroupPanel({
       {/* Preset group picture */}
       <div>
         <div className="mb-2">
-          <p className="text-sm font-semibold text-cyan-100">
+          <p className="text-sm font-semibold text-wl-title">
             Group picture
           </p>
-          <p className="mt-0.5 text-xs text-cyan-200/50">
+          <p className="mt-0.5 text-xs text-wl-muted">
             Choose one of the WaveLength presets.
           </p>
         </div>
@@ -96,7 +96,7 @@ export default function CreateGroupPanel({
                   ${
                     selected
                       ? 'border-cyan-300 ring-2 ring-cyan-400/40 shadow-[0_0_16px_rgba(34,211,238,0.25)]'
-                      : 'border-white/10 opacity-70 hover:border-cyan-400/40 hover:opacity-100'
+                      : 'border-wl-fg/10 opacity-70 hover:border-cyan-400/40 hover:opacity-100'
                   }
                 `}
               >
@@ -114,16 +114,16 @@ export default function CreateGroupPanel({
       {/* Members */}
       <div>
         <div className="mb-2">
-          <p className="text-sm font-semibold text-cyan-100">
+          <p className="text-sm font-semibold text-wl-title">
             Add friends
           </p>
-          <p className="mt-0.5 text-xs text-cyan-200/50">
+          <p className="mt-0.5 text-xs text-wl-muted">
             Select the people you want in this group.
           </p>
         </div>
 
         {friends.length === 0 ? (
-          <p className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-white/40">
+          <p className="rounded-xl border border-wl-fg/10 bg-wl-fg/[0.03] px-4 py-3 text-xs text-wl-fg/40">
             No friends yet to add.
           </p>
         ) : (
@@ -141,7 +141,7 @@ export default function CreateGroupPanel({
                     ${
                       selected
                         ? 'border-cyan-400/30 bg-cyan-400/10'
-                        : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
+                        : 'border-wl-fg/5 bg-wl-fg/[0.02] hover:bg-wl-fg/[0.05]'
                     }
                   `}
                 >
@@ -160,13 +160,13 @@ export default function CreateGroupPanel({
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <span className="text-xs font-semibold text-white">
+                      <span className="text-xs font-semibold text-wl-fg">
                         {friend.displayName.charAt(0).toUpperCase()}
                       </span>
                     )}
                   </div>
 
-                  <span className="text-sm text-white/85">
+                  <span className="text-sm text-wl-fg/85">
                     {friend.displayName}
                   </span>
                 </label>

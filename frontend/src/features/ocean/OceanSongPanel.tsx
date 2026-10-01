@@ -181,7 +181,7 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
     <AnimatePresence>
       {group && (
         <motion.div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-[#07102a]/65 p-4 backdrop-blur-md"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-wl-scrim p-4 backdrop-blur-md"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

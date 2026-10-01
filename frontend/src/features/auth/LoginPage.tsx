@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Info, Music2 } from 'lucide-react';
 import { useAuth } from '../../data/AuthContext';
 import BrandLogo from '../../components/BrandLogo';
+import ThemeToggle from '../../components/ThemeToggle';
 
 // Real login screen. Rebuilt from scratch to match this project's own Ocean
 // page visual language (dark sea gradient, cyan wave bands, soft light
@@ -37,11 +38,16 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#02182b] px-4 py-10 text-white">
-      {/* Sky-to-sea background gradient, matching the Ocean page's canvas. */}
+    <main className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-wl-bg px-4 py-10 text-wl-fg">
+      <div className="absolute right-4 top-4 z-20">
+        <ThemeToggle />
+      </div>
+
+      {/* Sky-to-sea background gradient, matching the Ocean page's canvas
+          (tokens cross-fade automatically, see @property in index.css). */}
       <div
         className="absolute inset-0"
-        style={{ background: 'linear-gradient(180deg, #02182b 0%, #04385a 55%, #0a4a6e 100%)' }}
+        style={{ background: 'linear-gradient(180deg, var(--wl-bg) 0%, var(--wl-panel) 55%, var(--wl-panel) 100%)' }}
         aria-hidden="true"
       />
 
@@ -92,14 +98,14 @@ export default function LoginPage() {
               d="M0 90c150 0 150 60 300 60s150-60 300-60 150 60 300 60 150-60 300-60 150 60 300 60 150-60 300-60 150 60 300 60 150-60 300-60v210H0z"
             />
           </defs>
-          <g className="login-wave-band login-wave-band-1">
-            <use href="#login-wave-shape" fill="rgba(34,211,238,0.12)" />
+          <g className="login-wave-band login-wave-band-1 text-wl-icon/12">
+            <use href="#login-wave-shape" fill="currentColor" />
           </g>
-          <g className="login-wave-band login-wave-band-2">
-            <use href="#login-wave-shape" x="60" y="40" fill="rgba(34,211,238,0.22)" />
+          <g className="login-wave-band login-wave-band-2 text-wl-icon/22">
+            <use href="#login-wave-shape" x="60" y="40" fill="currentColor" />
           </g>
-          <g className="login-wave-band login-wave-band-3">
-            <use href="#login-wave-shape" x="-40" y="80" fill="rgba(34,211,238,0.38)" />
+          <g className="login-wave-band login-wave-band-3 text-wl-icon/38">
+            <use href="#login-wave-shape" x="-40" y="80" fill="currentColor" />
           </g>
         </svg>
       </div>
@@ -108,11 +114,11 @@ export default function LoginPage() {
       <div className="relative z-10 w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
           <BrandLogo className="h-14 w-14" />
-          <span className="text-2xl font-semibold tracking-tight text-cyan-50">Wavelength</span>
-          <p className="text-sm text-cyan-100/70">Watch what the ocean is listening to, live.</p>
+          <span className="text-2xl font-semibold tracking-tight text-wl-title">Wavelength</span>
+          <p className="text-sm text-wl-muted">Watch what the ocean is listening to, live.</p>
         </div>
 
-        <div className="rounded-2xl border border-cyan-500/20 bg-[#04385a]/60 p-6 shadow-[0_20px_60px_rgba(2,24,43,0.55)] backdrop-blur-md">
+        <div className="rounded-2xl border border-cyan-500/20 bg-wl-panel/60 p-6 shadow-[0_20px_60px_rgba(2,24,43,0.55)] backdrop-blur-md">
           {errorReason && (
             <p className="mb-4 rounded-lg border border-red-400/40 bg-red-500/15 px-3 py-2 text-xs text-red-100">
               {ERROR_MESSAGES[errorReason] || 'Could not connect to Spotify. Please try again.'}
@@ -124,13 +130,13 @@ export default function LoginPage() {
             type="button"
             onClick={handleLogin}
             disabled={connecting}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-[#1ED760] px-4 py-3 text-sm font-semibold text-black transition-colors hover:bg-[#1fdf64] disabled:cursor-wait disabled:opacity-70"
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-wl-accent px-4 py-3 text-sm font-semibold text-black transition-colors hover:bg-[#1fdf64] disabled:cursor-wait disabled:opacity-70"
           >
             <Music2 className="h-[18px] w-[18px]" aria-hidden="true" />
             <span>{connecting ? 'Redirecting to Spotify…' : 'Log in with Spotify'}</span>
           </button>
-          <p className="mt-2 flex items-start gap-1.5 text-left text-[11px] leading-snug text-cyan-100/60">
-            <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-cyan-300/70" aria-hidden="true" />
+          <p className="mt-2 flex items-start gap-1.5 text-left text-[11px] leading-snug text-wl-muted">
+            <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-wl-link/70" aria-hidden="true" />
             <span>
               Spotify Premium is needed to actually interact with songs in the ocean (join a track,
               follow along). Free accounts can still open a song's panel to inspect it, but its buttons
@@ -140,7 +146,7 @@ export default function LoginPage() {
             </span>
           </p>
 
-          <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-wide text-cyan-100/40">
+          <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-wide text-wl-faint">
             <span className="h-px flex-1 bg-cyan-500/20" />
             or
             <span className="h-px flex-1 bg-cyan-500/20" />
@@ -150,12 +156,12 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={handleGuest}
-            className="w-full rounded-full border border-cyan-400/30 px-4 py-3 text-sm font-medium text-cyan-100 transition-colors hover:bg-cyan-500/10 hover:text-white"
+            className="w-full rounded-full border border-cyan-400/30 px-4 py-3 text-sm font-medium text-wl-title transition-colors hover:bg-cyan-500/10 hover:text-wl-title"
           >
             Continue as guest
           </button>
-          <p className="mt-2 flex items-start gap-1.5 text-left text-[11px] leading-snug text-cyan-100/60">
-            <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-cyan-300/70" aria-hidden="true" />
+          <p className="mt-2 flex items-start gap-1.5 text-left text-[11px] leading-snug text-wl-muted">
+            <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-wl-link/70" aria-hidden="true" />
             <span>As a guest you can only watch songs drift by. You won't be able to interact with them.</span>
           </p>
         </div>
