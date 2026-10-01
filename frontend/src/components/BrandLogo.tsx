@@ -11,9 +11,15 @@
 interface BrandLogoProps {
   className?: string;
   withWordmark?: boolean;
+  // Extra classes applied to the "Wavelength" wordmark span itself (on top
+  // of its own base classes below) - lets a caller hide it responsively
+  // (e.g. `hidden sm:inline` in OceanNav, where a phone-width bar doesn't
+  // have room for the logo + full wordmark + search + nav icons at once)
+  // without having to reimplement the logo+wordmark markup itself.
+  wordmarkClassName?: string;
 }
 
-export default function BrandLogo({ className = 'h-8 w-8', withWordmark = false }: BrandLogoProps) {
+export default function BrandLogo({ className = 'h-8 w-8', withWordmark = false, wordmarkClassName = '' }: BrandLogoProps) {
   return (
     <span className="inline-flex items-center gap-2">
       <img
@@ -22,7 +28,7 @@ export default function BrandLogo({ className = 'h-8 w-8', withWordmark = false 
         className={`${className} object-contain drop-shadow-[0_0_6px_rgba(34,211,238,0.45)]`}
       />
       {withWordmark && (
-        <span className="text-lg font-semibold tracking-tight text-wl-title">Wavelength</span>
+        <span className={`text-lg font-semibold tracking-tight text-wl-title ${wordmarkClassName}`}>Wavelength</span>
       )}
     </span>
   );

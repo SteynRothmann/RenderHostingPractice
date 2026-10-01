@@ -117,28 +117,38 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
   }, [isLoggedIn]);
 
   return (
-    <div className="absolute inset-x-0 top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-cyan-500/20 bg-wl-bg/80 px-4 py-2.5 text-wl-title backdrop-blur">
+    <div className="absolute inset-x-0 top-0 z-30 flex flex-wrap items-center justify-between gap-y-2 gap-x-3 border-b border-cyan-500/20 bg-wl-bg/80 px-3 py-2.5 text-wl-title backdrop-blur sm:px-4">
       {/* Logo + wordmark, far left - the single Wavelength brand mark shown
           to everyone, logged in or not. There used to also be a second,
           smaller logo-only fallback rendered here for guests; it's removed
-          so only this one ever shows. */}
+          so only this one ever shows. The wordmark text itself hides below
+          `sm` (see BrandLogo's wordmarkClassName below) - on a narrow phone
+          there isn't room for "Wavelength" in text next to the mark AND the
+          search box AND the centered icon row without everything crowding
+          or overlapping. */}
       <div className="flex items-center gap-2">
         <Link to="/" aria-label="Wavelength home" className="flex items-center gap-2">
-          <BrandLogo className="h-7 w-7" withWordmark />
+          <BrandLogo className="h-7 w-7" withWordmark wordmarkClassName="hidden sm:inline" />
         </Link>
       </div>
 
-      {/* Profile / Chat / Notifications - truly centered on the nav bar via
-          absolute positioning (left-1/2 + -translate-x-1/2) rather than a
-          flex-1 middle child. The old flex-1 approach centered this group
-          only within whatever space was LEFT OVER between the logo and the
-          search/logout controls - since those two side groups aren't the
-          same width, the "center" group ended up visibly off-center. This
-          centers it against the nav bar's true width instead, regardless of
-          how wide either side group is. Also spaced further apart (gap-8,
-          was gap-3) per feedback that the three felt cramped together. */}
+      {/* Profile / Chat / Notifications. On `sm` and up there's reliably
+          enough room to truly center this group on the nav bar's full
+          width via absolute positioning (left-1/2 + -translate-x-1/2)
+          rather than a flex-1 middle child - the old flex-1 approach
+          centered this group only within whatever space was LEFT OVER
+          between the logo and the search/logout controls, which visibly
+          wasn't centered since those two side groups aren't the same
+          width. Below `sm`, absolute positioning here would instead sit on
+          TOP of the logo and/or search box regardless of how little space
+          is left - a phone-width nav bar just doesn't have enough spare
+          width for a floating center group alongside both side groups. So
+          on mobile this becomes a plain, full-width flex child instead
+          (`w-full` forces it onto its own wrapped line in the flex-wrap
+          container, below the logo/search row), and only switches to the
+          absolutely-centered treatment at `sm:`. */}
       {isLoggedIn && (
-        <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-8">
+        <div className="order-last flex w-full items-center justify-center gap-6 sm:order-none sm:static sm:w-auto sm:absolute sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:gap-8">
           <NavBob index={0}>
             <Tooltip label="Profile">
               <Link to="/profile" aria-label="Your profile" className="flex items-center">
@@ -195,7 +205,7 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
               onChange={(e) => handleSearchChange(e.target.value)}
               onFocus={handleSearchFocus}
               onBlur={handleSearchBlur}
-              className="w-32 bg-transparent text-sm text-wl-title placeholder:text-wl-faint outline-none sm:w-48"
+              className="w-20 bg-transparent text-sm text-wl-title placeholder:text-wl-faint outline-none sm:w-32 md:w-48"
             />
           </div>
 
@@ -205,7 +215,7 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
               broken. Clicking a row opens that song's panel, same as
               clicking its bubble on the canvas. */}
           {showDropdown && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-72 overflow-hidden rounded-xl border border-cyan-500/20 bg-wl-bg/95 shadow-xl backdrop-blur">
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(18rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-cyan-500/20 bg-wl-bg/95 shadow-xl backdrop-blur">
               {searchResults.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-wl-faint">No matches</p>
               ) : (

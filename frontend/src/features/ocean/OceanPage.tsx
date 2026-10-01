@@ -238,7 +238,7 @@ export default function OceanPage() {
           Logged-out/guest visitors never see it at all (and so can never
           open the panel behind it) - challenges are a logged-in feature. */}
       {isLoggedIn && (
-        <div className="pointer-events-none absolute inset-x-0 top-28 z-20 flex justify-center px-4">
+        <div className="pointer-events-none absolute inset-x-0 top-36 z-20 flex justify-center px-4 sm:top-28">
           <div className="pointer-events-auto">
             <WeeklyChallengeButton isOpen={challengeOpen} onOpen={() => setChallengeOpen(true)} />
           </div>
@@ -246,7 +246,7 @@ export default function OceanPage() {
       )}
 
       {hoveredGroup && (
-        <div className="pointer-events-none absolute left-1/2 top-40 z-20 -translate-x-1/2 rounded-full border border-cyan-500/30 bg-wl-bg/90 px-4 py-1.5 text-xs font-medium text-wl-title">
+        <div className="pointer-events-none absolute left-1/2 top-48 z-20 -translate-x-1/2 rounded-full border border-cyan-500/30 bg-wl-bg/90 px-4 py-1.5 text-xs font-medium text-wl-title sm:top-40">
           {hoveredGroup.trackName} — {hoveredGroup.artist}
         </div>
       )}

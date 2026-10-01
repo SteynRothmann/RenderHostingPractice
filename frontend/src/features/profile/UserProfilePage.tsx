@@ -2,34 +2,14 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
 import Cover from '../../components/Cover';
+import OceanBackdrop from '../../components/OceanBackdrop';
 import { useData } from '../../data/DataContext';
-import { useTheme } from '../../data/ThemeContext';
 import { tierFromFollowers } from '../../data/mockData';
 import SongDetailsPanel from '../song-details/SongDetailsPanel';
-
-// Same soft gradient + glow atmosphere as MyProfilePage/ChatPage, so this
-// page's light/dark switch is actually visible instead of a flat bg-wl-bg.
-function PageAtmosphere({ isDark }: { isDark: boolean }) {
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div
-        className="absolute inset-0"
-        style={{
-          background: isDark
-            ? 'linear-gradient(to bottom, #0a2140, #071c3d, #031426)'
-            : 'linear-gradient(to bottom, var(--wl-bg), var(--wl-panel), var(--wl-bg))',
-        }}
-      />
-      <div className={`absolute -left-40 top-0 h-[480px] w-[480px] rounded-full blur-[130px] ${isDark ? 'bg-blue-500/10' : 'bg-sky-300/25'}`} />
-      <div className={`absolute -right-40 bottom-0 h-[480px] w-[480px] rounded-full blur-[130px] ${isDark ? 'bg-cyan-400/10' : 'bg-amber-100/30'}`} />
-    </div>
-  );
-}
 
 export default function UserProfilePage() {
   const { id } = useParams<{ id: string }>();
   const { db, followUser, sendChatRequest } = useData();
-  const { isDark } = useTheme();
   const [selectedSong, setSelectedSong] = useState<string | null>(null);
   const [requestSent, setRequestSent] = useState(false);
 
@@ -37,7 +17,7 @@ export default function UserProfilePage() {
   if (!user) {
     return (
       <div className="relative isolate min-h-screen overflow-hidden bg-wl-bg text-wl-fg">
-        <PageAtmosphere isDark={isDark} />
+        <OceanBackdrop />
         <div className="relative z-10">
           <PageHeader title="Profile" />
           <p className="p-6 text-sm text-wl-muted">User not found.</p>
@@ -52,7 +32,7 @@ export default function UserProfilePage() {
 
   return (
     <div className="relative isolate min-h-screen overflow-hidden bg-wl-bg pb-16 text-wl-fg">
-      <PageAtmosphere isDark={isDark} />
+      <OceanBackdrop />
       <div className="relative z-10">
       <PageHeader title={user.name} />
 
@@ -126,7 +106,7 @@ export default function UserProfilePage() {
         <div className="pt-6">
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-wl-link">Shared Tracks</h3>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
-            {theirSongs.length === 0 && <p className="col-span-3 text-sm text-wl-muted">No shared tracks yet.</p>}
+            {theirSongs.length === 0 && <p className="col-span-full text-sm text-wl-muted">No shared tracks yet.</p>}
             {theirSongs.map((song) => (
               <button
                 key={song.id}

@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
+import OceanBackdrop from '../../components/OceanBackdrop';
 import { useChat } from '../../data/ChatContext';
-import { useTheme } from '../../data/ThemeContext';
 import Conversation from './Conversation';
 import CreateGroupPanel from './CreateGroupPanel';
 import ChatProfileOverlay from './ChatProfileOverlay';
@@ -12,7 +12,6 @@ type Active = { type: 'friend' | 'group'; id: string } | null;
 
 export default function ChatPage() {
   const { friends, groups, unfriend, leaveGroup, unreadThreadIds, setActiveThread } = useChat();
-  const { isDark } = useTheme();
   const [params] = useSearchParams();
 
   const withId = params.get('with');
@@ -61,93 +60,10 @@ export default function ChatPage() {
   return (
     <div className="relative isolate flex h-screen flex-col overflow-hidden bg-wl-bg text-wl-fg">
 
-      {/* Underwater atmosphere */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-
-        {/* Deep ocean gradient - exact dark-mode literal kept as-is so this
-            page stays pixel-identical; a brighter counterpart for light
-            mode built from the wl-bg/wl-panel tokens. */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: isDark
-              ? 'linear-gradient(to bottom, #0a2140, #071c3d, #031426)'
-              : 'linear-gradient(to bottom, var(--wl-bg), var(--wl-panel), var(--wl-bg))',
-          }}
-        />
-
-        {/* Soft underwater glow - dark keeps the exact original cyan/blue
-            glow; light mode gets a brighter, sun-through-water counterpart
-            instead of the same glow sitting oddly on a bright background. */}
-        <div className={`absolute -left-32 top-16 h-[500px] w-[500px] rounded-full blur-[120px] ${isDark ? 'bg-blue-500/10' : 'bg-sky-300/25'}`} />
-        <div className={`absolute -right-32 bottom-0 h-[500px] w-[500px] rounded-full blur-[120px] ${isDark ? 'bg-cyan-400/10' : 'bg-amber-100/30'}`} />
-
-        {/* Light rays - same swap: faint cyan shafts at night, brighter
-            warm-white sunlight shafts during the day. */}
-        <div className={`absolute -top-40 left-[15%] h-[700px] w-32 rotate-[18deg] bg-gradient-to-b to-transparent blur-xl ${isDark ? 'from-cyan-200/[0.08]' : 'from-white/40'}`} />
-
-        <div className={`absolute -top-40 left-[45%] h-[650px] w-44 rotate-[14deg] bg-gradient-to-b to-transparent blur-2xl ${isDark ? 'from-blue-200/[0.06]' : 'from-amber-100/30'}`} />
-
-        <div className={`absolute -top-40 right-[12%] h-[700px] w-28 rotate-[20deg] bg-gradient-to-b to-transparent blur-xl ${isDark ? 'from-cyan-200/[0.05]' : 'from-white/30'}`} />
-
-        {/* Floating bubbles */}
-        <motion.span
-          className="absolute bottom-[12%] left-[8%] h-2 w-2 rounded-full border border-cyan-200/20 bg-cyan-200/5"
-          animate={{
-            y: [0, -90],
-            opacity: [0, 0.6, 0],
-          }}
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        />
-
-        <motion.span
-          className="absolute bottom-[18%] left-[38%] h-3 w-3 rounded-full border border-cyan-200/15 bg-cyan-200/5"
-          animate={{
-            y: [0, -120],
-            x: [0, 8, -4],
-            opacity: [0, 0.45, 0],
-          }}
-          transition={{
-            duration: 11,
-            delay: 2,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        />
-
-        <motion.span
-          className="absolute bottom-[8%] right-[20%] h-1.5 w-1.5 rounded-full border border-cyan-200/20"
-          animate={{
-            y: [0, -100],
-            x: [0, -6, 3],
-            opacity: [0, 0.5, 0],
-          }}
-          transition={{
-            duration: 9,
-            delay: 4,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        />
-
-        <motion.span
-          className="absolute bottom-[28%] right-[7%] h-2.5 w-2.5 rounded-full border border-cyan-200/15"
-          animate={{
-            y: [0, -80],
-            opacity: [0, 0.4, 0],
-          }}
-          transition={{
-            duration: 10,
-            delay: 1,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        />
-      </div>
+      {/* Underwater atmosphere - shared animated sky/wave/bubble backdrop,
+          same "alive" treatment as the Ocean page (minus its interactive
+          canvas) instead of a static gradient. */}
+      <OceanBackdrop />
 
       {/* Shared WaveLength secondary header */}
       <div className="relative z-10">
