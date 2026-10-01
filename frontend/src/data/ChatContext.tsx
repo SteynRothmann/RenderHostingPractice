@@ -1,5 +1,13 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
-import { fetchAcceptedChats, fetchMyGroups, revokeChatRequest, createRealGroup, leaveRealGroup } from '../lib/api';
+import {
+  fetchAcceptedChats,
+  fetchMyGroups,
+  fetchGroupMessages,
+  fetchPrivateMessages,
+  revokeChatRequest,
+  createRealGroup,
+  leaveRealGroup,
+} from '../lib/api';
 import { getSocket } from '../lib/socket';
 import { useAuth } from './AuthContext';
 import type { ChatFriend, RealGroup, RealChatMessage } from './types';
@@ -94,6 +102,38 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const myUserIdRef = useRef<string | null>(null);
   myUserIdRef.current = profile?.spotifyUserId ?? null;
 
+  // Which threads we've already fetched history for this session - a
+  // thread is only ever fetched once (on first becoming active), not on
+  // every re-open, since live messages keep it up to date after that.
+  const historyLoadedFor = useRef<Set<string>>(new Set());
+
+  // Merges fetched history into messages[threadId] by id (so a message
+  // that already arrived live via socket, before this fetch resolved,
+  // isn't duplicated), sorted by ts ascending.
+  const mergeHistory = useCallback((threadId: string, history: RealChatMessage[]) => {
+    setMessages((prev) => {
+      const existing = prev[threadId] || [];
+      const existingIds = new Set(existing.map((m) => m.id));
+      const merged = [...existing, ...history.filter((m) => !existingIds.has(m.id))];
+      merged.sort((a, b) => a.ts - b.ts);
+      return { ...prev, [threadId]: merged };
+    });
+  }, []);
+
+  const loadHistoryForThread = useCallback((threadId: string) => {
+    if (historyLoadedFor.current.has(threadId)) return;
+    historyLoadedFor.current.add(threadId);
+
+    const isGroup = groupsRef.current.some((g) => g.id === threadId);
+    const fetcher = isGroup ? fetchGroupMessages(threadId) : fetchPrivateMessages(threadId);
+    fetcher
+      .then((history) => mergeHistory(threadId, history))
+      .catch((err) => {
+        console.error(`Could not load message history for ${threadId}:`, err);
+        historyLoadedFor.current.delete(threadId); // allow a retry on the next activation
+      });
+  }, [mergeHistory]);
+
   const setActiveThread = useCallback((threadId: string | null) => {
     activeThreadRef.current = threadId;
     if (!threadId) return;
@@ -105,7 +145,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       next.delete(threadId);
       return next;
     });
-  }, []);
+    loadHistoryForThread(threadId);
+  }, [loadHistoryForThread]);
 
   // Marks a thread unread unless it's my own message coming back over the
   // socket (private:send/group:send both echo the sender's own message
@@ -166,6 +207,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setUnreadThreadIds(new Set());
       joinedPrivate.current.clear();
       joinedGroups.current.clear();
+      historyLoadedFor.current.clear();
       seenGroupIdsRef.current = null; // re-seed without notifying on next login
       dismissGroupNotice();
       return;
@@ -324,6 +366,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       return next;
     });
     joinedPrivate.current.delete(spotifyUserId);
+    historyLoadedFor.current.delete(spotifyUserId);
   }, []);
 
   const createGroup = useCallback(async (name: string, icon: string | null, memberSpotifyUserIds: string[]) => {
@@ -354,6 +397,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       return next;
     });
     joinedGroups.current.delete(groupId);
+    historyLoadedFor.current.delete(groupId);
     getSocket().emit('group:leave', { groupId });
   }, []);
 

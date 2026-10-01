@@ -179,6 +179,46 @@ repo) and create their own `.env` (also not in the repo, since it's
 gitignored) with the same Client ID/Secret you're using, plus their
 own `SESSION_SECRET`. Point them at this README for the full setup.
 
+## Postgres persistence for chat/groups (Supabase)
+
+Chat requests, private/group messages, and groups are now persisted to a
+real Postgres database (tested against Supabase) instead of living only in
+memory - previously, all of it was lost on every server restart/redeploy.
+Spotify token storage already used Postgres the same way; it now shares a
+single connection pool with everything else (see `db/pool.js`).
+
+If this project's Supabase tables already exist (the
+`spotify_tokens`/`chat_requests`/`private_conversations`/
+`private_messages`/`chat_groups`/`chat_group_members`/
+`group_join_requests`/`group_messages` tables), there is **one required,
+additive migration** to run once, before setting `DATABASE_URL`: open
+`db/schema-additions.sql` in this repo and run its contents in Supabase's
+SQL editor. It only adds two constraints the app's upsert-style queries
+need (a uniqueness constraint on conversation pairs, and a partial unique
+index so at most one pending chat request can exist per direction) - it
+does not touch any existing data or create any new tables.
+
+Two Supabase-specific things worth knowing:
+
+- **SSL is required and already handled.** Supabase's Postgres requires an
+  SSL connection; `db/pool.js` already passes
+  `ssl: { rejectUnauthorized: false }` (the standard workaround for hosted
+  Postgres providers' certificate chains) - nothing extra to configure.
+- **Use the "Transaction pooler" (Supavisor) connection string, not the
+  direct connection one.** Supabase's "direct connection" string (port
+  `5432`) is IPv6-only unless you pay for their IPv4 add-on, which breaks
+  on most IPv4-only hosting egress, including Render's standard web
+  services. Instead, go to Supabase's own Database settings page and copy
+  the **"Transaction pooler" / Supavisor** connection string (port `6543`)
+  into `DATABASE_URL` - it supports IPv4, and is also the right choice for
+  a server that opens many short-lived-ish queries rather than a few
+  long-lived ones. This is something only you can do (it needs your own
+  Supabase dashboard access) - there's no code change involved.
+
+With `DATABASE_URL` unset, everything above still falls back to the
+original in-memory stores exactly as before - Postgres is never required
+to run this app locally.
+
 ## Deploying to Render later
 
 1. Add your Render backend URL as a second Redirect URI in the

@@ -11,11 +11,13 @@
 
 const useMemoryStore = !process.env.DATABASE_URL;
 
-let pool;
-if (!useMemoryStore) {
-  const { Pool } = require('pg');
-  pool = new Pool({ connectionString: process.env.DATABASE_URL });
-}
+// Shared across every Postgres-backed module in this backend (see
+// db/pool.js) instead of each one opening its own `new Pool(...)` - keeps
+// the total number of connections to the hosted Postgres instance (which
+// providers like Supabase cap) to one pool for the whole process. It's
+// `null` in memory-store mode, which is fine: every usage below is already
+// gated behind `useMemoryStore`.
+const pool = require('./pool');
 
 const memoryStore = new Map();
 

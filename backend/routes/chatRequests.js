@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 
 const { getTokens, getTokensBySpotifyUserId } = require('../db/tokenStore');
+const chatHistory = require('../db/chatHistory');
 const chatRequests = require('../lib/chatRequests');
 
-// All three routes below need to know the REAL Spotify account behind
+// All routes below need to know the REAL Spotify account behind
 // this session (not just the session id) - chat requests are addressed
 // to accounts, not sessions, so they survive the recipient logging out
 // and back in. This is just a lookup, not a live Spotify API call, so it
@@ -35,11 +36,11 @@ router.post('/', async (req, res) => {
   if (me.spotifyUserId === toSpotifyUserId) {
     return res.status(400).json({ error: "You can't request a chat with yourself" });
   }
-  if (chatRequests.hasAcceptedPrivateChatRequest(me.spotifyUserId, toSpotifyUserId)) {
+  if (await chatRequests.hasAcceptedPrivateChatRequest(me.spotifyUserId, toSpotifyUserId)) {
     return res.status(400).json({ error: "You're already chatting with this person" });
   }
 
-  const request = chatRequests.createRequest({
+  const request = await chatRequests.createRequest({
     fromSpotifyUserId: me.spotifyUserId,
     fromDisplayName: me.displayName,
     fromProfileImage: me.profileImage,
@@ -55,7 +56,12 @@ router.get('/incoming', async (req, res) => {
   if (!me) {
     return res.json({ requests: [] }); // not logged in - nothing to show, not an error
   }
-  res.json({ requests: chatRequests.getIncoming(me.spotifyUserId) });
+  try {
+    res.json({ requests: await chatRequests.getIncoming(me.spotifyUserId) });
+  } catch (error) {
+    console.error('Could not load incoming chat requests:', error.message);
+    res.status(500).json({ error: 'Could not load notifications' });
+  }
 });
 
 // POST /chat-requests/:id/accept and /decline
@@ -64,7 +70,7 @@ async function respondToRequest(req, res, accept) {
   if (!me) {
     return res.status(401).json({ error: 'You need to log in first' });
   }
-  const request = chatRequests.respond(req.params.id, me.spotifyUserId, accept);
+  const request = await chatRequests.respond(req.params.id, me.spotifyUserId, accept);
   if (!request) {
     return res.status(404).json({ error: 'That request is no longer pending' });
   }
@@ -83,7 +89,7 @@ router.get('/accepted', async (req, res) => {
     return res.status(401).json({ error: 'You need to log in first' });
   }
   try {
-    const requests = chatRequests.getAccepted(me.spotifyUserId);
+    const requests = await chatRequests.getAccepted(me.spotifyUserId);
     const chats = await Promise.all(
       requests.map(async (request) => {
         const otherSpotifyUserId =
@@ -114,11 +120,36 @@ router.post('/:id/revoke', async (req, res) => {
   if (!me) {
     return res.status(401).json({ error: 'You need to log in first' });
   }
-  const request = chatRequests.revoke(req.params.id, me.spotifyUserId);
+  const request = await chatRequests.revoke(req.params.id, me.spotifyUserId);
   if (!request) {
     return res.status(404).json({ error: 'That request is not currently accepted' });
   }
   res.json({ request });
+});
+
+// GET /chat-requests/:otherUserId/messages - private message history,
+// gated on an accepted chat request between us (same gate used for the
+// live socket room). Loaded once per thread by the frontend's ChatContext
+// the first time that thread becomes active - see fetchPrivateMessages in
+// lib/api.ts.
+router.get('/:otherUserId/messages', async (req, res) => {
+  const me = await getMySpotifyIdentity(req);
+  if (!me) {
+    return res.status(401).json({ error: 'You need to log in first' });
+  }
+
+  try {
+    const otherUserId = req.params.otherUserId;
+    if (!(await chatRequests.hasAcceptedPrivateChatRequest(me.spotifyUserId, otherUserId))) {
+      return res.status(403).json({ error: 'You do not have an accepted chat with this user' });
+    }
+
+    const messages = await chatHistory.getPrivateMessages(me.spotifyUserId, otherUserId);
+    res.json({ messages });
+  } catch (error) {
+    console.error('Could not load private chat history:', error.message);
+    res.status(500).json({ error: 'Could not load private chat history' });
+  }
 });
 
 module.exports = router;

@@ -9,7 +9,7 @@
 // src/data/AuthContext.tsx), and kept in localStorage from then on. See
 // socket.ts for the companion Socket.IO connection used for live
 // 'oceanUpdate' events (that one's just a public broadcast, no auth).
-import type { ChatFriend, ChatRequest, HostProfile, MyPlayback, ProfileStats, PublicPlaylist, RealGroup, RecentTrack, SpotifyProfile } from '../data/types';
+import type { ChatFriend, ChatRequest, HostProfile, MyPlayback, ProfileStats, PublicPlaylist, RealChatMessage, RealGroup, RecentTrack, SpotifyProfile } from '../data/types';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -260,4 +260,23 @@ export async function createRealGroup(
 export async function leaveRealGroup(groupId: string): Promise<void> {
   const res = await apiFetch(`/groups/${encodeURIComponent(groupId)}/leave`, { method: 'POST' });
   if (!res.ok) throw new Error(await errorFrom(res, 'Could not leave group'));
+}
+
+// Message history (backend/db/chatHistory.js, loaded once per thread by
+// ChatContext.tsx the first time that thread becomes active - live
+// messages after that keep arriving over the private:message/group:message
+// socket events handled elsewhere).
+
+export async function fetchPrivateMessages(otherUserId: string): Promise<RealChatMessage[]> {
+  const res = await apiFetch(`/chat-requests/${encodeURIComponent(otherUserId)}/messages`);
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not load message history'));
+  const body = await res.json();
+  return body.messages;
+}
+
+export async function fetchGroupMessages(groupId: string): Promise<RealChatMessage[]> {
+  const res = await apiFetch(`/groups/${encodeURIComponent(groupId)}/messages`);
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not load message history'));
+  const body = await res.json();
+  return body.messages;
 }

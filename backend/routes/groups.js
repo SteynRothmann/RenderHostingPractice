@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const { getTokens, getTokensBySpotifyUserId } = require('../db/tokenStore');
+const chatHistory = require('../db/chatHistory');
 // Routes use this store API so its in-memory implementation can later be
 // replaced without changing the HTTP endpoints.
 const groupStore = require('../lib/groupStore');
@@ -60,7 +61,7 @@ router.get('/public', async (req, res) => {
   const spotifyUserId = await getCurrentSpotifyUserId(req, res);
   if (!spotifyUserId) return;
 
-  const groups = await Promise.all(groupStore.getPublicGroups().map(serializeGroup));
+  const groups = await Promise.all((await groupStore.getPublicGroups()).map(serializeGroup));
   res.json({ groups });
 });
 
@@ -68,7 +69,7 @@ router.get('/mine', async (req, res) => {
   const spotifyUserId = await getCurrentSpotifyUserId(req, res);
   if (!spotifyUserId) return;
 
-  const groups = await Promise.all(groupStore.getGroupsForMember(spotifyUserId).map(serializeGroup));
+  const groups = await Promise.all((await groupStore.getGroupsForMember(spotifyUserId)).map(serializeGroup));
   res.json({ groups });
 });
 
@@ -78,7 +79,7 @@ router.post('/', async (req, res) => {
 
   const { name, description, icon, visibility, memberSpotifyUserIds } = req.body || {};
   try {
-    const group = groupStore.createGroup({
+    const group = await groupStore.createGroup({
       name,
       description,
       icon,
@@ -96,27 +97,47 @@ router.get('/:groupId', async (req, res) => {
   const spotifyUserId = await getCurrentSpotifyUserId(req, res);
   if (!spotifyUserId) return;
 
-  const group = groupStore.getGroup(req.params.groupId);
+  const group = await groupStore.getGroup(req.params.groupId);
   if (!group) return res.status(404).json({ error: 'Group not found' });
-  if (group.visibility === 'private' && !groupStore.isMember(group.id, spotifyUserId)) {
+  if (group.visibility === 'private' && !(await groupStore.isMember(group.id, spotifyUserId))) {
     return res.status(403).json({ error: 'You are not a member of this private group' });
   }
 
   res.json({ group: await serializeGroup(group) });
 });
 
+// GET /groups/:groupId/messages - message history for a group chat, gated
+// on current membership (same check used for sending/joining the socket
+// room). Loaded once per thread by the frontend's ChatContext the first
+// time that group becomes active - see fetchGroupMessages in lib/api.ts.
+router.get('/:groupId/messages', async (req, res) => {
+  const spotifyUserId = await getCurrentSpotifyUserId(req, res);
+  if (!spotifyUserId) return;
+
+  try {
+    if (!(await groupStore.isMember(req.params.groupId, spotifyUserId))) {
+      return res.status(403).json({ error: 'You are not a member of this group' });
+    }
+    const messages = await chatHistory.getGroupMessages(req.params.groupId);
+    res.json({ messages });
+  } catch (error) {
+    console.error('Could not load group chat history:', error.message);
+    res.status(500).json({ error: 'Could not load group chat history' });
+  }
+});
+
 router.post('/:groupId/join', async (req, res) => {
   const spotifyUserId = await getCurrentSpotifyUserId(req, res);
   if (!spotifyUserId) return;
 
-  const existing = groupStore.getGroup(req.params.groupId);
+  const existing = await groupStore.getGroup(req.params.groupId);
   if (!existing) return res.status(404).json({ error: 'Group not found' });
   // Private groups require approval instead of allowing an immediate join.
   if (existing.visibility !== 'public') {
     return res.status(403).json({ error: 'Private groups require a join request' });
   }
 
-  const group = groupStore.joinPublicGroup(existing.id, spotifyUserId);
+  const group = await groupStore.joinPublicGroup(existing.id, spotifyUserId);
   res.json({ group: await serializeGroup(group) });
 });
 
@@ -124,13 +145,13 @@ router.post('/:groupId/join-requests', async (req, res) => {
   const spotifyUserId = await getCurrentSpotifyUserId(req, res);
   if (!spotifyUserId) return;
 
-  const group = groupStore.getGroup(req.params.groupId);
+  const group = await groupStore.getGroup(req.params.groupId);
   if (!group) return res.status(404).json({ error: 'Group not found' });
   if (group.visibility !== 'private') {
     return res.status(400).json({ error: 'Public groups can be joined directly' });
   }
 
-  const result = groupStore.requestPrivateGroupJoin(group.id, spotifyUserId);
+  const result = await groupStore.requestPrivateGroupJoin(group.id, spotifyUserId);
   res.json(result);
 });
 
@@ -138,7 +159,7 @@ router.get('/:groupId/join-requests', async (req, res) => {
   const spotifyUserId = await getCurrentSpotifyUserId(req, res);
   if (!spotifyUserId) return;
 
-  const group = groupStore.getGroup(req.params.groupId);
+  const group = await groupStore.getGroup(req.params.groupId);
   if (!group) return res.status(404).json({ error: 'Group not found' });
   if (!isGroupModerator(group, spotifyUserId)) {
     return res.status(403).json({ error: 'Only owners and moderators can view join requests' });
@@ -152,7 +173,7 @@ function resolveJoinRequest(accept) {
     const spotifyUserId = await getCurrentSpotifyUserId(req, res);
     if (!spotifyUserId) return;
 
-    const result = groupStore.resolvePrivateGroupJoin(
+    const result = await groupStore.resolvePrivateGroupJoin(
       req.params.groupId,
       spotifyUserId,
       req.params.requesterSpotifyUserId,
@@ -171,7 +192,7 @@ router.post('/:groupId/leave', async (req, res) => {
   const spotifyUserId = await getCurrentSpotifyUserId(req, res);
   if (!spotifyUserId) return;
 
-  const result = groupStore.leaveGroup(req.params.groupId, spotifyUserId);
+  const result = await groupStore.leaveGroup(req.params.groupId, spotifyUserId);
   if (!result.ok) return sendStoreError(res, result);
 
   res.json({ group: await serializeGroup(result.group) });
@@ -181,7 +202,7 @@ router.delete('/:groupId/members/:memberSpotifyUserId', async (req, res) => {
   const spotifyUserId = await getCurrentSpotifyUserId(req, res);
   if (!spotifyUserId) return;
 
-  const result = groupStore.removeMember(
+  const result = await groupStore.removeMember(
     req.params.groupId,
     spotifyUserId,
     req.params.memberSpotifyUserId
@@ -198,7 +219,7 @@ router.patch('/:groupId/members/:memberSpotifyUserId/moderator', async (req, res
     return res.status(400).json({ error: 'isModerator must be a boolean' });
   }
 
-  const result = groupStore.setModerator(
+  const result = await groupStore.setModerator(
     req.params.groupId,
     spotifyUserId,
     req.params.memberSpotifyUserId,

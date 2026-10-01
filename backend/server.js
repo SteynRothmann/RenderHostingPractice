@@ -15,6 +15,7 @@ const { startOceanPoller } = require('./lib/spotifyPoller');
 const { identifyRequest } = require('./lib/identity');
 const groupStore = require('./lib/groupStore');
 const { hasAcceptedPrivateChatRequest } = require('./lib/chatRequests');
+const chatHistory = require('./db/chatHistory');
 
 const app = express();
 app.set('trust proxy', 1); // needed behind Render's (or any) reverse proxy for req.ip/req.protocol to reflect the real client, not the proxy hop
@@ -79,7 +80,7 @@ function getPrivateRoomId(userA, userB) {
   return [userA, userB].sort().join(':');
 }
 
-function canOpenPrivateChat(me, otherUserId) {
+async function canOpenPrivateChat(me, otherUserId) {
   return hasAcceptedPrivateChatRequest(me, otherUserId);
 }
 
@@ -137,51 +138,71 @@ io.on('connection', (socket) => {
   // put this socket in it, so live messages for that thread would never
   // arrive until the next full socket reconnect. See ChatContext.tsx's
   // private:join emit for the client-side retry this enables.
-  socket.on('private:join', ({ otherUserId } = {}, acknowledge) => {
+  socket.on('private:join', async ({ otherUserId } = {}, acknowledge) => {
     if (!currentUserId || !otherUserId) {
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'otherUserId is required' });
       return;
     }
-    if (!canOpenPrivateChat(currentUserId, otherUserId)) {
-      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'No accepted chat request with this person' });
-      return;
-    }
+    try {
+      if (!(await canOpenPrivateChat(currentUserId, otherUserId))) {
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'No accepted chat request with this person' });
+        return;
+      }
 
-    const roomId = getPrivateRoomId(currentUserId, otherUserId);
-    socket.join(roomId);
-    if (typeof acknowledge === 'function') acknowledge({ ok: true });
+      const roomId = getPrivateRoomId(currentUserId, otherUserId);
+      socket.join(roomId);
+      if (typeof acknowledge === 'function') acknowledge({ ok: true });
+    } catch (error) {
+      console.error('Could not join private room:', error.message);
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Could not join private room' });
+    }
   });
 
-  // Called when the user sends a message in a private chat.
-  socket.on('private:send', ({ toUserId, text }) => {
-    if (!currentUserId || !toUserId || !text || !text.trim()) return;
-    if (!canOpenPrivateChat(currentUserId, toUserId)) return;
+  // Called when the user sends a message in a private chat. Persists the
+  // message (see db/chatHistory.js) and broadcasts the DB's own saved copy
+  // (with its real generated id) rather than a locally-constructed one, so
+  // the id a client sees here matches what a later GET .../messages
+  // history fetch would return for the same message.
+  socket.on('private:send', async ({ toUserId, text } = {}, acknowledge) => {
+    if (!currentUserId || !toUserId || !text || !text.trim()) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'toUserId and text are required' });
+      return;
+    }
+    try {
+      if (!(await canOpenPrivateChat(currentUserId, toUserId))) {
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'No accepted chat request with this person' });
+        return;
+      }
 
-    const roomId = getPrivateRoomId(currentUserId, toUserId);
-    const message = {
-      id: Date.now().toString(),
-      from: currentUserId,
-      to: toUserId,
-      text: text.trim(),
-      ts: Date.now(),
-    };
+      const roomId = getPrivateRoomId(currentUserId, toUserId);
+      const message = await chatHistory.savePrivateMessage(currentUserId, toUserId, text.trim());
 
-    io.to(roomId).emit('private:message', message);
+      io.to(roomId).emit('private:message', message);
+      if (typeof acknowledge === 'function') acknowledge({ ok: true, messageId: message.id });
+    } catch (error) {
+      console.error('Could not save/send private message:', error.message);
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Could not send message' });
+    }
   });
 
   // Group rooms use group IDs and current membership, not private-chat requests.
-  socket.on('group:join', ({ groupId } = {}, acknowledge) => {
+  socket.on('group:join', async ({ groupId } = {}, acknowledge) => {
     if (!groupId) {
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Group ID is required' });
       return;
     }
-    if (!groupStore.isMember(groupId, currentUserId)) {
-      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'You are not a member of this group' });
-      return;
-    }
+    try {
+      if (!(await groupStore.isMember(groupId, currentUserId))) {
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'You are not a member of this group' });
+        return;
+      }
 
-    socket.join(getGroupRoomId(groupId));
-    if (typeof acknowledge === 'function') acknowledge({ ok: true });
+      socket.join(getGroupRoomId(groupId));
+      if (typeof acknowledge === 'function') acknowledge({ ok: true });
+    } catch (error) {
+      console.error('Could not join group room:', error.message);
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Could not join group room' });
+    }
   });
 
   socket.on('group:leave', ({ groupId } = {}, acknowledge) => {
@@ -204,7 +225,7 @@ io.on('connection', (socket) => {
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Messages must be 4000 characters or fewer' });
       return;
     }
-    if (!groupStore.isMember(groupId, currentUserId)) {
+    if (!(await groupStore.isMember(groupId, currentUserId))) {
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'You are not a member of this group' });
       return;
     }
@@ -215,26 +236,20 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const message = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      groupId,
-      from: currentUserId,
-      text: trimmedText,
-      ts: Date.now(),
-    };
-
     // Recheck membership when broadcasting so a removed member with an old
     // room connection no longer receives new messages.
     try {
+      const message = await chatHistory.saveGroupMessage(groupId, currentUserId, trimmedText);
+
       const roomSockets = await io.in(roomId).fetchSockets();
       for (const roomSocket of roomSockets) {
-        if (groupStore.isMember(groupId, roomSocket.data.spotifyUserId)) {
+        if (await groupStore.isMember(groupId, roomSocket.data.spotifyUserId)) {
           roomSocket.emit('group:message', message);
         }
       }
       if (typeof acknowledge === 'function') acknowledge({ ok: true, messageId: message.id });
     } catch (error) {
-      console.error('Could not broadcast group message:', error.message);
+      console.error('Could not save/broadcast group message:', error.message);
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Could not send group message' });
     }
   });
