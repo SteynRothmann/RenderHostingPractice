@@ -63,6 +63,11 @@ export default function WeeklyChallengePanel({
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  // Submitting also tries to start the track playing on Spotify right
+  // now (so it shows up in the ocean) - that can fail independently of
+  // the submission itself (no Premium, no active device). Not an error
+  // (the entry is saved either way), so it gets its own, calmer notice.
+  const [playbackNotice, setPlaybackNotice] = useState('');
 
   const [cosmetics, setCosmetics] = useState<CosmeticItem[]>([]);
   const [equippingRewardId, setEquippingRewardId] = useState<string | null>(null);
@@ -203,6 +208,7 @@ export default function WeeklyChallengePanel({
     if (!pending || !challenge) return;
     setSubmitting(true);
     setSubmitError('');
+    setPlaybackNotice('');
 
     submitChallengeEntry(challenge.id, pending.id)
       .then((result) => {
@@ -217,6 +223,9 @@ export default function WeeklyChallengePanel({
         setQuery('');
         setResults([]);
         setPending(null);
+        if (!result.playbackStarted && result.playbackError) {
+          setPlaybackNotice(result.playbackError);
+        }
       })
       .catch((err) => {
         setSubmitError(err.message || 'Could not submit challenge entry');
@@ -448,6 +457,9 @@ export default function WeeklyChallengePanel({
                     {alreadyEntered && (
                       <div className="mt-3.5 flex flex-col items-center gap-1 rounded-xl border border-emerald-400/30 bg-emerald-500/10 py-3 text-center text-xs font-bold text-emerald-300">
                         <span>Challenge entry submitted ✓</span>
+                        {playbackNotice && (
+                          <span className="px-4 text-[10px] font-normal text-emerald-200/80">{playbackNotice}</span>
+                        )}
                       </div>
                     )}
                   </section>

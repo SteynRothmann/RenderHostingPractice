@@ -13,6 +13,7 @@ const axios = require('axios');
 const pool = require('../db/pool');
 const { getTokens } = require('../db/tokenStore');
 const { getValidAccessToken } = require('../lib/authHelper');
+const { playTrackAt } = require('../lib/spotifyClient');
 const { validateChallengeSubmission } = require('../lib/challengesValidation');
 
 function requirePool(res) {
@@ -185,9 +186,40 @@ router.post('/submit', async (req, res) => {
       );
     }
 
+    // Actually start this track playing on the submitter's own Spotify
+    // right now (same /me/player/play call Follow Along uses to jump a
+    // listener onto a host's track) - this is what makes the submitted
+    // song show up in the ocean at all: oceanState only ever reflects
+    // each session's live currently-playing poll, it has no idea what got
+    // submitted to a challenge otherwise. Best-effort: the submission
+    // itself is already saved above, so a playback failure (no Premium,
+    // no active device) shouldn't make the whole request fail - it just
+    // means the entry is recorded but nothing starts playing anywhere.
+    let playbackStarted = false;
+    let playbackError = null;
+    try {
+      await playTrackAt(accessToken, trackData.uri, 0);
+      playbackStarted = true;
+    } catch (playErr) {
+      const status = playErr.response?.status;
+      const spotifyMessage = playErr.response?.data?.error?.message;
+      if (status === 401 && spotifyMessage === 'Permissions missing') {
+        playbackError = 'Your login is missing the playback-control permission. Log out and log in again to grant it.';
+      } else if (status === 403) {
+        playbackError = 'Starting playback requires Spotify Premium - your entry was saved, but the track won’t auto-play.';
+      } else if (status === 404) {
+        playbackError = 'No active Spotify device found - open Spotify on a device, then play the track yourself to show up in the ocean.';
+      } else {
+        playbackError = 'Entry saved, but could not start playback on Spotify.';
+      }
+      console.error('Could not start challenge-entry playback:', playErr.response?.data || playErr.message);
+    }
+
     res.json({
       success: true,
       submission: { trackId, title: trackTitle, artist: artistName, cover: albumArtUrl },
+      playbackStarted,
+      playbackError,
     });
   } catch (err) {
     console.error('Failed to process challenge submission:', err.response?.data || err.message);

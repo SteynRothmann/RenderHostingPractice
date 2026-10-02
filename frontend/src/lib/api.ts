@@ -306,7 +306,18 @@ export async function searchChallengeTracks(query: string): Promise<ChallengeSea
 export async function submitChallengeEntry(
   challengeId: string | number,
   trackId: string
-): Promise<{ success: true; submission: ActiveChallengeSubmission }> {
+): Promise<{
+  success: true;
+  submission: ActiveChallengeSubmission;
+  // Submitting also tries to start the track playing on the submitter's
+  // own Spotify right now (see backend/routes/challenges.js) - that's
+  // what actually makes it show up as a bubble in the ocean, since the
+  // ocean only ever reflects live currently-playing polls. This can fail
+  // independently of the submission itself (no Premium, no active
+  // device) without the submission failing.
+  playbackStarted: boolean;
+  playbackError: string | null;
+}> {
   const res = await apiFetch('/challenges/submit', {
     method: 'POST',
     body: JSON.stringify({ challengeId, trackId }),
