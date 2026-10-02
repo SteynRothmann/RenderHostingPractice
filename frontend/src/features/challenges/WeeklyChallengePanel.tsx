@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 import Cover from '../../components/Cover';
-import { useData } from '../../data/DataContext';
+import { useAuth } from '../../data/AuthContext';
 import { formatCountdown } from '../../data/mockData';
 import {
   fetchActiveChallenge,
@@ -43,7 +43,7 @@ export default function WeeklyChallengePanel({
   open: boolean;
   onClose: () => void;
 }) {
-  const { db } = useData();
+  const { profile } = useAuth();
 
   const [challenge, setChallenge] = useState<ActiveChallenge | null>(null);
   const [loadingChallenge, setLoadingChallenge] = useState(false);
@@ -535,9 +535,9 @@ export default function WeeklyChallengePanel({
 
                         {previewTab === 'avatar' ? (
                           <div className="relative z-10 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-300 bg-slate-900 shadow-xl">
-                            {db.me.pic ? (
+                            {profile?.profileImage ? (
                               <img
-                                src={db.me.pic}
+                                src={profile.profileImage}
                                 alt="Preview Avatar"
                                 className="h-full w-full object-cover"
                               />

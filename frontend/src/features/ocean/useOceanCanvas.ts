@@ -347,8 +347,16 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
         const topY = seaTop;
         const bottomY = Math.max(topY + 1, h * ray.bottomHeightFrac);
 
+        // Sunlight shafts read as a strange set of pale lines at night
+        // (there's no sun lighting the water then) - rather than just
+        // recoloring them for dark mode, fade them out entirely as `mix`
+        // eases toward night (1 - mix), smoothly in step with the same
+        // THEME_FADE_SECONDS transition everything else here already
+        // uses, so they're fully gone by the time night mode settles and
+        // fully back by day, with no hard on/off snap mid-transition.
+        const nightFade = 1 - mix;
         const rayGradient = ctx.createLinearGradient(0, topY, 0, bottomY);
-        rayGradient.addColorStop(0, `rgba(${rr},${rg},${rb},${(0.055 * alphaScale).toFixed(4)})`);
+        rayGradient.addColorStop(0, `rgba(${rr},${rg},${rb},${(0.055 * alphaScale * nightFade).toFixed(4)})`);
         rayGradient.addColorStop(1, `rgba(${rr},${rg},${rb},0)`);
         ctx.fillStyle = rayGradient;
         ctx.beginPath();
