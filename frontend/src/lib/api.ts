@@ -9,7 +9,7 @@
 // src/data/AuthContext.tsx), and kept in localStorage from then on. See
 // socket.ts for the companion Socket.IO connection used for live
 // 'oceanUpdate' events (that one's just a public broadcast, no auth).
-import type { ChatFriend, ChatRequest, HostProfile, MyPlayback, ProfileStats, PublicPlaylist, RealChatMessage, RealGroup, RecentTrack, SpotifyProfile } from '../data/types';
+import type { ActiveChallenge, ActiveChallengeSubmission, ChallengeSearchResult, ChatFriend, ChatRequest, CosmeticItem, HostProfile, MyPlayback, ProfileStats, PublicPlaylist, RealChatMessage, RealGroup, RecentTrack, SpotifyProfile } from '../data/types';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -279,4 +279,53 @@ export async function fetchGroupMessages(groupId: string): Promise<RealChatMessa
   if (!res.ok) throw new Error(await errorFrom(res, 'Could not load message history'));
   const body = await res.json();
   return body.messages;
+}
+
+// --- Weekly Challenges / Cosmetics (backend/routes/challenges.js, backend/routes/cosmetics.js) ---
+
+// GET /challenges/active - no active challenge (404) resolves to null
+// rather than throwing, since that's an ordinary, expected state (e.g.
+// between challenges), not an error.
+export async function fetchActiveChallenge(): Promise<ActiveChallenge | null> {
+  const res = await apiFetch('/challenges/active');
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not load this week’s challenge'));
+  return res.json();
+}
+
+export async function searchChallengeTracks(query: string): Promise<ChallengeSearchResult[]> {
+  const res = await apiFetch(`/challenges/search?q=${encodeURIComponent(query)}`);
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not search Spotify'));
+  const body = await res.json();
+  return body.results;
+}
+
+// Theme-validation failures (and other submit errors) need to reach the
+// UI as a real message, not be swallowed - the thrown Error's message is
+// always the server's own `error` string when available.
+export async function submitChallengeEntry(
+  challengeId: string | number,
+  trackId: string
+): Promise<{ success: true; submission: ActiveChallengeSubmission }> {
+  const res = await apiFetch('/challenges/submit', {
+    method: 'POST',
+    body: JSON.stringify({ challengeId, trackId }),
+  });
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not submit challenge entry'));
+  return res.json();
+}
+
+export async function fetchCosmeticsInventory(): Promise<CosmeticItem[]> {
+  const res = await apiFetch('/cosmetics/inventory');
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not load your cosmetics'));
+  const body = await res.json();
+  return body.cosmetics;
+}
+
+export async function equipCosmetic(rewardId: string, isEquipped: boolean): Promise<void> {
+  const res = await apiFetch('/cosmetics/equip', {
+    method: 'POST',
+    body: JSON.stringify({ rewardId, isEquipped }),
+  });
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not update this cosmetic'));
 }

@@ -23,6 +23,24 @@ const sessions = new Map();
 // same track as someone else.
 const follows = new Map();
 
+// spotifyUserId -> cssClass|null - whichever cosmetic reward (if any) a
+// real Spotify account currently has equipped (see routes/cosmetics.js's
+// POST /equip). Keyed by real account, not by session, so it survives a
+// logout/login and applies no matter which browser session that account
+// is currently polling from. This is ONLY the data plumbing for the
+// aura - it's deliberately NOT drawn on the canvas-rendered bubbles yet
+// (see useOceanCanvas.ts), that's a separate later visual feature.
+const userEffects = new Map();
+
+function setUserActiveEffect(spotifyUserId, cssClass) {
+  if (!spotifyUserId) return;
+  userEffects.set(spotifyUserId, cssClass ?? null);
+}
+
+function getUserActiveEffect(spotifyUserId) {
+  return userEffects.get(spotifyUserId) || null;
+}
+
 const PAUSE_SINK_MS = 10_000; // sink a listener's bubble after 10s paused
 
 // Called once per session, per poll cycle, with the raw Spotify
@@ -157,6 +175,7 @@ function computeGroups() {
     hostProfileUrl: g.hostProfileUrl,
     hostSpotifyUserId: g.hostSpotifyUserId,
     hostProfileImage: g.hostProfileImage,
+    activeEffectCss: getUserActiveEffect(g.hostSpotifyUserId) ?? null,
     listenerCount: g._accountIds.size,
   }));
 }
@@ -310,4 +329,6 @@ module.exports = {
   clearFollowSyncError,
   setLastSyncedTrackId,
   reconcileFollowsAndGetSyncList,
+  setUserActiveEffect,
+  getUserActiveEffect,
 };

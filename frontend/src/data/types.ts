@@ -109,6 +109,11 @@ export interface OceanGroup {
   hostProfileUrl: string | null;
   hostSpotifyUserId: string | null;
   hostProfileImage: string | null;
+  // Cosmetic reward CSS class the host currently has equipped (see
+  // backend/lib/oceanState.js's userEffects + routes/cosmetics.js's
+  // POST /equip), or null if they have nothing equipped. Data plumbing
+  // only - not yet drawn on the canvas-rendered bubbles (useOceanCanvas.ts).
+  activeEffectCss?: string | null;
   listenerCount: number;
 }
 
@@ -223,4 +228,46 @@ export interface RealChatMessage {
   from: string; // spotifyUserId
   text: string;
   ts: number;
+}
+
+/* ---------- Weekly Challenges / Cosmetics (real backend) ----------
+   See backend/routes/challenges.js and backend/routes/cosmetics.js. Kept
+   separate from the mock Challenge/CatalogEntry types in mockData.ts,
+   which still back the rest of the AppState plumbing (untouched by this
+   feature) - only WeeklyChallengePanel.tsx reads these real types. */
+
+// GET /challenges/active
+export interface ActiveChallengeSubmission {
+  trackId: string;
+  title: string;
+  artist: string;
+  cover: string | null;
+}
+
+export interface ActiveChallenge {
+  id: number | string;
+  theme: string;
+  description: string;
+  rewardId: string | null;
+  deadline: string; // ISO timestamp
+  mySubmission: ActiveChallengeSubmission | null;
+}
+
+// GET /challenges/search?q=...
+export interface ChallengeSearchResult {
+  id: string;
+  title: string;
+  artist: string;
+  cover: string;
+}
+
+// GET /cosmetics/inventory
+export interface CosmeticItem {
+  reward_id: string;
+  name: string;
+  description: string;
+  effect_type: string;
+  css_class: string;
+  is_equipped: boolean;
+  is_unlocked: boolean;
 }

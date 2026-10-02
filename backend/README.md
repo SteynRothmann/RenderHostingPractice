@@ -226,6 +226,21 @@ With `DATABASE_URL` unset, everything above still falls back to the
 original in-memory stores exactly as before - Postgres is never required
 to run this app locally.
 
+Weekly Challenges (the themed song-submission feature, plus the cosmetic
+rewards it unlocks) needs four more tables -
+`challenges`/`challenge_submissions`/`rewards`/`user_cosmetics`. See
+`db/challenges-schema.sql`: review it against what's already in your
+Supabase project before running it (the user has said these tables may
+already exist there). It's written to be idempotent
+(`CREATE TABLE IF NOT EXISTS`, `ON CONFLICT DO NOTHING`), but it can only
+avoid duplicating its two seed challenge rows and two seed reward rows
+where a uniqueness check (an existing theme, or the `reward_id` primary
+key) already catches the duplicate - so check your existing `challenges`
+and `rewards` rows before running the seed `INSERT`s in there, same as
+any other migration. Unlike the rest of this backend's Postgres-backed
+features, Weekly Challenges has no in-memory fallback - it requires
+`DATABASE_URL` to be set.
+
 ## Deploying to Render later
 
 1. Add your Render backend URL as a second Redirect URI in the

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Trophy,
@@ -15,51 +15,19 @@ import {
   Eye,
   Disc,
   User,
-  AlertTriangle,
-  Database,
-  ShieldAlert,
 } from 'lucide-react';
 
 import Cover from '../../components/Cover';
 import { useData } from '../../data/DataContext';
+import { formatCountdown } from '../../data/mockData';
 import {
-  formatCountdown,
-  searchSpotifyCatalog,
-  randomCover,
-} from '../../data/mockData';
-import type { CatalogEntry } from '../../data/types';
-
-export interface CosmeticRelic {
-  id: string;
-  name: string;
-  description: string;
-  challengeTheme: string;
-  unlocked: boolean;
-}
-
-const COSMETIC_RELICS: CosmeticRelic[] = [
-  {
-    id: 'abyssal-crest',
-    name: 'Abyssal Crest',
-    description: 'Bioluminescent cyan glow applied to your avatar aura and your floating ocean song marker.',
-    challengeTheme: 'NOSTALGIA',
-    unlocked: true,
-  },
-  {
-    id: 'golden-tide',
-    name: 'Golden Tide',
-    description: 'Radiant golden shimmer applied to your avatar aura and your floating ocean song marker.',
-    challengeTheme: 'GOLDEN HOUR',
-    unlocked: true,
-  },
-  {
-    id: 'coral-bloom',
-    name: 'Coral Bloom',
-    description: 'Ethereal pink pulse applied to your avatar aura and your floating ocean song marker.',
-    challengeTheme: 'SUMMER DRIFT',
-    unlocked: false,
-  },
-];
+  fetchActiveChallenge,
+  searchChallengeTracks,
+  submitChallengeEntry,
+  fetchCosmeticsInventory,
+  equipCosmetic,
+} from '../../lib/api';
+import type { ActiveChallenge, ChallengeSearchResult, CosmeticItem } from '../../data/types';
 
 function mockParticipants(theme: string): number {
   let hash = 0;
@@ -82,28 +50,69 @@ export default function WeeklyChallengePanel({
   open: boolean;
   onClose: () => void;
 }) {
-  const { db, mutate } = useData();
+  const { db } = useData();
 
-  const [remaining, setRemaining] = useState(
-    db.challenge.deadline - Date.now()
-  );
+  const [challenge, setChallenge] = useState<ActiveChallenge | null>(null);
+  const [loadingChallenge, setLoadingChallenge] = useState(false);
+  const [remaining, setRemaining] = useState(0);
 
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<CatalogEntry[]>([]);
-  const [pending, setPending] = useState<CatalogEntry | null>(null);
+  const [results, setResults] = useState<ChallengeSearchResult[]>([]);
+  const [pending, setPending] = useState<ChallengeSearchResult | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  const [cosmetics, setCosmetics] = useState<CosmeticItem[]>([]);
+  const [equippingRewardId, setEquippingRewardId] = useState<string | null>(null);
 
   const [previewTab, setPreviewTab] = useState<'avatar' | 'track'>('avatar');
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Load the real active challenge + the caller's cosmetics inventory
+  // whenever the panel opens.
   useEffect(() => {
     if (!open) return;
+
+    let cancelled = false;
+    setLoadingChallenge(true);
+    fetchActiveChallenge()
+      .then((active) => {
+        if (!cancelled) setChallenge(active);
+      })
+      .catch((err) => {
+        console.error('Could not load active challenge:', err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingChallenge(false);
+      });
+
+    fetchCosmeticsInventory()
+      .then((items) => {
+        if (!cancelled) setCosmetics(items);
+      })
+      .catch((err) => {
+        console.error('Could not load cosmetics inventory:', err.message);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  // Countdown, fed by the real deadline once it's loaded.
+  useEffect(() => {
+    if (!open || !challenge) return;
+    const deadlineMs = new Date(challenge.deadline).getTime();
+    setRemaining(deadlineMs - Date.now());
     const id = setInterval(() => {
-      setRemaining(db.challenge.deadline - Date.now());
+      setRemaining(deadlineMs - Date.now());
     }, 1000);
     return () => clearInterval(id);
-  }, [open, db.challenge.deadline]);
+  }, [open, challenge]);
 
   useEffect(() => {
     if (!open) return;
@@ -162,52 +171,84 @@ export default function WeeklyChallengePanel({
     };
   }, [open]);
 
-  const alreadyEntered = !!db.challenge.mySubmission;
+  const alreadyEntered = !!challenge?.mySubmission;
+
+  const runSearch = useCallback((value: string) => {
+    if (!value.trim()) {
+      setResults([]);
+      return;
+    }
+    searchChallengeTracks(value)
+      .then((found) => setResults(found))
+      .catch((err) => {
+        console.error('Challenge track search failed:', err.message);
+        setResults([]);
+      });
+  }, []);
 
   function handleQuery(value: string) {
     setQuery(value);
     setPending(null);
-    setResults(searchSpotifyCatalog(value));
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => runSearch(value), 300);
   }
+
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, []);
 
   function submit() {
-    if (!pending) return;
+    if (!pending || !challenge) return;
+    setSubmitting(true);
+    setSubmitError('');
 
-    const newId = `me-${Date.now()}`;
-
-    mutate((data) => {
-      data.songs[newId] = {
-        id: newId,
-        title: pending.title,
-        artist: pending.artist,
-        cover: randomCover(pending.title + pending.artist),
-        ownerId: 'me',
-      };
-
-      data.floaterOrder.push(newId);
-
-      data.challenge.mySubmission = {
-        songId: newId,
-      };
-    });
-
-    setQuery('');
-    setResults([]);
-    setPending(null);
+    submitChallengeEntry(challenge.id, pending.id)
+      .then((result) => {
+        setChallenge((current) =>
+          current
+            ? {
+                ...current,
+                mySubmission: result.submission,
+              }
+            : current
+        );
+        setQuery('');
+        setResults([]);
+        setPending(null);
+      })
+      .catch((err) => {
+        setSubmitError(err.message || 'Could not submit challenge entry');
+      })
+      .finally(() => {
+        setSubmitting(false);
+      });
   }
 
-  function toggleRelic(relic: CosmeticRelic) {
-    if (!relic.unlocked) return;
+  function toggleRelic(relic: CosmeticItem) {
+    if (!relic.is_unlocked || equippingRewardId) return;
+    const nextEquipped = !relic.is_equipped;
 
-    mutate((data) => {
-      const currentActive = data.me.activeCosmeticEffect;
-
-      data.me.activeCosmeticEffect =
-        currentActive === relic.id ? null : relic.id;
-    });
+    setEquippingRewardId(relic.reward_id);
+    equipCosmetic(relic.reward_id, nextEquipped)
+      .then(() => {
+        setCosmetics((current) =>
+          current.map((item) => ({
+            ...item,
+            is_equipped: item.reward_id === relic.reward_id ? nextEquipped : nextEquipped ? false : item.is_equipped,
+          }))
+        );
+      })
+      .catch((err) => {
+        console.error('Could not update cosmetic:', err.message);
+      })
+      .finally(() => {
+        setEquippingRewardId(null);
+      });
   }
 
-  const activeEffect = db.me.activeCosmeticEffect;
+  const equippedRelic = cosmetics.find((c) => c.is_equipped) || null;
 
   return (
     <AnimatePresence>
@@ -219,14 +260,13 @@ export default function WeeklyChallengePanel({
           exit={{ opacity: 0 }}
           onClick={onClose}
         >
-          {/* This panel's own interior (relic cards, "BACKEND REQUIRED"
-              callouts, canvas light-ray effect, etc.) is a deliberately
-              vivid dark "glass dashboard" treatment ported from an earlier
-              mockup round - kept as a theme-agnostic identity in both
-              modes, same judgment as OceanSongPanel/WeeklyChallengeButton.
-              Only the backdrop scrim and this outer card surface are
-              tokenized so the modal still sits correctly against either
-              theme's page behind it. */}
+          {/* This panel's own interior (relic cards, canvas light-ray
+              effect, etc.) is a deliberately vivid dark "glass dashboard"
+              treatment ported from an earlier mockup round - kept as a
+              theme-agnostic identity in both modes, same judgment as
+              OceanSongPanel/WeeklyChallengeButton. Only the backdrop scrim
+              and this outer card surface are tokenized so the modal still
+              sits correctly against either theme's page behind it. */}
           <motion.div
             role="dialog"
             aria-modal="true"
@@ -264,351 +304,336 @@ export default function WeeklyChallengePanel({
 
               <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-32 bg-gradient-to-b from-cyan-300/20 via-sky-400/10 to-transparent blur-md" />
 
-              <div className="relative z-10 space-y-6">
-                {/* 1. HERO / THEME CARD */}
-                <section className="relative overflow-hidden rounded-3xl border border-white/20 bg-gradient-to-b from-white/10 via-white/[0.04] to-transparent p-5 shadow-[0_12px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl sm:p-6">
-                  {/* VISUAL BACKEND COMMENT: ACTIVE CHALLENGE DATA */}
-                  <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-200 backdrop-blur-sm">
-                    <Database className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-                    <span>[BACKEND REQUIRED: Dynamic active challenge payload (Theme, Expiry Timestamp, and Participant Count)]</span>
-                  </div>
+              {loadingChallenge && !challenge ? (
+                <div className="relative z-10 flex items-center justify-center py-16 text-xs font-medium text-cyan-200/70">
+                  Loading this week's challenge…
+                </div>
+              ) : !challenge ? (
+                <div className="relative z-10 flex items-center justify-center py-16 text-xs font-medium text-slate-300/80">
+                  No active challenge right now - check back soon.
+                </div>
+              ) : (
+                <div className="relative z-10 space-y-6">
+                  {/* 1. HERO / THEME CARD */}
+                  <section className="relative overflow-hidden rounded-3xl border border-white/20 bg-gradient-to-b from-white/10 via-white/[0.04] to-transparent p-5 shadow-[0_12px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl sm:p-6">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/15 px-3.5 py-1.5 shadow-[0_0_12px_rgba(245,158,11,0.2)] backdrop-blur-md">
+                        <Trophy className="h-3.5 w-3.5 text-amber-300" />
+                        <span className="text-xs font-semibold text-amber-100">
+                          This Week's Challenge
+                        </span>
+                      </div>
 
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/15 px-3.5 py-1.5 shadow-[0_0_12px_rgba(245,158,11,0.2)] backdrop-blur-md">
-                      <Trophy className="h-3.5 w-3.5 text-amber-300" />
-                      <span className="text-xs font-semibold text-amber-100">
-                        This Week's Challenge
-                      </span>
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3.5 py-1.5 backdrop-blur-md">
+                        <Clock className="h-3.5 w-3.5 text-cyan-300" />
+                        <span className="font-mono text-xs font-medium text-slate-200">
+                          {remaining > 0 ? formatCountdown(remaining) : 'Closed'}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3.5 py-1.5 backdrop-blur-md">
-                      <Clock className="h-3.5 w-3.5 text-cyan-300" />
-                      <span className="font-mono text-xs font-medium text-slate-200">
-                        {remaining > 0 ? formatCountdown(remaining) : 'Closed'}
-                      </span>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-300/90">
+                      Weekly Theme
+                    </p>
+
+                    <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+                      {challenge.theme}
+                    </h2>
+
+                    <p className="mt-2 max-w-lg text-xs leading-relaxed text-slate-300/90">
+                      {challenge.description}
+                    </p>
+
+                    <div className="mt-5 flex flex-wrap items-center gap-3">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs text-slate-200">
+                        <Users className="h-3.5 w-3.5 text-cyan-400" />
+                        <span>{mockParticipants(challenge.theme)} joined</span>
+                      </div>
+
+                      {alreadyEntered && (
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
+                          <span>Joined ✓</span>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  </section>
 
-                  <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-300/90">
-                    Weekly Theme
-                  </p>
-
-                  <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
-                    {db.challenge.theme}
-                  </h2>
-
-                  <p className="mt-2 max-w-lg text-xs leading-relaxed text-slate-300/90">
-                    Share a track that captures this week's theme. Choose the song that best represents your interpretation and submit it before the timer runs out.
-                  </p>
-
-                  <div className="mt-5 flex flex-wrap items-center gap-3">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs text-slate-200">
-                      <Users className="h-3.5 w-3.5 text-cyan-400" />
-                      <span>{mockParticipants(db.challenge.theme)} joined</span>
+                  {/* 2. SONG SEARCH & ENTRY */}
+                  <section className="relative">
+                    <div className="mb-2">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/80">
+                        Your Entry
+                      </p>
+                      <h3 className="text-sm font-bold text-white">Choose your song</h3>
                     </div>
+
+                    <div className="relative">
+                      <div
+                        className={`flex items-center gap-3 rounded-xl border px-3.5 transition-all duration-200 ${
+                          isSearchFocused
+                            ? 'border-cyan-400/80 bg-black/60 shadow-[0_0_18px_rgba(34,211,238,0.25)]'
+                            : 'border-white/10 bg-black/30'
+                        }`}
+                      >
+                        <Search className="h-4 w-4 shrink-0 text-slate-400" />
+                        <input
+                          type="text"
+                          disabled={alreadyEntered}
+                          value={query}
+                          onFocus={() => setIsSearchFocused(true)}
+                          onBlur={() => setIsSearchFocused(false)}
+                          onChange={(e) => handleQuery(e.target.value)}
+                          placeholder="Search songs or artists..."
+                          className="w-full bg-transparent py-3 text-xs text-white outline-none placeholder:text-slate-500 disabled:opacity-50"
+                        />
+                        {query && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQuery('');
+                              setResults([]);
+                              setPending(null);
+                            }}
+                            className="text-slate-400 hover:text-white"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {results.length > 0 && (
+                        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-white/15 bg-[#071325]/95 shadow-2xl backdrop-blur-2xl">
+                          {results.map((song) => (
+                            <button
+                              key={song.id}
+                              onClick={() => {
+                                setPending(song);
+                                setQuery(`${song.title} — ${song.artist}`);
+                                setResults([]);
+                              }}
+                              className="flex w-full items-center gap-3 border-b border-white/5 px-3.5 py-2.5 text-left text-xs text-white transition hover:bg-white/10"
+                              type="button"
+                            >
+                              <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-white/10">
+                                <Cover song={song} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-slate-200">{song.title}</p>
+                                <p className="truncate text-[11px] text-slate-400">{song.artist}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {pending && !alreadyEntered && (
+                      <motion.button
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={submit}
+                        disabled={submitting}
+                        className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-cyan-300 py-3 text-xs font-bold text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.3)] disabled:opacity-60"
+                        type="button"
+                      >
+                        <span>{submitting ? 'Submitting…' : 'Confirm & Submit Entry'}</span>
+                      </motion.button>
+                    )}
+
+                    {submitError && (
+                      <p className="mt-2 text-xs text-wl-danger">{submitError}</p>
+                    )}
 
                     {alreadyEntered && (
-                      <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
-                        <span>Joined ✓</span>
+                      <div className="mt-3.5 flex flex-col items-center gap-1 rounded-xl border border-emerald-400/30 bg-emerald-500/10 py-3 text-center text-xs font-bold text-emerald-300">
+                        <span>Challenge entry submitted ✓</span>
                       </div>
                     )}
-                  </div>
-                </section>
+                  </section>
 
-                {/* 2. SONG SEARCH & ENTRY */}
-                <section className="relative">
-                  <div className="mb-2">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/80">
-                      Your Entry
-                    </p>
-                    <h3 className="text-sm font-bold text-white">Choose your song</h3>
-                  </div>
+                  {/* 3. LIVE REWARD PREVIEW */}
+                  <section className="rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 p-4 backdrop-blur-xl sm:p-5">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Eye className="h-4 w-4 text-cyan-300" />
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-white">
+                          Live Reward Preview
+                        </h3>
+                      </div>
 
-                  {/* VISUAL BACKEND COMMENT: SONG SEARCH & GENRE VALIDATION */}
-                  <div className="mb-3 space-y-2">
-                    <div className="flex items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-200 backdrop-blur-sm">
-                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-                      <span>[BACKEND REQUIRED: Real Spotify API catalog search proxy endpoint]</span>
-                    </div>
-
-                    <div className="flex items-center gap-2 rounded-lg border border-cyan-400/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-200 backdrop-blur-sm">
-                      <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
-                      <span>[BACKEND REQUIRED: Automatic genre matching validation against the challenge theme before entry confirmation]</span>
-                    </div>
-                  </div>
-
-                  <div className="relative">
-                    <div
-                      className={`flex items-center gap-3 rounded-xl border px-3.5 transition-all duration-200 ${
-                        isSearchFocused
-                          ? 'border-cyan-400/80 bg-black/60 shadow-[0_0_18px_rgba(34,211,238,0.25)]'
-                          : 'border-white/10 bg-black/30'
-                      }`}
-                    >
-                      <Search className="h-4 w-4 shrink-0 text-slate-400" />
-                      <input
-                        type="text"
-                        disabled={alreadyEntered}
-                        value={query}
-                        onFocus={() => setIsSearchFocused(true)}
-                        onBlur={() => setIsSearchFocused(false)}
-                        onChange={(e) => handleQuery(e.target.value)}
-                        placeholder="Search songs or artists..."
-                        className="w-full bg-transparent py-3 text-xs text-white outline-none placeholder:text-slate-500 disabled:opacity-50"
-                      />
-                      {query && (
+                      <div className="flex rounded-lg border border-white/10 bg-black/40 p-1">
                         <button
                           type="button"
-                          onClick={() => {
-                            setQuery('');
-                            setResults([]);
-                            setPending(null);
-                          }}
-                          className="text-slate-400 hover:text-white"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-
-                    {results.length > 0 && (
-                      <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-white/15 bg-[#071325]/95 shadow-2xl backdrop-blur-2xl">
-                        {results.map((song) => (
-                          <button
-                            key={`${song.title}-${song.artist}`}
-                            onClick={() => {
-                              setPending(song);
-                              setQuery(`${song.title} — ${song.artist}`);
-                              setResults([]);
-                            }}
-                            className="flex w-full items-center gap-3 border-b border-white/5 px-3.5 py-2.5 text-left text-xs text-white transition hover:bg-white/10"
-                            type="button"
-                          >
-                            <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-white/10">
-                              <Cover song={song} />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="truncate font-medium text-slate-200">{song.title}</p>
-                              <p className="truncate text-[11px] text-slate-400">{song.artist}</p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {pending && !alreadyEntered && (
-                    <motion.button
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={submit}
-                      className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-cyan-300 py-3 text-xs font-bold text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
-                      type="button"
-                    >
-                      <span>Confirm & Submit Entry</span>
-                    </motion.button>
-                  )}
-
-                  {alreadyEntered && (
-                    <div className="mt-3.5 flex flex-col items-center gap-1 rounded-xl border border-emerald-400/30 bg-emerald-500/10 py-3 text-center text-xs font-bold text-emerald-300">
-                      <span>Challenge entry submitted ✓</span>
-                      <span className="text-[10px] font-normal text-emerald-200/80">
-                        [BACKEND REQUIRED: Persist user submission to ocean map DB]
-                      </span>
-                    </div>
-                  )}
-                </section>
-
-                {/* 3. LIVE REWARD PREVIEW */}
-                <section className="rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 p-4 backdrop-blur-xl sm:p-5">
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Eye className="h-4 w-4 text-cyan-300" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-white">
-                        Live Reward Preview
-                      </h3>
-                    </div>
-
-                    <div className="flex rounded-lg border border-white/10 bg-black/40 p-1">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewTab('avatar')}
-                        className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
-                          previewTab === 'avatar'
-                            ? 'border border-cyan-400/30 bg-cyan-500/20 text-cyan-200'
-                            : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <User className="h-3 w-3" />
-                        <span>Avatar Aura</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewTab('track')}
-                        className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
-                          previewTab === 'track'
-                            ? 'border border-cyan-400/30 bg-cyan-500/20 text-cyan-200'
-                            : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <Disc className="h-3 w-3" />
-                        <span>Song Marker</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex h-40 items-center justify-center rounded-xl border border-white/10 bg-black/50 p-4">
-                    <div className="relative flex items-center justify-center">
-                      {activeEffect === 'abyssal-crest' && (
-                        <>
-                          <div className="absolute -inset-4 animate-pulse rounded-full bg-gradient-to-tr from-cyan-400 via-sky-300 to-teal-300 opacity-70 blur-lg" />
-                          <div className="absolute -inset-2 animate-ping rounded-full border border-cyan-400/40 opacity-40" />
-                        </>
-                      )}
-
-                      {activeEffect === 'golden-tide' && (
-                        <>
-                          <div className="absolute -inset-4 animate-pulse rounded-full bg-gradient-to-tr from-amber-400 via-yellow-300 to-amber-500 opacity-80 blur-lg" />
-                          <div className="absolute -inset-2 animate-ping rounded-full border border-amber-400/40 opacity-40" />
-                        </>
-                      )}
-
-                      {previewTab === 'avatar' ? (
-                        <div className="relative z-10 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-300 bg-slate-900 shadow-xl">
-                          {db.me.pic ? (
-                            <img
-                              src={db.me.pic}
-                              alt="Preview Avatar"
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-amber-500 font-bold text-slate-950">
-                              <User className="h-10 w-10 text-white" />
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-full border-2 border-cyan-400/80 bg-slate-950/90 shadow-2xl">
-                          {db.challenge.mySubmission ? (
-                            <div className="h-full w-full overflow-hidden rounded-full p-1">
-                              <Cover song={db.songs[db.challenge.mySubmission.songId]} />
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center justify-center text-cyan-300">
-                              <Disc className="h-8 w-8 animate-spin" />
-                              <span className="mt-0.5 text-[9px] font-bold tracking-wider">NODE</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </section>
-
-                {/* 4. UNLOCKED COSMETICS */}
-                <section className="rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 p-4 backdrop-blur-xl sm:p-5">
-                  <div className="mb-1 flex items-center gap-2.5">
-                    <Compass className="h-4 w-4 text-cyan-300" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-white">
-                      Unlocked Cosmetics
-                    </h3>
-                  </div>
-                  <p className="mb-2 text-[11px] text-slate-400">
-                    Toggle effects on or off. Equipping a cosmetic applies the effect to both your profile avatar and your ocean song marker.
-                  </p>
-
-                  {/* VISUAL BACKEND COMMENT: USER COSMETICS STATE */}
-                  <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-200 backdrop-blur-sm">
-                    <Database className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-                    <span>[BACKEND REQUIRED: User unlocked cosmetics inventory state & active effect equip endpoint]</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3">
-                    {COSMETIC_RELICS.map((relic) => {
-                      const isActive = activeEffect === relic.id;
-
-                      return (
-                        <div
-                          key={relic.id}
-                          className={`relative overflow-hidden rounded-xl border p-3.5 transition-all duration-200 ${
-                            !relic.unlocked
-                              ? 'border-white/5 bg-black/40 opacity-50'
-                              : isActive
-                                ? 'border-cyan-400/50 bg-gradient-to-r from-cyan-950/40 via-cyan-900/20 to-black/40 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-                                : 'border-white/10 bg-black/30 hover:border-white/20'
+                          onClick={() => setPreviewTab('avatar')}
+                          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+                            previewTab === 'avatar'
+                              ? 'border border-cyan-400/30 bg-cyan-500/20 text-cyan-200'
+                              : 'text-slate-400 hover:text-white'
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex min-w-0 items-center gap-3">
-                              <div
-                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
-                                  isActive
-                                    ? 'border-cyan-300 bg-cyan-400/20 text-cyan-200 shadow-[0_0_8px_rgba(34,211,238,0.5)]'
-                                    : 'border-white/10 bg-white/5 text-slate-400'
-                                }`}
-                              >
-                                {relic.unlocked ? (
-                                  <Sparkles className="h-4 w-4" />
-                                ) : (
-                                  <Lock className="h-4 w-4 text-slate-500" />
-                                )}
-                              </div>
+                          <User className="h-3 w-3" />
+                          <span>Avatar Aura</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewTab('track')}
+                          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+                            previewTab === 'track'
+                              ? 'border border-cyan-400/30 bg-cyan-500/20 text-cyan-200'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          <Disc className="h-3 w-3" />
+                          <span>Song Marker</span>
+                        </button>
+                      </div>
+                    </div>
 
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className="truncate text-xs font-bold text-white">
-                                    {relic.name}
-                                  </p>
-                                  <span className="rounded border border-cyan-400/30 bg-cyan-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-cyan-300">
-                                    Profile & Ocean
-                                  </span>
-                                </div>
-                                <p className="mt-0.5 text-[11px] leading-snug text-slate-300/80">
-                                  {relic.description}
-                                </p>
-                                <p className="mt-0.5 text-[9px] font-medium text-amber-400/80">
-                                  Challenge Reward: {relic.challengeTheme}
-                                </p>
-                              </div>
-                            </div>
+                    <div className="flex h-40 items-center justify-center rounded-xl border border-white/10 bg-black/50 p-4">
+                      <div className="relative flex items-center justify-center">
+                        {equippedRelic?.css_class === 'cyan-glow' && (
+                          <>
+                            <div className="absolute -inset-4 animate-pulse rounded-full bg-gradient-to-tr from-cyan-400 via-sky-300 to-teal-300 opacity-70 blur-lg" />
+                            <div className="absolute -inset-2 animate-ping rounded-full border border-cyan-400/40 opacity-40" />
+                          </>
+                        )}
 
-                            <div>
-                              {relic.unlocked ? (
-                                <button
-                                  type="button"
-                                  onClick={() => toggleRelic(relic)}
-                                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-bold transition-all ${
+                        {equippedRelic?.css_class === 'gold-shimmer' && (
+                          <>
+                            <div className="absolute -inset-4 animate-pulse rounded-full bg-gradient-to-tr from-amber-400 via-yellow-300 to-amber-500 opacity-80 blur-lg" />
+                            <div className="absolute -inset-2 animate-ping rounded-full border border-amber-400/40 opacity-40" />
+                          </>
+                        )}
+
+                        {previewTab === 'avatar' ? (
+                          <div className="relative z-10 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-300 bg-slate-900 shadow-xl">
+                            {db.me.pic ? (
+                              <img
+                                src={db.me.pic}
+                                alt="Preview Avatar"
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center bg-amber-500 font-bold text-slate-950">
+                                <User className="h-10 w-10 text-white" />
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-full border-2 border-cyan-400/80 bg-slate-950/90 shadow-2xl">
+                            {challenge.mySubmission ? (
+                              <div className="h-full w-full overflow-hidden rounded-full p-1">
+                                <Cover song={challenge.mySubmission} />
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center text-cyan-300">
+                                <Disc className="h-8 w-8 animate-spin" />
+                                <span className="mt-0.5 text-[9px] font-bold tracking-wider">NODE</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* 4. UNLOCKED COSMETICS */}
+                  <section className="rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 p-4 backdrop-blur-xl sm:p-5">
+                    <div className="mb-1 flex items-center gap-2.5">
+                      <Compass className="h-4 w-4 text-cyan-300" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-white">
+                        Unlocked Cosmetics
+                      </h3>
+                    </div>
+                    <p className="mb-4 text-[11px] text-slate-400">
+                      Toggle effects on or off. Equipping a cosmetic applies the effect to both your profile avatar and your ocean song marker.
+                    </p>
+
+                    <div className="grid grid-cols-1 gap-3">
+                      {cosmetics.map((relic) => {
+                        const isActive = relic.is_equipped;
+
+                        return (
+                          <div
+                            key={relic.reward_id}
+                            className={`relative overflow-hidden rounded-xl border p-3.5 transition-all duration-200 ${
+                              !relic.is_unlocked
+                                ? 'border-white/5 bg-black/40 opacity-50'
+                                : isActive
+                                  ? 'border-cyan-400/50 bg-gradient-to-r from-cyan-950/40 via-cyan-900/20 to-black/40 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
+                                  : 'border-white/10 bg-black/30 hover:border-white/20'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex min-w-0 items-center gap-3">
+                                <div
+                                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
                                     isActive
-                                      ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.3)]'
-                                      : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
+                                      ? 'border-cyan-300 bg-cyan-400/20 text-cyan-200 shadow-[0_0_8px_rgba(34,211,238,0.5)]'
+                                      : 'border-white/10 bg-white/5 text-slate-400'
                                   }`}
                                 >
-                                  {isActive ? (
-                                    <>
-                                      <Check className="h-3.5 w-3.5 text-cyan-300" />
-                                      <span>Equipped</span>
-                                    </>
+                                  {relic.is_unlocked ? (
+                                    <Sparkles className="h-4 w-4" />
                                   ) : (
-                                    <>
-                                      <Power className="h-3.5 w-3.5" />
-                                      <span>Unequipped</span>
-                                    </>
+                                    <Lock className="h-4 w-4 text-slate-500" />
                                   )}
-                                </button>
-                              ) : (
-                                <span className="inline-flex items-center px-2 py-1 text-[10px] font-semibold text-slate-500">
-                                  Locked
-                                </span>
-                              )}
+                                </div>
+
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="truncate text-xs font-bold text-white">
+                                      {relic.name}
+                                    </p>
+                                    <span className="rounded border border-cyan-400/30 bg-cyan-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-cyan-300">
+                                      Profile & Ocean
+                                    </span>
+                                  </div>
+                                  <p className="mt-0.5 text-[11px] leading-snug text-slate-300/80">
+                                    {relic.description}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div>
+                                {relic.is_unlocked ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleRelic(relic)}
+                                    disabled={equippingRewardId === relic.reward_id}
+                                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-bold transition-all disabled:opacity-60 ${
+                                      isActive
+                                        ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.3)]'
+                                        : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
+                                    }`}
+                                  >
+                                    {isActive ? (
+                                      <>
+                                        <Check className="h-3.5 w-3.5 text-cyan-300" />
+                                        <span>Equipped</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Power className="h-3.5 w-3.5" />
+                                        <span>Unequipped</span>
+                                      </>
+                                    )}
+                                  </button>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-1 text-[10px] font-semibold text-slate-500">
+                                    Locked
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                </div>
+              )}
             </div>
           </motion.div>
         </motion.div>

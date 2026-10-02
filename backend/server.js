@@ -10,6 +10,8 @@ const authRouter = require('./routes/auth');
 const spotifyRouter = require('./routes/spotify');
 const chatRequestsRouter = require('./routes/chatRequests');
 const groupsRouter = require('./routes/groups');
+const challengesRouter = require('./routes/challenges');
+const cosmeticsRouter = require('./routes/cosmetics');
 const { useMemoryStore, getTokens } = require('./db/tokenStore');
 const { startOceanPoller } = require('./lib/spotifyPoller');
 const { identifyRequest } = require('./lib/identity');
@@ -45,6 +47,10 @@ app.set('needsCrossSiteCookies', NEEDS_CROSS_SITE_COOKIES);
 const io = new Server(httpServer, {
   cors: { origin: FRONTEND_ORIGIN, credentials: true },
 });
+// Exposes the Socket.IO server to route handlers via req.app.get('io') -
+// used by routes/cosmetics.js to broadcast 'user_cosmetic_changed' after
+// an equip/unequip.
+app.set('io', io);
 
 app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }));
 app.use(cookieParser());
@@ -64,6 +70,8 @@ app.use('/auth', authRouter);
 app.use('/spotify', spotifyRouter);
 app.use('/chat-requests', chatRequestsRouter);
 app.use('/groups', groupsRouter);
+app.use('/challenges', challengesRouter);
+app.use('/cosmetics', cosmeticsRouter);
 
 // --- Real-time chat (private 1:1 + group) over Socket.IO ---
 //
