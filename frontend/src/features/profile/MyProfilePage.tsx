@@ -2,10 +2,16 @@ import { useEffect, useState } from 'react';
 import { ExternalLink, ListMusic } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import OceanBackdrop from '../../components/OceanBackdrop';
-import { useData } from '../../data/DataContext';
 import { useAuth } from '../../data/AuthContext';
 import { useCosmetics } from '../../data/CosmeticsContext';
-import { fetchRecentlyPlayed, fetchPublicPlaylists, fetchProfileStats, cosmeticAuraClass } from '../../lib/api';
+import {
+  fetchRecentlyPlayed,
+  fetchPublicPlaylists,
+  fetchProfileStats,
+  fetchHostProfile,
+  saveProfileDetails,
+  cosmeticAuraClass,
+} from '../../lib/api';
 import type { RecentTrack, PublicPlaylist, ProfileStats } from '../../data/types';
 
 // "played 5m ago" / "played 3h ago" / "played 2d ago" from an ISO timestamp.
@@ -21,13 +27,12 @@ function timeAgo(iso: string): string {
 }
 
 export default function MyProfilePage() {
-  const { db, mutate } = useData();
   const { profile } = useAuth();
   const { equippedEffectCss } = useCosmetics();
-  const { me } = db;
-  const [nickname, setNickname] = useState(me.nickname);
-  const [bio, setBio] = useState(me.bio);
+  const [nickname, setNickname] = useState('');
+  const [bio, setBio] = useState('');
   const [toast, setToast] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   const [recentTracks, setRecentTracks] = useState<RecentTrack[]>([]);
   const [recentError, setRecentError] = useState('');
@@ -36,13 +41,13 @@ export default function MyProfilePage() {
   const [stats, setStats] = useState<ProfileStats | null>(null);
   const [statsError, setStatsError] = useState('');
 
-  const groupsCount = Object.values(db.groups).filter((g) => g.members.includes('me')).length;
-
-  // Real Spotify data for this page - separate from the mock nickname/bio
-  // above, which is still app-only local state (no backend for that yet).
-  // All three need scopes added to the OAuth flow at various points (see
-  // routes/auth.js), so each quietly fails with its own clear message for
-  // anyone who logged in before the relevant scope was added.
+  // Real Spotify data for this page, plus the real (backend-persisted)
+  // nickname/bio - loaded via the same endpoint used to view someone
+  // else's profile (GET /spotify/user/:spotifyUserId), since it always
+  // returns whatever's stored for a given Spotify account, self included.
+  // The three fetch* calls need scopes added to the OAuth flow at various
+  // points (see routes/auth.js), so each quietly fails with its own clear
+  // message for anyone who logged in before the relevant scope was added.
   useEffect(() => {
     fetchRecentlyPlayed()
       .then(setRecentTracks)
@@ -55,13 +60,29 @@ export default function MyProfilePage() {
       .catch((err) => setStatsError(err instanceof Error ? err.message : 'Could not load profile stats'));
   }, []);
 
-  function save() {
-    mutate((d) => {
-      d.me.nickname = nickname.trim();
-      d.me.bio = bio.trim();
-    });
-    setToast(true);
-    setTimeout(() => setToast(false), 1800);
+  useEffect(() => {
+    if (!profile?.spotifyUserId) return;
+    fetchHostProfile(profile.spotifyUserId)
+      .then(({ profile: p }) => {
+        setNickname(p.nickname ?? '');
+        setBio(p.bio ?? '');
+      })
+      .catch(() => {
+        // Non-fatal - the fields just start blank, same as never having set one.
+      });
+  }, [profile?.spotifyUserId]);
+
+  async function save() {
+    setSaveError('');
+    try {
+      const saved = await saveProfileDetails(nickname.trim(), bio.trim());
+      setNickname(saved.nickname ?? '');
+      setBio(saved.bio ?? '');
+      setToast(true);
+      setTimeout(() => setToast(false), 1800);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not save your profile');
+    }
   }
 
   return (
@@ -119,10 +140,6 @@ export default function MyProfilePage() {
 
         {/* Stats bar */}
         <div className="flex items-center justify-around border-b border-cyan-500/20 py-6 text-center">
-          <div>
-            <p className="text-xl font-bold text-wl-title">{groupsCount}</p>
-            <p className="text-xs uppercase tracking-wider text-wl-link">Groups</p>
-          </div>
           <div>
             <p className="text-xl font-bold text-wl-title">{stats?.followers != null ? stats.followers : '—'}</p>
             <p className="text-xs uppercase tracking-wider text-wl-link">Followers</p>
@@ -246,6 +263,7 @@ export default function MyProfilePage() {
           </div>
         </div>
 
+        {saveError && <p className="mt-3 text-center text-xs text-wl-danger">{saveError}</p>}
         <button
           onClick={save}
           type="button"

@@ -39,6 +39,8 @@ async function upsertKnownProfile({ spotifyUserId, displayName, profileUrl, prof
       displayName: displayName !== undefined ? displayName : existing.displayName,
       profileUrl: profileUrl !== undefined ? profileUrl : existing.profileUrl,
       profileImage: profileImage !== undefined ? profileImage : existing.profileImage,
+      nickname: existing.nickname ?? null,
+      bio: existing.bio ?? null,
     });
     return;
   }
@@ -52,6 +54,39 @@ async function upsertKnownProfile({ spotifyUserId, displayName, profileUrl, prof
        profile_image = COALESCE($4, known_profiles.profile_image),
        updated_at = now()`,
     [spotifyUserId, displayName ?? null, profileUrl ?? null, profileImage ?? null]
+  );
+}
+
+// Saves a person's own nickname/bio, set from their profile page - unlike
+// upsertKnownProfile above (which runs automatically on every login/token
+// refresh with Spotify-sourced fields), this is only ever called when the
+// person themselves explicitly saves these two fields. Uses the same
+// known_profiles cache since it already survives logout, but inserts a
+// bare row (no display name/avatar yet) if someone somehow saves this
+// before any login has created one - shouldn't normally happen, since
+// logging in is required to reach the profile page at all.
+async function saveProfileDetails(spotifyUserId, { nickname, bio }) {
+  if (!spotifyUserId) return;
+
+  if (useMemoryStore) {
+    const existing = knownProfiles.get(spotifyUserId) || { spotifyUserId };
+    knownProfiles.set(spotifyUserId, {
+      ...existing,
+      spotifyUserId,
+      nickname: nickname !== undefined ? nickname : existing.nickname ?? null,
+      bio: bio !== undefined ? bio : existing.bio ?? null,
+    });
+    return;
+  }
+
+  await pool.query(
+    `INSERT INTO known_profiles (spotify_user_id, nickname, bio, updated_at)
+     VALUES ($1, $2, $3, now())
+     ON CONFLICT (spotify_user_id) DO UPDATE SET
+       nickname = $2,
+       bio = $3,
+       updated_at = now()`,
+    [spotifyUserId, nickname ?? null, bio ?? null]
   );
 }
 
@@ -109,20 +144,29 @@ async function saveTokens(userId, tokenData) {
 
 async function getTokens(userId) {
   if (useMemoryStore) {
-    return memoryStore.get(userId) || null;
+    const stored = memoryStore.get(userId);
+    if (!stored) return null;
+    const known = stored.spotifyUserId ? knownProfiles.get(stored.spotifyUserId) : null;
+    return { ...stored, nickname: known?.nickname ?? null, bio: known?.bio ?? null };
   }
 
+  // LEFT JOINed against known_profiles for nickname/bio, since those two
+  // fields only ever live there (see saveProfileDetails above), never on
+  // spotify_tokens itself.
   const result = await pool.query(
-    `SELECT access_token AS "accessToken",
-            refresh_token AS "refreshToken",
-            expires_at AS "expiresAt",
-            spotify_user_id AS "spotifyUserId",
-            display_name AS "displayName",
-            profile_url AS "profileUrl",
-            email AS "email",
-            profile_image AS "profileImage"
-     FROM spotify_tokens
-     WHERE user_id = $1`,
+    `SELECT t.access_token AS "accessToken",
+            t.refresh_token AS "refreshToken",
+            t.expires_at AS "expiresAt",
+            t.spotify_user_id AS "spotifyUserId",
+            t.display_name AS "displayName",
+            t.profile_url AS "profileUrl",
+            t.email AS "email",
+            t.profile_image AS "profileImage",
+            k.nickname AS "nickname",
+            k.bio AS "bio"
+     FROM spotify_tokens t
+     LEFT JOIN known_profiles k ON k.spotify_user_id = t.spotify_user_id
+     WHERE t.user_id = $1`,
     [userId]
   );
   return result.rows[0] || null;
@@ -172,22 +216,29 @@ async function getAllUserIds() {
 // the same account.
 async function getTokensBySpotifyUserId(spotifyUserId) {
   if (useMemoryStore) {
+    const known = knownProfiles.get(spotifyUserId);
     for (const entry of memoryStore.values()) {
-      if (entry.spotifyUserId === spotifyUserId) return entry;
+      if (entry.spotifyUserId === spotifyUserId) {
+        return { ...entry, nickname: known?.nickname ?? null, bio: known?.bio ?? null };
+      }
     }
     // Not currently logged in anywhere (or just logged out) - fall back to
     // the permanent name/avatar cache so they still show up as themselves,
     // not their raw account id, to friends/requests.
-    return knownProfiles.get(spotifyUserId) || null;
+    return known || null;
   }
 
+  // LEFT JOINed against known_profiles for nickname/bio - see getTokens.
   const result = await pool.query(
-    `SELECT spotify_user_id AS "spotifyUserId",
-            display_name AS "displayName",
-            profile_url AS "profileUrl",
-            profile_image AS "profileImage"
-     FROM spotify_tokens
-     WHERE spotify_user_id = $1
+    `SELECT t.spotify_user_id AS "spotifyUserId",
+            t.display_name AS "displayName",
+            t.profile_url AS "profileUrl",
+            t.profile_image AS "profileImage",
+            k.nickname AS "nickname",
+            k.bio AS "bio"
+     FROM spotify_tokens t
+     LEFT JOIN known_profiles k ON k.spotify_user_id = t.spotify_user_id
+     WHERE t.spotify_user_id = $1
      LIMIT 1`,
     [spotifyUserId]
   );
@@ -196,12 +247,14 @@ async function getTokensBySpotifyUserId(spotifyUserId) {
   // Same fallback as above, for someone who has since logged out - their
   // spotify_tokens row is gone (deleteTokens deletes it outright so the
   // poller stops retrying a dead session), but known_profiles never gets
-  // cleared, so their last known name/avatar is still here.
+  // cleared, so their last known name/avatar (and nickname/bio) is still here.
   const cached = await pool.query(
     `SELECT spotify_user_id AS "spotifyUserId",
             display_name AS "displayName",
             profile_url AS "profileUrl",
-            profile_image AS "profileImage"
+            profile_image AS "profileImage",
+            nickname AS "nickname",
+            bio AS "bio"
      FROM known_profiles
      WHERE spotify_user_id = $1
      LIMIT 1`,
@@ -210,4 +263,12 @@ async function getTokensBySpotifyUserId(spotifyUserId) {
   return cached.rows[0] || null;
 }
 
-module.exports = { saveTokens, getTokens, deleteTokens, getTokensBySpotifyUserId, getAllUserIds, useMemoryStore };
+module.exports = {
+  saveTokens,
+  getTokens,
+  deleteTokens,
+  getTokensBySpotifyUserId,
+  getAllUserIds,
+  saveProfileDetails,
+  useMemoryStore,
+};

@@ -9,10 +9,10 @@ import type { HostProfile } from '../../data/types';
 
 // A read-only Wavelength profile for someone else - reached by clicking
 // "View Profile" on an ocean song panel for a host who isn't you. Shows
-// their name, avatar, and Spotify profile link - the only things we can
-// still get for a third party. No editing (it's not your profile), no
-// nickname/bio/genres (that's mock app-only state that only exists for
-// whoever is currently logged in as "me" - see MyProfilePage).
+// their nickname/bio (if they've set any - see MyProfilePage), their real
+// Spotify name/avatar, and their Spotify profile link. No editing (it's
+// not your profile) and no genres (that's still mock app-only state that
+// only exists for whoever is currently logged in as "me").
 //
 // There's no playlists or recently-played section here: Spotify removed
 // GET /users/{id}/playlists entirely in their February 2026 Web API
@@ -69,7 +69,7 @@ export default function HostProfilePage() {
 
   return (
     <div className="min-h-screen bg-wl-bg pb-24 text-wl-fg">
-      <PageHeader title={profile?.displayName || 'Profile'} />
+      <PageHeader title={profile?.nickname || profile?.displayName || 'Profile'} />
 
       <div className="mx-auto my-8 max-w-4xl rounded-3xl border border-cyan-500/20 bg-wl-panel/90 p-6 shadow-2xl backdrop-blur-md md:p-8">
         {loading ? (
@@ -88,7 +88,13 @@ export default function HostProfilePage() {
               )}
             </div>
             <div className="flex-1 text-center sm:text-left">
-              <p className="text-lg font-semibold text-wl-title">{profile?.displayName}</p>
+              <p className="text-lg font-semibold text-wl-title">{profile?.nickname || profile?.displayName}</p>
+              {profile?.nickname && (
+                <p className="text-xs text-wl-muted">Spotify: {profile.displayName}</p>
+              )}
+              {profile?.bio && (
+                <p className="mt-2 max-w-md text-sm text-wl-soft">{profile.bio}</p>
+              )}
               {profile?.profileUrl && (
                 <a
                   href={profile.profileUrl}

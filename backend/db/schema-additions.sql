@@ -24,3 +24,11 @@ CREATE TABLE IF NOT EXISTS public.known_profiles (
   profile_image TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- A nickname and short bio a person sets for themselves on their own
+-- profile page. Lives on known_profiles (not spotify_tokens) because it's
+-- the one table that already survives logout - a nickname someone set
+-- should keep showing in chats/friends lists even after they log out,
+-- same as their cached display name/avatar above.
+ALTER TABLE public.known_profiles ADD COLUMN IF NOT EXISTS nickname TEXT;
+ALTER TABLE public.known_profiles ADD COLUMN IF NOT EXISTS bio TEXT;

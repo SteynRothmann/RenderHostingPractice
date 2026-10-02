@@ -151,6 +151,10 @@ export interface HostProfile {
   displayName: string;
   profileUrl: string | null;
   profileImage: string | null;
+  // A nickname/bio this person has set for themselves on their own profile
+  // page (see MyProfilePage) - null if they've never set one.
+  nickname: string | null;
+  bio: string | null;
 }
 
 // GET /chat-requests/incoming, POST /chat-requests - a request to start a

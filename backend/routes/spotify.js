@@ -16,7 +16,7 @@ const {
   saveTrackToLibrary,
 } = require('../lib/spotifyClient');
 const { getValidAccessToken } = require('../lib/authHelper');
-const { getTokensBySpotifyUserId } = require('../db/tokenStore');
+const { getTokens, getTokensBySpotifyUserId, saveProfileDetails } = require('../db/tokenStore');
 const oceanState = require('../lib/oceanState');
 
 // GET /spotify/currently-playing
@@ -228,8 +228,44 @@ router.get('/user/:spotifyUserId', async (req, res) => {
       displayName: stored.displayName,
       profileUrl: stored.profileUrl,
       profileImage: stored.profileImage,
+      nickname: stored.nickname ?? null,
+      bio: stored.bio ?? null,
     },
   });
+});
+
+// PUT /spotify/profile { nickname, bio } - saves the logged-in person's
+// own nickname/bio (shown on their own profile page, on their public
+// Wavelength profile via GET /user/:spotifyUserId above, and preferred
+// over their Spotify display name in chats/friends/groups - see
+// lib/chatRequests.js, routes/chatRequests.js and routes/groups.js).
+router.put('/profile', async (req, res) => {
+  const stored = await getTokens(req.userId);
+  if (!stored?.spotifyUserId) {
+    return res.status(401).json({ error: 'You need to log in first' });
+  }
+
+  const { nickname, bio } = req.body || {};
+  if (nickname !== undefined && typeof nickname !== 'string') {
+    return res.status(400).json({ error: 'nickname must be a string' });
+  }
+  if (bio !== undefined && typeof bio !== 'string') {
+    return res.status(400).json({ error: 'bio must be a string' });
+  }
+
+  try {
+    const trimmedNickname = nickname !== undefined ? nickname.trim() : undefined;
+    const trimmedBio = bio !== undefined ? bio.trim() : undefined;
+    await saveProfileDetails(stored.spotifyUserId, { nickname: trimmedNickname, bio: trimmedBio });
+    res.json({
+      success: true,
+      nickname: trimmedNickname ?? stored.nickname ?? null,
+      bio: trimmedBio ?? stored.bio ?? null,
+    });
+  } catch (error) {
+    console.error('Could not save profile details:', error.message);
+    res.status(500).json({ error: 'Could not save your nickname/bio' });
+  }
 });
 
 // GET /spotify/recently-played - for the profile page's listening history.

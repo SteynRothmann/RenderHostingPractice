@@ -15,7 +15,10 @@ async function getMySpotifyIdentity(req) {
   if (!stored?.spotifyUserId) return null;
   return {
     spotifyUserId: stored.spotifyUserId,
-    displayName: stored.displayName,
+    // Nickname (if set) takes priority over the Spotify display name
+    // everywhere a chat request shows who sent it - see
+    // lib/chatRequests.js's fromRow.
+    displayName: stored.nickname || stored.displayName,
     profileImage: stored.profileImage,
   };
 }
@@ -100,7 +103,10 @@ router.get('/accepted', async (req, res) => {
         return {
           requestId: request.id,
           spotifyUserId: otherSpotifyUserId,
-          displayName: profile?.displayName || otherSpotifyUserId,
+          // Nickname (if they've set one) takes priority over their
+          // Spotify display name; falls back to the raw account id only
+          // if neither is known at all.
+          displayName: profile?.nickname || profile?.displayName || otherSpotifyUserId,
           profileImage: profile?.profileImage || null,
         };
       })

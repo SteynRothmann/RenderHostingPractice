@@ -138,6 +138,18 @@ export async function fetchHostProfile(spotifyUserId: string): Promise<{ profile
   return res.json();
 }
 
+// Saves the logged-in person's own nickname/bio - shown on their own
+// profile page, on their public profile (fetchHostProfile above), and
+// preferred over their Spotify display name in chats/friends/groups.
+export async function saveProfileDetails(nickname: string, bio: string): Promise<{ nickname: string | null; bio: string | null }> {
+  const res = await apiFetch('/spotify/profile', {
+    method: 'PUT',
+    body: JSON.stringify({ nickname, bio }),
+  });
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not save your nickname/bio'));
+  return res.json();
+}
+
 export async function fetchRecentlyPlayed(): Promise<RecentTrack[]> {
   const res = await apiFetch('/spotify/recently-played');
   if (!res.ok) throw new Error(await errorFrom(res, 'Could not fetch recently played tracks'));

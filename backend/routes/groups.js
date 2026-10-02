@@ -38,7 +38,9 @@ async function serializeGroup(group) {
     const profile = await getTokensBySpotifyUserId(member.spotifyUserId);
     return {
       ...member,
-      displayName: profile?.displayName || member.spotifyUserId,
+      // Nickname (if set) takes priority over their Spotify display name,
+      // same preference order used for chat requests/friends.
+      displayName: profile?.nickname || profile?.displayName || member.spotifyUserId,
       profileImage: profile?.profileImage || null,
     };
   }));

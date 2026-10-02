@@ -27,7 +27,7 @@ function fromRow(row, profile = {}) {
   return {
     id: String(row.id),
     fromSpotifyUserId: row.from_spotify_user_id,
-    fromDisplayName: profile.displayName ?? null,
+    fromDisplayName: profile.nickname || profile.displayName || null,
     fromProfileImage: profile.profileImage ?? null,
     toSpotifyUserId: row.to_spotify_user_id,
     status: row.status,
@@ -75,6 +75,7 @@ async function createRequest({ fromSpotifyUserId, fromDisplayName, fromProfileIm
         const reverseSenderProfile = await getTokensBySpotifyUserId(request.from_spotify_user_id);
         return fromRow(request, {
           displayName: reverseSenderProfile?.displayName ?? null,
+          nickname: reverseSenderProfile?.nickname ?? null,
           profileImage: reverseSenderProfile?.profileImage ?? null,
         });
       }
@@ -144,7 +145,7 @@ async function getIncoming(spotifyUserId) {
       result.rows.map(async (row) => {
         const profile = await getTokensBySpotifyUserId(row.from_spotify_user_id);
         return fromRow(row, {
-          displayName: profile?.displayName ?? row.from_spotify_user_id,
+          displayName: profile?.nickname || profile?.displayName || row.from_spotify_user_id,
           profileImage: profile?.profileImage ?? null,
         });
       })
