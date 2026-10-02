@@ -548,9 +548,9 @@ export default function WeeklyChallengePanel({
                             )}
                           </div>
                         ) : (
-                          <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-full border-2 border-cyan-400/80 bg-slate-950/90 shadow-2xl">
+                          <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-2xl border-2 border-cyan-400/80 bg-slate-950/90 shadow-2xl">
                             {challenge.mySubmission ? (
-                              <div className="h-full w-full overflow-hidden rounded-full p-1">
+                              <div className="h-full w-full overflow-hidden rounded-xl p-1">
                                 <Cover song={challenge.mySubmission} />
                               </div>
                             ) : (
