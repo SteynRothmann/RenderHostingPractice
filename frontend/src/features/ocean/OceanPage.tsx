@@ -90,6 +90,7 @@ export default function OceanPage() {
         song: { id: g.trackId, title: g.trackName, artist: g.artist, cover: g.albumArt, ownerId: g.hostSessionId },
         isMine: g.trackId === myTrackId,
         listenerCount: g.listenerCount,
+        activeEffectCss: g.activeEffectCss ?? null,
       }));
   }, [groups, query, myTrackId]);
 

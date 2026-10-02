@@ -27,15 +27,8 @@ import {
   fetchCosmeticsInventory,
   equipCosmetic,
 } from '../../lib/api';
+import { getSocket } from '../../lib/socket';
 import type { ActiveChallenge, ChallengeSearchResult, CosmeticItem } from '../../data/types';
-
-function mockParticipants(theme: string): number {
-  let hash = 0;
-  for (let i = 0; i < theme.length; i++) {
-    hash = theme.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return 140 + (Math.abs(hash) % 220);
-}
 
 // Unlike the other overlays (Notifications, Create Group), Weekly
 // Challenges gets its own large, top-of-viewport presentation rather than
@@ -105,6 +98,28 @@ export default function WeeklyChallengePanel({
 
     return () => {
       cancelled = true;
+    };
+  }, [open]);
+
+  // Live participant count: the backend broadcasts 'challenge:update'
+  // right after any submission is saved (see POST /challenges/submit),
+  // so the count here updates without the viewer needing to reopen the
+  // panel. Only subscribed while the panel is actually open, and only
+  // applied when the event's challengeId matches what's currently shown.
+  useEffect(() => {
+    if (!open) return;
+    const socket = getSocket();
+
+    function onChallengeUpdate(payload: { challengeId: string | number; participantCount: number }) {
+      setChallenge((current) => {
+        if (!current || String(current.id) !== String(payload.challengeId)) return current;
+        return { ...current, participantCount: payload.participantCount };
+      });
+    }
+
+    socket.on('challenge:update', onChallengeUpdate);
+    return () => {
+      socket.off('challenge:update', onChallengeUpdate);
     };
   }, [open]);
 
@@ -356,7 +371,7 @@ export default function WeeklyChallengePanel({
                     <div className="mt-5 flex flex-wrap items-center gap-3">
                       <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs text-slate-200">
                         <Users className="h-3.5 w-3.5 text-cyan-400" />
-                        <span>{mockParticipants(challenge.theme)} joined</span>
+                        <span>{challenge.participantCount} joined</span>
                       </div>
 
                       {alreadyEntered && (

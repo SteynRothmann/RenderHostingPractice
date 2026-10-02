@@ -4,7 +4,8 @@ import PageHeader from '../../components/PageHeader';
 import OceanBackdrop from '../../components/OceanBackdrop';
 import { useData } from '../../data/DataContext';
 import { useAuth } from '../../data/AuthContext';
-import { fetchRecentlyPlayed, fetchPublicPlaylists, fetchProfileStats } from '../../lib/api';
+import { useCosmetics } from '../../data/CosmeticsContext';
+import { fetchRecentlyPlayed, fetchPublicPlaylists, fetchProfileStats, cosmeticAuraClass } from '../../lib/api';
 import type { RecentTrack, PublicPlaylist, ProfileStats } from '../../data/types';
 
 // "played 5m ago" / "played 3h ago" / "played 2d ago" from an ISO timestamp.
@@ -22,6 +23,7 @@ function timeAgo(iso: string): string {
 export default function MyProfilePage() {
   const { db, mutate } = useData();
   const { profile } = useAuth();
+  const { equippedEffectCss } = useCosmetics();
   const { me } = db;
   const [nickname, setNickname] = useState(me.nickname);
   const [bio, setBio] = useState(me.bio);
@@ -75,7 +77,7 @@ export default function MyProfilePage() {
       <div className="mx-auto my-8 max-w-4xl rounded-3xl border border-cyan-500/20 bg-wl-panel/90 p-6 shadow-2xl backdrop-blur-md md:p-8">
         {/* Header: real Spotify avatar + name + editable fields */}
         <div className="flex flex-col items-center gap-6 border-b border-cyan-500/20 pb-6 sm:flex-row sm:items-start">
-          <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-400 bg-slate-300 shadow-md">
+          <div className={`flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-400 bg-slate-300 shadow-md ${cosmeticAuraClass(equippedEffectCss)}`}>
             {profile?.profileImage ? (
               <img src={profile.profileImage} alt="Your Spotify profile" className="h-full w-full object-cover" />
             ) : (

@@ -7,6 +7,10 @@ export interface OceanMarker {
   song: Song;
   isMine: boolean;
   listenerCount: number;
+  // Cosmetic reward css_class the host of this marker currently has
+  // equipped ('cyan-glow' | 'gold-shimmer' | anything else/null means no
+  // glow), from OceanGroup.activeEffectCss - see oceanState.js.
+  activeEffectCss?: string | null;
 }
 
 interface Options {
@@ -78,6 +82,24 @@ const BUBBLE_COLOR: { night: RGBA; day: RGBA } = { night: [165, 243, 252, 1], da
 // distinct so the two states never look identical.
 const MINE_RING_COLOR: { night: RGBA; day: RGBA } = { night: [59, 130, 246, 1], day: [37, 99, 235, 1] }; // vivid azure/electric blue
 const HOVER_RING_COLOR: { night: RGBA; day: RGBA } = { night: [34, 211, 238, 1], day: [10, 111, 159, 1] }; // cyan (night) / wl-link (day)
+
+// Cosmetic-aura glow colors, matching the hex colors used for
+// .wl-cosmetic-cyan-glow / .wl-cosmetic-gold-shimmer in index.css (same
+// color identity in the ocean as on the nav/profile avatar). Kept
+// theme-invariant (night === day) same as those CSS classes - these are
+// fixed cosmetic brand colors, not day/night-sensitive scene colors.
+const COSMETIC_CYAN_GLOW_COLOR: { night: RGBA; day: RGBA } = { night: [34, 211, 238, 1], day: [34, 211, 238, 1] };
+const COSMETIC_GOLD_GLOW_COLOR: { night: RGBA; day: RGBA } = { night: [251, 191, 36, 1], day: [251, 191, 36, 1] };
+
+// Maps a marker's activeEffectCss to its glow color, in one place so the
+// draw loop doesn't repeat this if/else - anything unrecognized
+// (including null/undefined) means "no cosmetic glow", same convention
+// as cosmeticAuraClass() in lib/api.ts.
+function cosmeticGlowColor(cssClass: string | null | undefined): { night: RGBA; day: RGBA } | null {
+  if (cssClass === 'cyan-glow') return COSMETIC_CYAN_GLOW_COLOR;
+  if (cssClass === 'gold-shimmer') return COSMETIC_GOLD_GLOW_COLOR;
+  return null;
+}
 // Badge ring/text matches the page shell (wl-bg) so the listener-count
 // badge's outline keeps reading as "cut into" the background in both themes.
 const BADGE_RING_COLOR: { night: RGBA; day: RGBA } = { night: [2, 24, 43, 1], day: [232, 244, 253, 1] };
@@ -105,6 +127,7 @@ interface MarkerRuntime {
   song: Song; // last-known song data, kept around while sinking (after it's gone from `markers`)
   isMine: boolean;
   listenerCount: number;
+  activeEffectCss: string | null;
   sinkStartTime: number | null; // performance.now() timestamp when it started sinking, or null
 }
 
@@ -193,6 +216,7 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
           song: m.song,
           isMine: m.isMine,
           listenerCount: m.listenerCount,
+          activeEffectCss: m.activeEffectCss ?? null,
           sinkStartTime: null,
         });
       } else {
@@ -201,6 +225,7 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
         existing.song = m.song;
         existing.isMine = m.isMine;
         existing.listenerCount = m.listenerCount;
+        existing.activeEffectCss = m.activeEffectCss ?? null;
         existing.sinkStartTime = null;
       }
     });
@@ -453,6 +478,28 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
           ctx.fillRect(left, top, size, size);
         }
         ctx.restore();
+
+        // Cosmetic aura glow - a separate pass, drawn BEHIND the mine/hover
+        // ring below so that ring still reads clearly on top when a
+        // marker is both "mine" AND has a cosmetic equipped. Bigger inset
+        // (size + 8) than the mine/hover ring (size + 4) so the two never
+        // overlap exactly, plus a soft shadowBlur for a glow rather than a
+        // hard outline. globalAlpha is already set above (for the
+        // scale/sinkP fade-out), so this glow fades out right along with
+        // a sinking bubble instead of staying at full brightness.
+        if (!sinking) {
+          const glowColor = cosmeticGlowColor(rt.activeEffectCss);
+          if (glowColor) {
+            ctx.save();
+            ctx.shadowColor = blend(glowColor.night, glowColor.day, mix);
+            ctx.shadowBlur = 14;
+            roundedRect(ctx, left - 6, top - 6, size + 12, size + 12, CORNER + 6);
+            ctx.strokeStyle = blend(glowColor.night, glowColor.day, mix);
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
 
         if (!sinking && (rt.isMine || hoveredRef.current === rt.id)) {
           roundedRect(ctx, left - 2, top - 2, size + 4, size + 4, CORNER + 2);

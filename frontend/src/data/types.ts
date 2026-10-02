@@ -251,6 +251,10 @@ export interface ActiveChallenge {
   rewardId: string | null;
   deadline: string; // ISO timestamp
   mySubmission: ActiveChallengeSubmission | null;
+  // Real count of rows in challenge_submissions for this challenge (see
+  // GET /challenges/active) - kept live afterward via the 'challenge:update'
+  // socket event broadcast from POST /challenges/submit, not by refetching.
+  participantCount: number;
 }
 
 // GET /challenges/search?q=...

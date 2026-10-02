@@ -249,6 +249,24 @@ body {
   box-shadow: 0 0 35px color-mix(in srgb, var(--wl-treasure) 30%, transparent);
 }
 
+/* =========================================================
+   COSMETIC AURAS - Weekly Challenge rewards (cyan-glow, gold-shimmer)
+   applied to the viewer's OWN avatar (nav bar + profile page, see
+   CosmeticsContext.tsx + cosmeticAuraClass() in lib/api.ts). These class
+   names must exactly match 'wl-cosmetic-' + the rewards table's
+   css_class value. Deliberately NOT theme-tokenized (unlike the wl-*
+   tokens above) - these are fixed cosmetic brand colors that should look
+   identical in light and dark mode, same judgment as wl-chest-body's
+   dark-mode-only values, just applied to both themes here instead of one.
+   ========================================================= */
+.wl-cosmetic-cyan-glow {
+  box-shadow: 0 0 0 2px #22d3ee, 0 0 18px 5px rgba(34, 211, 238, 0.55);
+}
+
+.wl-cosmetic-gold-shimmer {
+  box-shadow: 0 0 0 2px #fbbf24, 0 0 18px 5px rgba(251, 191, 36, 0.55);
+}
+
 /* Song Details - allow scrolling without showing browser scrollbars */
 .song-details-scroll {
   scrollbar-width: none;

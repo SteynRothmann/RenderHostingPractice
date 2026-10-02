@@ -43,6 +43,12 @@ router.get('/active', async (req, res) => {
     const activeChallenge = challengeResult.rows[0];
     let mySubmission = null;
 
+    const countResult = await pool.query(
+      `SELECT COUNT(*) FROM challenge_submissions WHERE challenge_id = $1`,
+      [activeChallenge.id]
+    );
+    const participantCount = parseInt(countResult.rows[0].count, 10);
+
     // Only logged-in callers have a submission to look up - this is just a
     // stored-token lookup (same as chatRequests.js's getMySpotifyIdentity),
     // not a live Spotify call.
@@ -75,6 +81,7 @@ router.get('/active', async (req, res) => {
       rewardId: activeChallenge.reward_id,
       deadline: activeChallenge.deadline,
       mySubmission,
+      participantCount,
     });
   } catch (err) {
     console.error('Failed to fetch active challenge:', err);
@@ -184,6 +191,19 @@ router.post('/submit', async (req, res) => {
          ON CONFLICT (spotify_user_id, reward_id) DO NOTHING`,
         [spotifyUserId, challenge.reward_id]
       );
+    }
+
+    // Re-count and broadcast the live participant count so every open
+    // WeeklyChallengePanel updates without needing to reopen it (see
+    // GET /active above for the initial count on load).
+    const countResult = await pool.query(
+      `SELECT COUNT(*) FROM challenge_submissions WHERE challenge_id = $1`,
+      [challengeId]
+    );
+    const participantCount = parseInt(countResult.rows[0].count, 10);
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('challenge:update', { challengeId, participantCount });
     }
 
     // Actually start this track playing on the submitter's own Spotify

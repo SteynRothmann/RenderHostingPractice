@@ -6,6 +6,7 @@ import App from './App.tsx'
 import { DataProvider } from './data/DataContext.tsx'
 import { AuthProvider } from './data/AuthContext.tsx'
 import { ChatProvider } from './data/ChatContext.tsx'
+import { CosmeticsProvider } from './data/CosmeticsContext.tsx'
 import { ThemeProvider } from './data/ThemeContext.tsx'
 
 createRoot(document.getElementById('root')!).render(
@@ -15,7 +16,9 @@ createRoot(document.getElementById('root')!).render(
         <AuthProvider>
           <DataProvider>
             <ChatProvider>
-              <App />
+              <CosmeticsProvider>
+                <App />
+              </CosmeticsProvider>
             </ChatProvider>
           </DataProvider>
         </AuthProvider>

@@ -340,3 +340,16 @@ export async function equipCosmetic(rewardId: string, isEquipped: boolean): Prom
   });
   if (!res.ok) throw new Error(await errorFrom(res, 'Could not update this cosmetic'));
 }
+
+// Maps a reward's stored css_class ('cyan-glow', 'gold-shimmer', as found
+// in the rewards table and carried through CosmeticItem.css_class /
+// OceanGroup.activeEffectCss / the user_cosmetic_changed socket payload)
+// to the actual Tailwind-adjacent class name defined in index.css. Kept
+// as one shared helper so every consumer (nav avatar, profile avatar)
+// maps it identically instead of duplicating the if/else - anything
+// unrecognized (including null) safely renders no aura at all.
+export function cosmeticAuraClass(cssClass: string | null | undefined): string {
+  if (cssClass === 'cyan-glow') return 'wl-cosmetic-cyan-glow';
+  if (cssClass === 'gold-shimmer') return 'wl-cosmetic-gold-shimmer';
+  return '';
+}

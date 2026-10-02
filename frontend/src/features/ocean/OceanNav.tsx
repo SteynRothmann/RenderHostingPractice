@@ -4,7 +4,8 @@ import { motion } from 'framer-motion';
 import { Bell, LogOut, MessageCircle, Search } from 'lucide-react';
 import { useAuth } from '../../data/AuthContext';
 import { useChat } from '../../data/ChatContext';
-import { fetchIncomingChatRequests } from '../../lib/api';
+import { useCosmetics } from '../../data/CosmeticsContext';
+import { fetchIncomingChatRequests, cosmeticAuraClass } from '../../lib/api';
 import OceanButton from '../../components/OceanButton';
 import BrandLogo from '../../components/BrandLogo';
 import Tooltip from '../../components/Tooltip';
@@ -50,6 +51,7 @@ function NavBob({ index, children }: { index: number; children: ReactNode }) {
 export default function OceanNav({ onSearch, onOpenNotifications, searchResults, onSelectSearchResult }: Props) {
   const { isLoggedIn, logout, profile } = useAuth();
   const { hasAnyUnread } = useChat();
+  const { equippedEffectCss } = useCosmetics();
   const navigate = useNavigate();
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -152,7 +154,7 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
           <NavBob index={0}>
             <Tooltip label="Profile">
               <Link to="/profile" aria-label="Your profile" className="flex items-center">
-                <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-slate-700 ring-2 ring-transparent hover:ring-cyan-400">
+                <span className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-slate-700 ring-2 ring-transparent hover:ring-cyan-400 ${cosmeticAuraClass(equippedEffectCss)}`}>
                   {profile?.profileImage ? (
                     <img src={profile.profileImage} alt="Your Spotify profile" className="h-full w-full object-cover" />
                   ) : (
