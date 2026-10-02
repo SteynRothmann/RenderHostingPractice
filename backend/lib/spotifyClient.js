@@ -223,6 +223,20 @@ async function saveTrackToLibrary(accessToken, trackId) {
   );
 }
 
+// Spotify tracks don't carry a genre themselves - genre only exists on
+// ARTIST objects. This fetches the primary artist's genre list for
+// whatever track is currently playing, used to let Ocean search match on
+// genre and to show genre tags in the song panel. Callers should cache
+// this (see lib/genreCache.js) rather than calling it on every poll - an
+// artist's genres essentially never change, and Spotify's API has
+// per-app rate limits shared across every session.
+async function getArtistGenres(accessToken, artistId) {
+  const res = await axios.get(`https://api.spotify.com/v1/artists/${artistId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return res.data.genres || [];
+}
+
 // NOTE: this used to also export getPublicProfile/getPublicPlaylistsForUser
 // (GET /v1/users/{id} and GET /v1/users/{id}/playlists), for viewing an
 // ocean host's page. Spotify removed BOTH of those endpoints outright in
@@ -247,4 +261,5 @@ module.exports = {
   skipToNext,
   skipToPrevious,
   saveTrackToLibrary,
+  getArtistGenres,
 };

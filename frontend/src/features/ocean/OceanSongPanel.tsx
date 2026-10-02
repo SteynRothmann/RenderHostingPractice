@@ -248,6 +248,24 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
 
               <p className="mt-1 text-sm text-white/60">{group.artist}</p>
 
+              {/* Genre tags - sourced from the primary artist's genres
+                  (Spotify genres live on the artist, not the track - see
+                  backend/lib/genreCache.js). Can be empty if the artist
+                  has none tagged on Spotify, so this section just doesn't
+                  render rather than showing an empty row. */}
+              {group.genres.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+                  {group.genres.slice(0, 4).map((genre) => (
+                    <span
+                      key={genre}
+                      className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2.5 py-0.5 text-[10px] font-medium capitalize text-cyan-200"
+                    >
+                      {genre}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <p className="mt-1 text-xs text-white/40">
                 {group.listenerCount} {group.listenerCount === 1 ? 'listener' : 'listeners'}
               </p>

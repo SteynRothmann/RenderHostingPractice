@@ -99,6 +99,11 @@ export interface OceanGroup {
   trackName: string;
   artist: string;
   albumArt: string | null;
+  // The primary artist's genre tags (see backend/lib/genreCache.js) -
+  // Spotify genres live on the ARTIST, not the track, so this is really
+  // "this track's artist's genres". Can be empty (not every artist has
+  // genres tagged, or the lookup hasn't completed/failed), never missing.
+  genres: string[];
   isPlaying: boolean;
   progressMs: number;
   durationMs: number;

@@ -1,6 +1,7 @@
 const { getAllUserIds, getTokens, deleteTokens } = require('../db/tokenStore');
 const { getValidAccessToken } = require('./authHelper');
-const { getCurrentlyPlaying, playTrackAt } = require('./spotifyClient');
+const { getCurrentlyPlaying, playTrackAt, getArtistGenres } = require('./spotifyClient');
+const { getGenresForArtist } = require('./genreCache');
 const oceanState = require('./oceanState');
 
 // Spotify's token endpoint returns one of these in the error body when a
@@ -29,6 +30,21 @@ async function pollAllSessions() {
         const stored = await getTokens(userId);
         const accessToken = await getValidAccessToken(userId);
         const data = await getCurrentlyPlaying(accessToken);
+
+        // Attach the primary artist's genres onto the track item itself
+        // (cached - see genreCache.js) so oceanState can pick them up the
+        // same way it already reads every other field off spotifyData.item,
+        // without needing a separate parameter threaded through every
+        // layer. Genre search/display is a nice-to-have, not core to the
+        // poll - a failure here is swallowed by genreCache itself and
+        // just yields an empty list, never breaks this session's poll.
+        if (data?.item) {
+          const primaryArtistId = data.item.artists?.[0]?.id;
+          data.item.genres = primaryArtistId
+            ? await getGenresForArtist(primaryArtistId, accessToken, getArtistGenres)
+            : [];
+        }
+
         oceanState.updateSessionFromPoll(userId, data, {
           spotifyUserId: stored?.spotifyUserId,
           displayName: stored?.displayName,

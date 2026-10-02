@@ -81,6 +81,10 @@ function updateSessionFromPoll(sessionId, spotifyData, accountInfo) {
     trackName: spotifyData.item.name,
     artist: spotifyData.item.artists?.map((a) => a.name).join(', '),
     albumArt: spotifyData.item.album?.images?.[0]?.url,
+    // Primary artist's genres (see spotifyPoller.js + lib/genreCache.js) -
+    // may be an empty array (artist has none tagged, or the lookup
+    // failed), never undefined.
+    genres: spotifyData.item.genres || [],
     isPlaying,
     progressMs: spotifyData.progress_ms,
     durationMs: spotifyData.item.duration_ms,
@@ -125,6 +129,7 @@ function computeGroups() {
         trackName: session.trackName,
         artist: session.artist,
         albumArt: session.albumArt,
+        genres: session.genres,
         isPlaying: session.isPlaying,
         progressMs: session.progressMs,
         durationMs: session.durationMs,
@@ -165,6 +170,7 @@ function computeGroups() {
     trackName: g.trackName,
     artist: g.artist,
     albumArt: g.albumArt,
+    genres: g.genres || [],
     isPlaying: g.isPlaying,
     progressMs: g.progressMs,
     durationMs: g.durationMs,

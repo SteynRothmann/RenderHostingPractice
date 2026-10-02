@@ -84,7 +84,7 @@ export default function OceanPage() {
 
   const markers: OceanMarker[] = useMemo(() => {
     return Object.values(groups)
-      .filter((g) => matchesQuery(`${g.trackName} ${g.artist}`, query))
+      .filter((g) => matchesQuery(`${g.trackName} ${g.artist} ${g.genres.join(' ')}`, query))
       .map((g) => ({
         id: g.trackId,
         song: { id: g.trackId, title: g.trackName, artist: g.artist, cover: g.albumArt, ownerId: g.hostSessionId },
@@ -114,7 +114,7 @@ export default function OceanPage() {
     const trimmed = query.trim();
     if (!trimmed) return [];
     return Object.values(groups)
-      .filter((g) => matchesQuery(`${g.trackName} ${g.artist}`, trimmed))
+      .filter((g) => matchesQuery(`${g.trackName} ${g.artist} ${g.genres.join(' ')}`, trimmed))
       .slice(0, 6)
       .map((g) => ({ trackId: g.trackId, trackName: g.trackName, artist: g.artist, albumArt: g.albumArt }));
   }, [groups, query]);

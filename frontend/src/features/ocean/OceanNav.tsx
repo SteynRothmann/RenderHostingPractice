@@ -64,6 +64,21 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
   const [searchFocused, setSearchFocused] = useState(false);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Cycles the search box's placeholder through what it can actually
+  // match on, so an empty box hints at the feature set instead of a
+  // generic "Search / filter". Only matters while the input is empty -
+  // a browser never shows the placeholder once there's real text in it -
+  // so this can just run unconditionally rather than pausing/resuming
+  // based on focus or content.
+  const SEARCH_PLACEHOLDERS = ['Search Artist', 'Search Song', 'Search Genre'];
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setPlaceholderIndex((i) => (i + 1) % SEARCH_PLACEHOLDERS.length);
+    }, 2200);
+    return () => clearInterval(id);
+  }, []);
+
   function handleSearchChange(value: string) {
     setSearchText(value);
     onSearch(value);
@@ -202,7 +217,7 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
             <input
               type="text"
               value={searchText}
-              placeholder="Search / filter"
+              placeholder={SEARCH_PLACEHOLDERS[placeholderIndex]}
               aria-label="Search or filter"
               onChange={(e) => handleSearchChange(e.target.value)}
               onFocus={handleSearchFocus}
