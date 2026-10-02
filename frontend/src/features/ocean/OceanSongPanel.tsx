@@ -240,10 +240,6 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
 
             {/* Song Details */}
             <div className="relative mt-3 text-center">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45">
-                Now floating in the Ocean
-              </p>
-
               <h2 className="mt-2 text-2xl font-bold text-white">{group.trackName}</h2>
 
               <p className="mt-1 text-sm text-white/60">{group.artist}</p>
