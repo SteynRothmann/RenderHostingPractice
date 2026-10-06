@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ExternalLink, ListMusic } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import OceanBackdrop from '../../components/OceanBackdrop';
@@ -29,10 +30,22 @@ function timeAgo(iso: string): string {
 export default function MyProfilePage() {
   const { profile } = useAuth();
   const { equippedEffectCss } = useCosmetics();
+  const navigate = useNavigate();
   const [nickname, setNickname] = useState('');
   const [bio, setBio] = useState('');
+  // What's currently saved on the backend - compared against the inputs to
+  // tell whether there are unsaved changes.
+  const [savedNickname, setSavedNickname] = useState('');
+  const [savedBio, setSavedBio] = useState('');
   const [toast, setToast] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [showLeavePrompt, setShowLeavePrompt] = useState(false);
+  // Set once the person types anything, so a slow initial load can't
+  // overwrite what they've already started typing.
+  const touchedRef = useRef(false);
+
+  const dirty = nickname.trim() !== savedNickname || bio.trim() !== savedBio;
 
   const [recentTracks, setRecentTracks] = useState<RecentTrack[]>([]);
   const [recentError, setRecentError] = useState('');
@@ -64,6 +77,9 @@ export default function MyProfilePage() {
     if (!profile?.spotifyUserId) return;
     fetchHostProfile(profile.spotifyUserId)
       .then(({ profile: p }) => {
+        setSavedNickname(p.nickname ?? '');
+        setSavedBio(p.bio ?? '');
+        if (touchedRef.current) return;
         setNickname(p.nickname ?? '');
         setBio(p.bio ?? '');
       })
@@ -72,17 +88,45 @@ export default function MyProfilePage() {
       });
   }, [profile?.spotifyUserId]);
 
-  async function save() {
+  // Browser-level guard for refresh / closing the tab while edits are unsaved.
+  useEffect(() => {
+    if (!dirty) return;
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+    }
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
+
+  // Returns true if the save went through.
+  async function save(): Promise<boolean> {
     setSaveError('');
+    setSaving(true);
     try {
       const saved = await saveProfileDetails(nickname.trim(), bio.trim());
       setNickname(saved.nickname ?? '');
       setBio(saved.bio ?? '');
+      setSavedNickname(saved.nickname ?? '');
+      setSavedBio(saved.bio ?? '');
       setToast(true);
       setTimeout(() => setToast(false), 1800);
+      return true;
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Could not save your profile');
+      return false;
+    } finally {
+      setSaving(false);
     }
+  }
+
+  function handleBack() {
+    if (dirty) setShowLeavePrompt(true);
+    else navigate('/');
+  }
+
+  async function saveAndLeave() {
+    if (await save()) navigate('/');
+    else setShowLeavePrompt(false); // stay on the page so the error is visible
   }
 
   return (
@@ -93,7 +137,7 @@ export default function MyProfilePage() {
       <OceanBackdrop />
 
       <div className="relative z-10">
-        <PageHeader title="Your Profile" />
+        <PageHeader title="Your Profile" onBack={handleBack} />
 
       <div className="mx-auto my-8 max-w-4xl rounded-3xl border border-cyan-500/20 bg-wl-panel/90 p-6 shadow-2xl backdrop-blur-md md:p-8">
         {/* Header: real Spotify avatar + name + editable fields */}
@@ -119,7 +163,10 @@ export default function MyProfilePage() {
               <label className="mb-1 block text-sm font-semibold text-wl-link">Nickname</label>
               <input
                 value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
+                onChange={(e) => {
+                  touchedRef.current = true;
+                  setNickname(e.target.value);
+                }}
                 placeholder="What should people call you?"
                 className="w-full rounded-lg border border-cyan-500/20 bg-wl-bg px-3 py-2 text-sm text-wl-fg placeholder:text-wl-faint"
               />
@@ -129,7 +176,10 @@ export default function MyProfilePage() {
               <label className="mb-1 block text-sm font-semibold text-wl-link">Bio</label>
               <textarea
                 value={bio}
-                onChange={(e) => setBio(e.target.value)}
+                onChange={(e) => {
+                  touchedRef.current = true;
+                  setBio(e.target.value);
+                }}
                 rows={2}
                 placeholder="Say something about yourself…"
                 className="w-full rounded-lg border border-cyan-500/20 bg-wl-bg px-3 py-2 text-sm text-wl-fg placeholder:text-wl-faint"
@@ -263,15 +313,67 @@ export default function MyProfilePage() {
           </div>
         </div>
 
+        {dirty && !saveError && (
+          <p className="mt-3 text-center text-xs font-medium text-wl-treasure">
+            You have unsaved changes to your nickname/bio.
+          </p>
+        )}
         {saveError && <p className="mt-3 text-center text-xs text-wl-danger">{saveError}</p>}
         <button
-          onClick={save}
+          onClick={() => void save()}
+          disabled={saving}
           type="button"
-          className="mt-6 w-full rounded-md bg-wl-accent py-2.5 text-sm font-semibold text-black transition hover:bg-[#1fdf64]"
+          className={`mt-3 w-full rounded-md bg-wl-accent py-2.5 text-sm font-semibold text-black transition hover:bg-[#1fdf64] disabled:opacity-60 ${
+            dirty ? 'animate-pulse ring-2 ring-wl-accent/60 ring-offset-2 ring-offset-wl-panel' : ''
+          }`}
         >
-          Save changes
+          {saving ? 'Saving…' : 'Save changes'}
         </button>
       </div>
+
+      {showLeavePrompt && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-wl-scrim p-4 backdrop-blur-sm"
+          onClick={() => setShowLeavePrompt(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Unsaved changes"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl border border-cyan-500/20 bg-wl-panel p-5 shadow-2xl"
+          >
+            <h3 className="text-base font-semibold text-wl-title">Save your changes?</h3>
+            <p className="mt-1 text-sm text-wl-soft">
+              You've edited your nickname or bio but haven't saved yet.
+            </p>
+            <div className="mt-4 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => void saveAndLeave()}
+                disabled={saving}
+                className="rounded-md bg-wl-accent py-2 text-sm font-semibold text-black hover:bg-[#1fdf64] disabled:opacity-60"
+              >
+                {saving ? 'Saving…' : 'Save & leave'}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="rounded-md border border-cyan-500/20 py-2 text-sm font-medium text-wl-danger hover:bg-cyan-500/10"
+              >
+                Discard changes
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLeavePrompt(false)}
+                className="rounded-md py-2 text-sm font-medium text-wl-link hover:bg-cyan-500/10"
+              >
+                Keep editing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div
         className={`fixed bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-950 transition-opacity ${toast ? 'opacity-100' : 'pointer-events-none opacity-0'}`}

@@ -93,7 +93,7 @@ export default function HostProfilePage() {
                 <p className="text-xs text-wl-muted">Spotify: {profile.displayName}</p>
               )}
               {profile?.bio && (
-                <p className="mt-2 max-w-md text-sm text-wl-soft">{profile.bio}</p>
+                <p className="mt-2 max-w-md whitespace-pre-line text-sm text-wl-soft">{profile.bio}</p>
               )}
               {profile?.profileUrl && (
                 <a

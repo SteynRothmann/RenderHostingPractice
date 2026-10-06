@@ -284,35 +284,34 @@ export default function WeeklyChallengePanel({
           exit={{ opacity: 0 }}
           onClick={onClose}
         >
-          {/* This panel's own interior (relic cards, canvas light-ray
-              effect, etc.) is a deliberately vivid dark "glass dashboard"
-              treatment ported from an earlier mockup round - kept as a
-              theme-agnostic identity in both modes, same judgment as
-              OceanSongPanel/WeeklyChallengeButton. Only the backdrop scrim
-              and this outer card surface are tokenized so the modal still
-              sits correctly against either theme's page behind it. */}
+          {/* Dark mode keeps the vivid "glass dashboard" look ported from an
+              earlier mockup round. Light mode gets its own pale-sky
+              treatment via the `light:` variant (see index.css) - every
+              hard-coded dark/white-alpha surface and light-on-dark text
+              colour below has a matching `light:` override, since those
+              don't follow the theme tokens on their own. */}
           <motion.div
             role="dialog"
             aria-modal="true"
             aria-label="Weekly Challenge"
             onClick={(e) => e.stopPropagation()}
-            className="relative flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-cyan-400/20 bg-wl-panel/90 shadow-[0_30px_80px_rgba(2,10,25,0.6)] backdrop-blur-xl lg:max-w-4xl"
+            className="relative flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-cyan-400/20 bg-wl-panel/90 shadow-[0_30px_80px_rgba(2,10,25,0.6)] light:border-sky-200 light:shadow-[0_30px_80px_rgba(8,36,58,0.25)] backdrop-blur-xl lg:max-w-4xl"
             initial={{ opacity: 0, scale: 0.94, y: -24 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: -24 }}
             transition={{ type: 'spring', damping: 26, stiffness: 300 }}
           >
             {/* Header */}
-            <div className="flex shrink-0 items-center justify-between border-b border-cyan-400/20 bg-white/[0.02] px-5 py-4 sm:px-6">
-              <span className="flex items-center gap-2 text-base font-semibold text-cyan-100 sm:text-lg">
-                <Trophy className="h-5 w-5 text-amber-300" />
+            <div className="flex shrink-0 items-center justify-between border-b border-cyan-400/20 bg-white/[0.02] px-5 py-4 light:border-sky-200 light:bg-sky-50 sm:px-6">
+              <span className="flex items-center gap-2 text-base font-semibold text-cyan-100 light:text-sky-950 sm:text-lg">
+                <Trophy className="h-5 w-5 text-amber-300 light:text-amber-600" />
                 Weekly Challenge
               </span>
 
               <button
                 aria-label="Close panel"
                 onClick={onClose}
-                className="text-cyan-300/70 transition hover:text-cyan-200"
+                className="text-cyan-300/70 transition hover:text-cyan-200 light:text-sky-700 light:hover:text-sky-950"
                 type="button"
               >
                 <X className="h-5 w-5" />
@@ -320,63 +319,63 @@ export default function WeeklyChallengePanel({
             </div>
 
             {/* Scrollable content */}
-            <div className="nav-panel-scroll relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-gradient-to-b from-[#0e3a5a] via-[#061e38] to-[#020914] px-4 py-6 font-sans text-slate-100 antialiased selection:bg-cyan-500/30 sm:px-6">
+            <div className="nav-panel-scroll relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-gradient-to-b from-[#0e3a5a] via-[#061e38] to-[#020914] px-4 py-6 font-sans text-slate-100 antialiased light:from-sky-100 light:via-sky-50 light:to-white light:text-slate-800 selection:bg-cyan-500/30 sm:px-6">
               <canvas
                 ref={canvasRef}
-                className="pointer-events-none absolute inset-0 z-0 h-full w-full opacity-80"
+                className="pointer-events-none absolute inset-0 z-0 h-full w-full opacity-80 light:hidden"
               />
 
-              <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-32 bg-gradient-to-b from-cyan-300/20 via-sky-400/10 to-transparent blur-md" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-32 bg-gradient-to-b from-cyan-300/20 via-sky-400/10 to-transparent blur-md light:from-sky-300/40 light:via-sky-200/20" />
 
               {loadingChallenge && !challenge ? (
-                <div className="relative z-10 flex items-center justify-center py-16 text-xs font-medium text-cyan-200/70">
+                <div className="relative z-10 flex items-center justify-center py-16 text-xs font-medium text-cyan-200/70 light:text-sky-800">
                   Loading this week's challenge…
                 </div>
               ) : !challenge ? (
-                <div className="relative z-10 flex items-center justify-center py-16 text-xs font-medium text-slate-300/80">
+                <div className="relative z-10 flex items-center justify-center py-16 text-xs font-medium text-slate-300/80 light:text-slate-600">
                   No active challenge right now - check back soon.
                 </div>
               ) : (
                 <div className="relative z-10 space-y-6">
                   {/* 1. HERO / THEME CARD */}
-                  <section className="relative overflow-hidden rounded-3xl border border-white/20 bg-gradient-to-b from-white/10 via-white/[0.04] to-transparent p-5 shadow-[0_12px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl sm:p-6">
+                  <section className="relative overflow-hidden rounded-3xl border border-white/20 bg-gradient-to-b from-white/10 via-white/[0.04] to-transparent p-5 shadow-[0_12px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl light:border-sky-200 light:from-white light:via-white/80 light:to-sky-50/60 light:shadow-[0_12px_32px_rgba(8,36,58,0.12)] sm:p-6">
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/15 px-3.5 py-1.5 shadow-[0_0_12px_rgba(245,158,11,0.2)] backdrop-blur-md">
-                        <Trophy className="h-3.5 w-3.5 text-amber-300" />
-                        <span className="text-xs font-semibold text-amber-100">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/15 px-3.5 py-1.5 shadow-[0_0_12px_rgba(245,158,11,0.2)] backdrop-blur-md light:bg-amber-100 light:shadow-none">
+                        <Trophy className="h-3.5 w-3.5 text-amber-300 light:text-amber-700" />
+                        <span className="text-xs font-semibold text-amber-100 light:text-amber-900">
                           This Week's Challenge
                         </span>
                       </div>
 
-                      <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3.5 py-1.5 backdrop-blur-md">
-                        <Clock className="h-3.5 w-3.5 text-cyan-300" />
-                        <span className="font-mono text-xs font-medium text-slate-200">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3.5 py-1.5 backdrop-blur-md light:border-sky-200 light:bg-white">
+                        <Clock className="h-3.5 w-3.5 text-cyan-300 light:text-cyan-700" />
+                        <span className="font-mono text-xs font-medium text-slate-200 light:text-slate-700">
                           {remaining > 0 ? formatCountdown(remaining) : 'Closed'}
                         </span>
                       </div>
                     </div>
 
-                    <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-300/90">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-300/90 light:text-cyan-700">
                       Weekly Theme
                     </p>
 
-                    <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+                    <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-white light:text-sky-950 sm:text-3xl">
                       {challenge.theme}
                     </h2>
 
-                    <p className="mt-2 max-w-lg text-xs leading-relaxed text-slate-300/90">
+                    <p className="mt-2 max-w-lg text-xs leading-relaxed text-slate-300/90 light:text-slate-600">
                       {challenge.description}
                     </p>
 
                     <div className="mt-5 flex flex-wrap items-center gap-3">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs text-slate-200">
-                        <Users className="h-3.5 w-3.5 text-cyan-400" />
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs text-slate-200 light:border-sky-200 light:bg-sky-50 light:text-slate-700">
+                        <Users className="h-3.5 w-3.5 text-cyan-400 light:text-cyan-600" />
                         <span>{challenge.participantCount} joined</span>
                       </div>
 
                       {alreadyEntered && (
-                        <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200 light:bg-emerald-100 light:text-emerald-800">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300 light:text-emerald-600" />
                           <span>Joined ✓</span>
                         </div>
                       )}
@@ -386,18 +385,18 @@ export default function WeeklyChallengePanel({
                   {/* 2. SONG SEARCH & ENTRY */}
                   <section className="relative">
                     <div className="mb-2">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/80">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/80 light:text-cyan-700">
                         Your Entry
                       </p>
-                      <h3 className="text-sm font-bold text-white">Choose your song</h3>
+                      <h3 className="text-sm font-bold text-white light:text-sky-950">Choose your song</h3>
                     </div>
 
                     <div className="relative">
                       <div
                         className={`flex items-center gap-3 rounded-xl border px-3.5 transition-all duration-200 ${
                           isSearchFocused
-                            ? 'border-cyan-400/80 bg-black/60 shadow-[0_0_18px_rgba(34,211,238,0.25)]'
-                            : 'border-white/10 bg-black/30'
+                            ? 'border-cyan-400/80 bg-black/60 shadow-[0_0_18px_rgba(34,211,238,0.25)] light:bg-white light:shadow-[0_0_14px_rgba(14,165,233,0.25)]'
+                            : 'border-white/10 bg-black/30 light:border-sky-200 light:bg-white/80'
                         }`}
                       >
                         <Search className="h-4 w-4 shrink-0 text-slate-400" />
@@ -409,7 +408,7 @@ export default function WeeklyChallengePanel({
                           onBlur={() => setIsSearchFocused(false)}
                           onChange={(e) => handleQuery(e.target.value)}
                           placeholder="Search songs or artists..."
-                          className="w-full bg-transparent py-3 text-xs text-white outline-none placeholder:text-slate-500 disabled:opacity-50"
+                          className="w-full bg-transparent py-3 text-xs text-white outline-none placeholder:text-slate-500 disabled:opacity-50 light:text-slate-900"
                         />
                         {query && (
                           <button
@@ -419,7 +418,7 @@ export default function WeeklyChallengePanel({
                               setResults([]);
                               setPending(null);
                             }}
-                            className="text-slate-400 hover:text-white"
+                            className="text-slate-400 hover:text-white light:hover:text-slate-900"
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
@@ -427,7 +426,7 @@ export default function WeeklyChallengePanel({
                       </div>
 
                       {results.length > 0 && (
-                        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-white/15 bg-[#071325]/95 shadow-2xl backdrop-blur-2xl">
+                        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-white/15 bg-[#071325]/95 shadow-2xl backdrop-blur-2xl light:border-sky-200 light:bg-white light:shadow-[0_12px_32px_rgba(8,36,58,0.15)]">
                           {results.map((song) => (
                             <button
                               key={song.id}
@@ -436,15 +435,15 @@ export default function WeeklyChallengePanel({
                                 setQuery(`${song.title} — ${song.artist}`);
                                 setResults([]);
                               }}
-                              className="flex w-full items-center gap-3 border-b border-white/5 px-3.5 py-2.5 text-left text-xs text-white transition hover:bg-white/10"
+                              className="flex w-full items-center gap-3 border-b border-white/5 px-3.5 py-2.5 text-left text-xs text-white transition hover:bg-white/10 light:border-sky-100 light:hover:bg-sky-50"
                               type="button"
                             >
-                              <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-white/10">
+                              <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-white/10 light:border-sky-200">
                                 <Cover song={song} />
                               </div>
                               <div className="min-w-0">
-                                <p className="truncate font-medium text-slate-200">{song.title}</p>
-                                <p className="truncate text-[11px] text-slate-400">{song.artist}</p>
+                                <p className="truncate font-medium text-slate-200 light:text-slate-800">{song.title}</p>
+                                <p className="truncate text-[11px] text-slate-400 light:text-slate-500">{song.artist}</p>
                               </div>
                             </button>
                           ))}
@@ -470,33 +469,33 @@ export default function WeeklyChallengePanel({
                     )}
 
                     {alreadyEntered && (
-                      <div className="mt-3.5 flex flex-col items-center gap-1 rounded-xl border border-emerald-400/30 bg-emerald-500/10 py-3 text-center text-xs font-bold text-emerald-300">
+                      <div className="mt-3.5 flex flex-col items-center gap-1 rounded-xl border border-emerald-400/30 bg-emerald-500/10 py-3 text-center text-xs font-bold text-emerald-300 light:text-emerald-700">
                         <span>Challenge entry submitted ✓</span>
                         {playbackNotice && (
-                          <span className="px-4 text-[10px] font-normal text-emerald-200/80">{playbackNotice}</span>
+                          <span className="px-4 text-[10px] font-normal text-emerald-200/80 light:text-emerald-700/90">{playbackNotice}</span>
                         )}
                       </div>
                     )}
                   </section>
 
                   {/* 3. LIVE REWARD PREVIEW */}
-                  <section className="rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 p-4 backdrop-blur-xl sm:p-5">
+                  <section className="rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 p-4 backdrop-blur-xl light:border-sky-200 light:from-white light:to-sky-50 light:shadow-[0_6px_20px_rgba(8,36,58,0.08)] sm:p-5">
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <Eye className="h-4 w-4 text-cyan-300" />
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-white">
+                        <Eye className="h-4 w-4 text-cyan-300 light:text-cyan-600" />
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-white light:text-sky-950">
                           Live Reward Preview
                         </h3>
                       </div>
 
-                      <div className="flex rounded-lg border border-white/10 bg-black/40 p-1">
+                      <div className="flex rounded-lg border border-white/10 bg-black/40 p-1 light:border-sky-200 light:bg-sky-100">
                         <button
                           type="button"
                           onClick={() => setPreviewTab('avatar')}
                           className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
                             previewTab === 'avatar'
-                              ? 'border border-cyan-400/30 bg-cyan-500/20 text-cyan-200'
-                              : 'text-slate-400 hover:text-white'
+                              ? 'border border-cyan-400/30 bg-cyan-500/20 text-cyan-200 light:border-cyan-400/50 light:bg-white light:text-cyan-800 light:shadow-sm'
+                              : 'text-slate-400 hover:text-white light:text-slate-500 light:hover:text-slate-900'
                           }`}
                         >
                           <User className="h-3 w-3" />
@@ -507,8 +506,8 @@ export default function WeeklyChallengePanel({
                           onClick={() => setPreviewTab('track')}
                           className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
                             previewTab === 'track'
-                              ? 'border border-cyan-400/30 bg-cyan-500/20 text-cyan-200'
-                              : 'text-slate-400 hover:text-white'
+                              ? 'border border-cyan-400/30 bg-cyan-500/20 text-cyan-200 light:border-cyan-400/50 light:bg-white light:text-cyan-800 light:shadow-sm'
+                              : 'text-slate-400 hover:text-white light:text-slate-500 light:hover:text-slate-900'
                           }`}
                         >
                           <Disc className="h-3 w-3" />
@@ -517,7 +516,7 @@ export default function WeeklyChallengePanel({
                       </div>
                     </div>
 
-                    <div className="flex h-40 items-center justify-center rounded-xl border border-white/10 bg-black/50 p-4">
+                    <div className="flex h-40 items-center justify-center rounded-xl border border-white/10 bg-black/50 p-4 light:border-sky-200 light:bg-sky-100/70">
                       <div className="relative flex items-center justify-center">
                         {equippedRelic?.css_class === 'cyan-glow' && (
                           <>
@@ -566,14 +565,14 @@ export default function WeeklyChallengePanel({
                   </section>
 
                   {/* 4. UNLOCKED COSMETICS */}
-                  <section className="rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 p-4 backdrop-blur-xl sm:p-5">
+                  <section className="rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 p-4 backdrop-blur-xl light:border-sky-200 light:from-white light:to-sky-50 light:shadow-[0_6px_20px_rgba(8,36,58,0.08)] sm:p-5">
                     <div className="mb-1 flex items-center gap-2.5">
-                      <Compass className="h-4 w-4 text-cyan-300" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-white">
+                      <Compass className="h-4 w-4 text-cyan-300 light:text-cyan-600" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-white light:text-sky-950">
                         Unlocked Cosmetics
                       </h3>
                     </div>
-                    <p className="mb-4 text-[11px] text-slate-400">
+                    <p className="mb-4 text-[11px] text-slate-400 light:text-slate-600">
                       Toggle effects on or off. Equipping a cosmetic applies the effect to both your profile avatar and your ocean song marker.
                     </p>
 
@@ -586,10 +585,10 @@ export default function WeeklyChallengePanel({
                             key={relic.reward_id}
                             className={`relative overflow-hidden rounded-xl border p-3.5 transition-all duration-200 ${
                               !relic.is_unlocked
-                                ? 'border-white/5 bg-black/40 opacity-50'
+                                ? 'border-white/5 bg-black/40 opacity-50 light:border-sky-100 light:bg-white/60'
                                 : isActive
-                                  ? 'border-cyan-400/50 bg-gradient-to-r from-cyan-950/40 via-cyan-900/20 to-black/40 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-                                  : 'border-white/10 bg-black/30 hover:border-white/20'
+                                  ? 'border-cyan-400/50 bg-gradient-to-r from-cyan-950/40 via-cyan-900/20 to-black/40 shadow-[0_0_15px_rgba(34,211,238,0.15)] light:from-cyan-100 light:via-cyan-50 light:to-white light:shadow-[0_0_12px_rgba(14,165,233,0.2)]'
+                                  : 'border-white/10 bg-black/30 hover:border-white/20 light:border-sky-200 light:bg-white light:hover:border-sky-300'
                             }`}
                           >
                             <div className="flex items-center justify-between gap-3">
@@ -597,8 +596,8 @@ export default function WeeklyChallengePanel({
                                 <div
                                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
                                     isActive
-                                      ? 'border-cyan-300 bg-cyan-400/20 text-cyan-200 shadow-[0_0_8px_rgba(34,211,238,0.5)]'
-                                      : 'border-white/10 bg-white/5 text-slate-400'
+                                      ? 'border-cyan-300 bg-cyan-400/20 text-cyan-200 shadow-[0_0_8px_rgba(34,211,238,0.5)] light:border-cyan-400 light:bg-cyan-100 light:text-cyan-700 light:shadow-none'
+                                      : 'border-white/10 bg-white/5 text-slate-400 light:border-sky-200 light:bg-sky-50 light:text-slate-500'
                                   }`}
                                 >
                                   {relic.is_unlocked ? (
@@ -610,14 +609,14 @@ export default function WeeklyChallengePanel({
 
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2">
-                                    <p className="truncate text-xs font-bold text-white">
+                                    <p className="truncate text-xs font-bold text-white light:text-sky-950">
                                       {relic.name}
                                     </p>
-                                    <span className="rounded border border-cyan-400/30 bg-cyan-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-cyan-300">
+                                    <span className="rounded border border-cyan-400/30 bg-cyan-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-cyan-300 light:text-cyan-700">
                                       Profile & Ocean
                                     </span>
                                   </div>
-                                  <p className="mt-0.5 text-[11px] leading-snug text-slate-300/80">
+                                  <p className="mt-0.5 text-[11px] leading-snug text-slate-300/80 light:text-slate-600">
                                     {relic.description}
                                   </p>
                                 </div>
@@ -631,13 +630,13 @@ export default function WeeklyChallengePanel({
                                     disabled={equippingRewardId === relic.reward_id}
                                     className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-bold transition-all disabled:opacity-60 ${
                                       isActive
-                                        ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.3)]'
-                                        : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
+                                        ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.3)] light:bg-cyan-100 light:text-cyan-800 light:shadow-none'
+                                        : 'border-white/10 bg-white/5 text-slate-400 hover:text-white light:border-sky-200 light:bg-white light:text-slate-500 light:hover:text-slate-900'
                                     }`}
                                   >
                                     {isActive ? (
                                       <>
-                                        <Check className="h-3.5 w-3.5 text-cyan-300" />
+                                        <Check className="h-3.5 w-3.5 text-cyan-300 light:text-cyan-700" />
                                         <span>Equipped</span>
                                       </>
                                     ) : (

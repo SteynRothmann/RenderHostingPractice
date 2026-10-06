@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* `light:` variant - applies when the root has data-theme="light" (see
+   ThemeContext). Used where a component keeps its own dark-glass look by
+   default and only needs targeted overrides for light mode. */
+@custom-variant light (&:where([data-theme='light'], [data-theme='light'] *));
+
 /* ------------------------------------------------------------------ *
  * WaveLength theme tokens
  *

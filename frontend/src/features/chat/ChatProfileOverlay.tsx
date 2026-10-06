@@ -68,7 +68,7 @@ export default function ChatProfileOverlay({ spotifyUserId, onClose, onUnfriende
   }
 
   return (
-    <NavPanel open={Boolean(spotifyUserId)} onClose={onClose} title={profile?.displayName || 'Profile'}>
+    <NavPanel open={Boolean(spotifyUserId)} onClose={onClose} title={profile?.nickname || profile?.displayName || 'Profile'}>
       <div className="flex flex-col items-center gap-4 px-5 py-6">
         {loading ? (
           <p className="text-sm text-wl-muted">Loading…</p>
@@ -87,7 +87,11 @@ export default function ChatProfileOverlay({ spotifyUserId, onClose, onUnfriende
             </div>
 
             <div className="text-center">
-              <p className="text-base font-semibold text-wl-title">{profile?.displayName}</p>
+              <p className="text-base font-semibold text-wl-title">{profile?.nickname || profile?.displayName}</p>
+              {profile?.nickname && <p className="text-xs text-wl-muted">Spotify: {profile.displayName}</p>}
+              {profile?.bio && (
+                <p className="mx-auto mt-2 max-w-xs whitespace-pre-line text-sm text-wl-soft">{profile.bio}</p>
+              )}
               {profile?.profileUrl && (
                 <a
                   href={profile.profileUrl}
