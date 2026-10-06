@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bell, LogOut, MessageCircle, Search } from 'lucide-react';
+import { Bell, LogOut, MessageCircle, Search, Users } from 'lucide-react';
 import { useAuth } from '../../data/AuthContext';
 import { useChat } from '../../data/ChatContext';
 import { useCosmetics } from '../../data/CosmeticsContext';
@@ -18,14 +18,16 @@ export interface SearchResultItem {
   trackName: string;
   artist: string;
   albumArt: string | null;
+  listenerCount: number;
 }
 
 interface Props {
   onSearch: (query: string) => void;
   onOpenNotifications: () => void;
-  // Top ~6 matches for whatever's currently in the search box, computed by
-  // OceanPage from its live ocean-groups data - empty when the query is
-  // empty. Rendered as a dropdown while the input is focused.
+  // Matches for whatever's currently in the search box, computed by
+  // OceanPage from its live ocean-groups data - with an empty query it's
+  // every song currently playing. Rendered as a dropdown while the input
+  // is focused.
   searchResults: SearchResultItem[];
   // Clicking a dropdown row does the same thing as clicking that song's
   // bubble on the canvas (opens its OceanSongPanel).
@@ -105,7 +107,8 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
     setSearchFocused(false);
   }
 
-  const showDropdown = searchFocused && searchText.trim() !== '';
+  const hasQuery = searchText.trim() !== '';
+  const showDropdown = searchFocused;
 
   // Real pending chat-request count, for the red dot - polled rather than
   // pushed, so it can lag a few seconds behind an incoming request; fine
@@ -226,17 +229,26 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
             />
           </div>
 
-          {/* Live search-as-you-type results dropdown, Claude.ai-style:
-              shows while the input is focused and non-empty, including a
-              "No matches" row so an empty result set doesn't just look
-              broken. Clicking a row opens that song's panel, same as
-              clicking its bubble on the canvas. */}
+          {/* Live results dropdown, Claude.ai-style: shows while the input is
+              focused. Empty box = every song currently playing; typing
+              narrows it. Each row shows its live listener count. Includes
+              an empty-state row so an empty list doesn't just look broken.
+              Clicking a row opens that song's panel, same as clicking its
+              bubble on the canvas. */}
           {showDropdown && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(18rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-cyan-500/20 bg-wl-bg/95 shadow-xl backdrop-blur">
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 max-h-80 w-[min(18rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl border border-cyan-500/20 bg-wl-bg/95 shadow-xl backdrop-blur">
               {searchResults.length === 0 ? (
-                <p className="px-4 py-3 text-sm text-wl-faint">No matches</p>
+                <p className="px-4 py-3 text-sm text-wl-faint">
+                  {hasQuery ? 'No matches' : "No one's listening yet"}
+                </p>
               ) : (
-                searchResults.map((result) => (
+                <>
+                {!hasQuery && (
+                  <p className="px-3 pb-1 pt-2.5 text-[10px] font-bold uppercase tracking-[0.2em] text-wl-link">
+                    Playing now
+                  </p>
+                )}
+                {searchResults.map((result) => (
                   <button
                     key={result.trackId}
                     type="button"
@@ -254,8 +266,16 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
                       <p className="truncate text-sm font-medium text-wl-title">{result.trackName}</p>
                       <p className="truncate text-xs text-wl-muted">{result.artist}</p>
                     </div>
+                    <span
+                      className="flex shrink-0 items-center gap-1 text-xs font-medium text-wl-link"
+                      title={`${result.listenerCount} listening`}
+                    >
+                      <Users className="h-3.5 w-3.5" />
+                      {result.listenerCount}
+                    </span>
                   </button>
-                ))
+                ))}
+                </>
               )}
             </div>
           )}

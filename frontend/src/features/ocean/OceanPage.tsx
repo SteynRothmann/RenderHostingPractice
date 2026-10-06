@@ -110,13 +110,21 @@ export default function OceanPage() {
   // Computed here (not in OceanNav) since it needs the live `groups` data
   // that only exists on this page - OceanNav just renders what it's given
   // and reports clicks back via onSelectResult.
+  // With an empty query this is every song currently playing (shown when
+  // the search box is clicked); otherwise just the matches. Either way the
+  // most-listened-to songs come first.
   const searchResults = useMemo(() => {
     const trimmed = query.trim();
-    if (!trimmed) return [];
     return Object.values(groups)
       .filter((g) => matchesQuery(`${g.trackName} ${g.artist} ${g.genres.join(' ')}`, trimmed))
-      .slice(0, 6)
-      .map((g) => ({ trackId: g.trackId, trackName: g.trackName, artist: g.artist, albumArt: g.albumArt }));
+      .sort((a, b) => b.listenerCount - a.listenerCount || a.trackName.localeCompare(b.trackName))
+      .map((g) => ({
+        trackId: g.trackId,
+        trackName: g.trackName,
+        artist: g.artist,
+        albumArt: g.albumArt,
+        listenerCount: g.listenerCount,
+      }));
   }, [groups, query]);
 
   const { canvasRef, containerRef, hoveredId } = useOceanCanvas({
