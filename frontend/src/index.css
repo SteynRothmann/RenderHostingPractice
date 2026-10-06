@@ -231,27 +231,15 @@ body {
 /* =========================================================
    OCEAN PAGE - Weekly Challenge treasure-chest reveal
    The two large chest bodies use a 3-stop gradient (bright lid ->
-   dark wood -> darker base) that a straight token swap can't express
-   with a single wl-treasure color, so it gets its own small class
-   instead. Dark values are exactly what OceanPage.tsx hardcoded before
-   theming (amber-600/900/950 at 40/60/80%); light values reuse
-   --wl-treasure and --wl-panel so the chest doesn't look broken against
-   a bright daytime scene.
+   dark wood -> darker base). They rest on the dark underwater seabed,
+   which is dark in BOTH themes, so the chests deliberately keep the same
+   vivid values in both too (no light-mode override - an earlier one that
+   swapped in pale panel colours made them look washed out).
    ========================================================= */
 .wl-chest-body {
   border-color: rgba(251, 191, 36, 0.5);
   background: linear-gradient(to bottom, rgba(217, 119, 6, 0.4), rgba(120, 53, 15, 0.6), rgba(69, 26, 3, 0.8));
   box-shadow: 0 0 35px rgba(245, 158, 11, 0.4);
-}
-:root[data-theme='light'] .wl-chest-body {
-  border-color: color-mix(in srgb, var(--wl-treasure) 55%, transparent);
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--wl-treasure) 35%, white),
-    color-mix(in srgb, var(--wl-panel) 88%, var(--wl-treasure)),
-    var(--wl-panel)
-  );
-  box-shadow: 0 0 35px color-mix(in srgb, var(--wl-treasure) 30%, transparent);
 }
 
 /* =========================================================

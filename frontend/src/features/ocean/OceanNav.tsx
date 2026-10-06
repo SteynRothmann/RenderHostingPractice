@@ -65,6 +65,7 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
   const [searchText, setSearchText] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   // Cycles the search box's placeholder through what it can actually
   // match on, so an empty box hints at the feature set instead of a
@@ -215,9 +216,15 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
 
       <div className="flex items-center justify-end gap-3">
         <div className="relative">
-          <div className="flex items-center gap-2 rounded-full border border-cyan-500/20 bg-wl-panel/60 px-3 py-1.5">
+          {/* The whole pill (icon + padding, not just the input's own box) focuses
+              the input, so clicking anywhere on the search bar opens the list. */}
+          <div
+            onClick={() => searchInputRef.current?.focus()}
+            className="flex cursor-text items-center gap-2 rounded-full border border-cyan-500/20 bg-wl-panel/60 px-3 py-1.5"
+          >
             <Search className="h-4 w-4 text-wl-icon" />
             <input
+              ref={searchInputRef}
               type="text"
               value={searchText}
               placeholder={SEARCH_PLACEHOLDERS[placeholderIndex]}

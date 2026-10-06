@@ -172,8 +172,10 @@ export default function OceanPage() {
               blends into the wave above it instead of showing a hard-edged
               dark rectangle cutting across it. The seabed itself stays an
               underwater-depth effect (not a "sky" element), so it keeps a
-              dark gradient in both themes - only the chest accents below
-              switch to the light-mode treasure/panel tokens. */}
+              dark gradient in both themes, and so do the chests resting on
+              it (fixed amber/cyan, not the theme tokens - the light-mode
+              tokens are pale/deep colours meant for a bright daytime
+              surface and make the chests look washed out down here). */}
           <div
             className="absolute inset-0"
             style={{
@@ -197,9 +199,9 @@ export default function OceanPage() {
 
           {/* Left Treasure Chest Cluster 1 */}
           <div className="wl-chest-body absolute left-[8%] bottom-16 h-20 w-32 rounded-xl border backdrop-blur-sm">
-            <div className="absolute -top-3 left-1/2 h-4 w-28 -translate-x-1/2 rounded-t-lg border-t border-wl-treasure/60 bg-wl-treasure/30" />
-            <div className="absolute inset-x-0 top-1/2 h-1 bg-wl-treasure/40" />
-            <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-wl-treasure/80 bg-wl-treasure/60 shadow-[0_0_10px_rgba(251,191,36,0.8)]" />
+            <div className="absolute -top-3 left-1/2 h-4 w-28 -translate-x-1/2 rounded-t-lg border-t border-amber-500/60 bg-amber-500/30" />
+            <div className="absolute inset-x-0 top-1/2 h-1 bg-amber-500/40" />
+            <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-amber-500/80 bg-amber-500/60 shadow-[0_0_10px_rgba(251,191,36,0.8)]" />
           </div>
 
           {/* Left Treasure Chest Cluster 2 (Smaller & Tilted) */}
@@ -209,8 +211,8 @@ export default function OceanPage() {
           </div>
 
           {/* Center Left Small Treasure Chest */}
-          <div className="absolute left-[33%] bottom-12 h-12 w-18 rotate-3 rounded-md border border-wl-treasure/40 bg-wl-treasure/30 shadow-[0_0_20px_rgba(245,158,11,0.3)] backdrop-blur-sm">
-            <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 bg-wl-treasure/70" />
+          <div className="absolute left-[33%] bottom-12 h-12 w-18 rotate-3 rounded-md border border-amber-500/40 bg-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.3)] backdrop-blur-sm">
+            <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 bg-amber-500/70" />
           </div>
 
           {/* Center Right Small Treasure Chest */}
@@ -220,9 +222,9 @@ export default function OceanPage() {
 
           {/* Right Treasure Chest Cluster 1 */}
           <div className="wl-chest-body absolute right-[10%] bottom-14 h-22 w-36 rounded-xl border backdrop-blur-sm">
-            <div className="absolute -top-3 left-1/2 h-4 w-32 -translate-x-1/2 rounded-t-lg border-t border-wl-treasure/60 bg-wl-treasure/30" />
-            <div className="absolute inset-x-0 top-1/2 h-1 bg-wl-treasure/40" />
-            <div className="absolute left-1/2 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-wl-treasure/80 bg-wl-treasure/60 shadow-[0_0_12px_rgba(251,191,36,0.9)]" />
+            <div className="absolute -top-3 left-1/2 h-4 w-32 -translate-x-1/2 rounded-t-lg border-t border-amber-500/60 bg-amber-500/30" />
+            <div className="absolute inset-x-0 top-1/2 h-1 bg-amber-500/40" />
+            <div className="absolute left-1/2 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-amber-500/80 bg-amber-500/60 shadow-[0_0_12px_rgba(251,191,36,0.9)]" />
           </div>
 
           {/* Right Treasure Chest Cluster 2 */}
@@ -232,7 +234,7 @@ export default function OceanPage() {
           </div>
 
           {/* Central Underwater Glow Anchor */}
-          <div className="absolute left-1/2 bottom-2 h-48 w-[600px] -translate-x-1/2 rounded-full bg-wl-treasure/10 blur-[80px]" />
+          <div className="absolute left-1/2 bottom-2 h-48 w-[600px] -translate-x-1/2 rounded-full bg-amber-500/10 blur-[80px]" />
         </motion.div>
       </motion.div>
 
