@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Song } from '../../data/types';
 import { useTheme } from '../../data/ThemeContext';
-import { COSMETIC_AURA_RGB } from '../../lib/cosmeticAuras';
+import { BORDER_ART_SCALE, borderLayerUrl, borderMotion, isBorderKey } from '../../lib/borders';
 
 export interface OceanMarker {
   id: string; // song id
@@ -9,8 +9,8 @@ export interface OceanMarker {
   isMine: boolean;
   listenerCount: number;
   // Cosmetic reward css_class the host of this marker currently has
-  // equipped (a key of COSMETIC_AURA_RGB; anything else/null means no
-  // glow), from OceanGroup.activeEffectCss - see oceanState.js.
+  // equipped (a key of BORDERS in lib/borders.ts; anything else/null
+  // means no border), from OceanGroup.activeEffectCss - see oceanState.js.
   activeEffectCss?: string | null;
 }
 
@@ -84,17 +84,6 @@ const BUBBLE_COLOR: { night: RGBA; day: RGBA } = { night: [165, 243, 252, 1], da
 const MINE_RING_COLOR: { night: RGBA; day: RGBA } = { night: [59, 130, 246, 1], day: [37, 99, 235, 1] }; // vivid azure/electric blue
 const HOVER_RING_COLOR: { night: RGBA; day: RGBA } = { night: [34, 211, 238, 1], day: [10, 111, 159, 1] }; // cyan (night) / wl-link (day)
 
-// Cosmetic-aura glow colors come from lib/cosmeticAuras.ts (same colours as
-// the .wl-cosmetic-* box-shadow classes in index.css, so a border looks the
-// same in the ocean as on the avatar). Theme-invariant: night === day.
-// Anything unrecognized (including null/undefined) means "no cosmetic glow",
-// same convention as cosmeticAuraClass() in lib/api.ts.
-function cosmeticGlowColor(cssClass: string | null | undefined): { night: RGBA; day: RGBA } | null {
-  const rgb = cssClass ? COSMETIC_AURA_RGB[cssClass] : undefined;
-  if (!rgb) return null;
-  const color: RGBA = [rgb[0], rgb[1], rgb[2], 1];
-  return { night: color, day: color };
-}
 // Badge ring/text matches the page shell (wl-bg) so the listener-count
 // badge's outline keeps reading as "cut into" the background in both themes.
 const BADGE_RING_COLOR: { night: RGBA; day: RGBA } = { night: [2, 24, 43, 1], day: [232, 244, 253, 1] };
@@ -482,24 +471,22 @@ export function useOceanCanvas({ markers, onSelect, imageResolver }: Options) {
         }
         ctx.restore();
 
-        // Cosmetic aura glow - a separate pass, drawn BEHIND the mine/hover
-        // ring below so that ring still reads clearly on top when a
-        // marker is both "mine" AND has a cosmetic equipped. Bigger inset
-        // (size + 8) than the mine/hover ring (size + 4) so the two never
-        // overlap exactly, plus a soft shadowBlur for a glow rather than a
-        // hard outline. globalAlpha is already set above (for the
-        // scale/sinkP fade-out), so this glow fades out right along with
-        // a sinking bubble instead of staying at full brightness.
-        if (!sinking) {
-          const glowColor = cosmeticGlowColor(rt.activeEffectCss);
-          if (glowColor) {
+        // Equipped border (weekly-challenge reward): the two art layers drawn
+        // around the marker, animated with the same formulas the DOM version
+        // uses (borderMotion). Drawn before the mine/hover ring so that ring
+        // still reads on top, and inside the sink fade (globalAlpha above) so
+        // it fades with a sinking bubble.
+        if (isBorderKey(rt.activeEffectCss)) {
+          const artSize = size * BORDER_ART_SCALE;
+          for (const layer of [2, 1] as const) {
+            const art = getImage(borderLayerUrl(rt.activeEffectCss, 'square', layer));
+            if (!art.complete || art.naturalWidth === 0) continue;
+            const motion = borderMotion('square', layer, t);
             ctx.save();
-            ctx.shadowColor = blend(glowColor.night, glowColor.day, mix);
-            ctx.shadowBlur = 14;
-            roundedRect(ctx, left - 6, top - 6, size + 12, size + 12, CORNER + 6);
-            ctx.strokeStyle = blend(glowColor.night, glowColor.day, mix);
-            ctx.lineWidth = 2.5;
-            ctx.stroke();
+            ctx.translate(x, y);
+            ctx.rotate((motion.rotateDeg * Math.PI) / 180);
+            const drawn = artSize * motion.scale;
+            ctx.drawImage(art, -drawn / 2, -drawn / 2, drawn, drawn);
             ctx.restore();
           }
         }

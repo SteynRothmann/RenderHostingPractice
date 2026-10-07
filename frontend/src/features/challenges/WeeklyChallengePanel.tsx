@@ -21,11 +21,11 @@ import {
   fetchChallengeEntries,
   fetchCosmeticsInventory,
   equipCosmetic,
-  cosmeticAuraClass,
 } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import JoinChallengeModal from './JoinChallengeModal';
 import BorderPickerModal from './BorderPickerModal';
+import BorderFrame from '../../components/BorderFrame';
 import RewardPreviewModal from './RewardPreviewModal';
 import type { ActiveChallenge, ChallengeEntry, CosmeticItem } from '../../data/types';
 
@@ -509,17 +509,17 @@ export default function WeeklyChallengePanel({
                   {/* 2. PROFILE BORDER (compact - opens a dropdown picker) */}
                   <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 px-4 py-3 backdrop-blur-xl light:border-sky-200 light:from-white light:to-sky-50 light:shadow-[0_6px_20px_rgba(8,36,58,0.08)]">
                     <div className="flex min-w-0 items-center gap-3">
-                      <div
-                        className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-300 bg-slate-800 ${cosmeticAuraClass(equippedRelic?.css_class)}`}
-                      >
-                        {profile?.profileImage ? (
-                          <img src={profile.profileImage} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <span className="text-sm font-semibold text-slate-200">
-                            {(profile?.displayName || '?').charAt(0).toUpperCase()}
-                          </span>
-                        )}
-                      </div>
+                      <BorderFrame border={equippedRelic?.css_class} shape="circle" className={`h-10 w-10 ${equippedRelic ? 'mx-3' : ''}`}>
+                        <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border-2 border-cyan-300 bg-slate-800">
+                          {profile?.profileImage ? (
+                            <img src={profile.profileImage} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-semibold text-slate-200">
+                              {(profile?.displayName || '?').charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                      </BorderFrame>
                       <div className="min-w-0">
                         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/80 light:text-cyan-700">
                           Profile border

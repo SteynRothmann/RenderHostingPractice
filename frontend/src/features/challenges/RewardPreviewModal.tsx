@@ -1,6 +1,6 @@
 import { Check, Lock } from 'lucide-react';
 import ChallengeSubModal from './ChallengeSubModal';
-import { cosmeticAuraClass } from '../../lib/api';
+import BorderFrame from '../../components/BorderFrame';
 import type { CosmeticItem } from '../../data/types';
 
 interface Props {
@@ -19,7 +19,7 @@ interface Props {
 // shown on a profile avatar and on an (empty) ocean song marker, whether
 // or not it's unlocked yet.
 export default function RewardPreviewModal({ open, onClose, reward, profileImage, initial, onEquip, saving }: Props) {
-  const aura = cosmeticAuraClass(reward?.css_class);
+  const border = reward?.css_class;
 
   return (
     <ChallengeSubModal open={open} title="Reward preview" onClose={onClose}>
@@ -33,28 +33,28 @@ export default function RewardPreviewModal({ open, onClose, reward, profileImage
             <p className="mt-1 text-sm leading-relaxed text-wl-soft">{reward.description}</p>
           </div>
 
-          <div className="flex items-center justify-center gap-10 rounded-xl border border-cyan-500/15 bg-wl-bg py-7">
+          <div className="flex items-center justify-center gap-24 rounded-xl border border-cyan-500/15 bg-wl-bg py-14">
             <div className="flex flex-col items-center gap-2.5">
-              <div
-                className={`flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-300 bg-slate-800 ${aura}`}
-              >
-                {profileImage ? (
-                  <img src={profileImage} alt="Your profile" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-xl font-semibold text-slate-200">{initial}</span>
-                )}
-              </div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-wl-muted">Profile</span>
+              <BorderFrame border={border} shape="circle" className="h-16 w-16">
+                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border-2 border-cyan-300 bg-slate-800">
+                  {profileImage ? (
+                    <img src={profileImage} alt="Your profile" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-xl font-semibold text-slate-200">{initial}</span>
+                  )}
+                </div>
+              </BorderFrame>
+              <span className="mt-10 text-[10px] font-semibold uppercase tracking-wider text-wl-muted">Profile</span>
             </div>
 
             <div className="flex flex-col items-center gap-2.5">
               {/* A plain label instead of album art, which would fight the border. */}
-              <div
-                className={`flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-cyan-400/70 bg-slate-900 px-1 text-center text-[11px] font-semibold leading-tight text-slate-300 ${aura}`}
-              >
-                Your song
-              </div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-wl-muted">Song marker</span>
+              <BorderFrame border={border} shape="square" className="h-16 w-16">
+                <div className="flex h-full w-full items-center justify-center rounded-2xl border-2 border-cyan-400/70 bg-slate-900 px-1 text-center text-[10px] font-semibold leading-tight text-slate-300">
+                  Your song
+                </div>
+              </BorderFrame>
+              <span className="mt-10 text-[10px] font-semibold uppercase tracking-wider text-wl-muted">Song marker</span>
             </div>
           </div>
 

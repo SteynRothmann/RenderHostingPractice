@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ExternalLink, ListMusic } from 'lucide-react';
+import BorderFrame from '../../components/BorderFrame';
 import PageHeader from '../../components/PageHeader';
 import OceanBackdrop from '../../components/OceanBackdrop';
 import { useAuth } from '../../data/AuthContext';
@@ -11,7 +12,6 @@ import {
   fetchProfileStats,
   fetchHostProfile,
   saveProfileDetails,
-  cosmeticAuraClass,
 } from '../../lib/api';
 import type { RecentTrack, PublicPlaylist, ProfileStats } from '../../data/types';
 
@@ -142,15 +142,18 @@ export default function MyProfilePage() {
       <div className="mx-auto my-8 max-w-4xl rounded-3xl border border-cyan-500/20 bg-wl-panel/90 p-6 shadow-2xl backdrop-blur-md md:p-8">
         {/* Header: real Spotify avatar + name + editable fields */}
         <div className="flex flex-col items-center gap-6 border-b border-cyan-500/20 pb-6 sm:flex-row sm:items-start">
-          <div className={`flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-400 bg-slate-300 shadow-md ${cosmeticAuraClass(equippedEffectCss)}`}>
-            {profile?.profileImage ? (
-              <img src={profile.profileImage} alt="Your Spotify profile" className="h-full w-full object-cover" />
-            ) : (
-              <span className="text-3xl font-semibold text-slate-700">
-                {(profile?.displayName || '?').charAt(0).toUpperCase()}
-              </span>
-            )}
-          </div>
+          {/* The border art spills well outside the picture, so reserve room for it when one is equipped. */}
+          <BorderFrame border={equippedEffectCss} shape="circle" className={`h-28 w-28 ${equippedEffectCss ? 'm-10 sm:mr-12' : ''}`}>
+            <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border-2 border-cyan-400 bg-slate-300 shadow-md">
+              {profile?.profileImage ? (
+                <img src={profile.profileImage} alt="Your Spotify profile" className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-3xl font-semibold text-slate-700">
+                  {(profile?.displayName || '?').charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+          </BorderFrame>
 
           <div className="flex-1 space-y-4">
             {profile?.displayName && (

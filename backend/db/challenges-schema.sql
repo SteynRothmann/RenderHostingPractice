@@ -33,11 +33,11 @@ CREATE TABLE IF NOT EXISTS public.challenge_submissions (
 
 -- 1. List of available cosmetic rewards
 CREATE TABLE IF NOT EXISTS public.rewards (
-  reward_id TEXT PRIMARY KEY, -- e.g 'cyan-border', 'gold-border'
+  reward_id TEXT PRIMARY KEY, -- e.g 'border-skeletons'
   name TEXT NOT NULL,
   description TEXT NOT NULL,
   effect_type TEXT NOT NULL, -- e.g 'profile_aura', 'song_marker', or 'both'
-  css_class TEXT NOT NULL   -- e.g 'cyan-glow', 'gold-shimmer'
+  css_class TEXT NOT NULL   -- the artwork key, e.g 'skeletons' (see frontend/src/lib/borders.ts)
 );
 
 -- 2. Track which users have unlocked and equipped which cosmetics
@@ -57,9 +57,17 @@ CREATE TABLE IF NOT EXISTS public.user_cosmetics (
 --   UPDATE public.challenges SET deadline = now() WHERE is_active = TRUE;
 -- (it rolls over within ~15 seconds), or call POST /challenges/admin/rotate.
 
--- Seed cosmetic rewards
+-- Seed cosmetic rewards (the profile / song-marker borders). The backend also
+-- creates each one itself when a challenge that grants it starts; this seed
+-- just makes them exist up front. Keep in sync with backend/lib/challengePool.js.
 INSERT INTO public.rewards (reward_id, name, description, effect_type, css_class)
 VALUES
-  ('cyan-border', 'Abyssal Crest', 'Bioluminescent cyan glow applied to your avatar aura and your floating ocean song marker.', 'both', 'cyan-glow'),
-  ('gold-border', 'Golden Tide', 'Radiant golden shimmer applied to your avatar aura and your floating ocean song marker.', 'both', 'gold-shimmer')
+  ('border-bubble-ring', 'Bubble Ring', 'A swarm of glistening bubbles drifting around your profile picture and your ocean song marker.', 'both', 'bubble-ring'),
+  ('border-sea-sparkle', 'Sea Sparkle', 'A shimmer of colourful sea sparkles circling your profile picture and your ocean song marker.', 'both', 'sea-sparkle'),
+  ('border-pearl-strand', 'Pearl Strand', 'A double strand of lustrous pearls wrapped around your profile picture and your ocean song marker.', 'both', 'pearl-strand'),
+  ('border-kelp-wreath', 'Kelp Wreath', 'A lush wreath of swaying kelp framing your profile picture and your ocean song marker.', 'both', 'kelp-wreath'),
+  ('border-coral-reef', 'Coral Reef', 'Branching pink and golden coral growing around your profile picture and your ocean song marker.', 'both', 'coral-reef'),
+  ('border-starfish-shells', 'Starfish & Shells', 'Starfish, shells and glittering sand scattered around your profile picture and your ocean song marker.', 'both', 'starfish-shells'),
+  ('border-skeletons', 'Skeletons', 'Bones, grinning skulls and stegosaurus plates rattling around your profile picture and your ocean song marker.', 'both', 'skeletons'),
+  ('border-dino-eggs', 'Dino Eggs', 'Spotted dinosaur eggs nestled in ferns around your profile picture and your ocean song marker.', 'both', 'dino-eggs')
 ON CONFLICT (reward_id) DO NOTHING;

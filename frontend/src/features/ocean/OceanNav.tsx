@@ -5,7 +5,8 @@ import { Bell, LogOut, MessageCircle, Search, Users } from 'lucide-react';
 import { useAuth } from '../../data/AuthContext';
 import { useChat } from '../../data/ChatContext';
 import { useCosmetics } from '../../data/CosmeticsContext';
-import { fetchIncomingChatRequests, cosmeticAuraClass } from '../../lib/api';
+import { fetchIncomingChatRequests } from '../../lib/api';
+import BorderFrame from '../../components/BorderFrame';
 import OceanButton from '../../components/OceanButton';
 import BrandLogo from '../../components/BrandLogo';
 import Tooltip from '../../components/Tooltip';
@@ -173,15 +174,17 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
           <NavBob index={0}>
             <Tooltip label="Profile">
               <Link to="/profile" aria-label="Your profile" className="flex items-center">
-                <span className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-slate-700 ring-2 ring-transparent hover:ring-cyan-400 ${cosmeticAuraClass(equippedEffectCss)}`}>
-                  {profile?.profileImage ? (
-                    <img src={profile.profileImage} alt="Your Spotify profile" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-xs font-semibold text-slate-300">
-                      {(profile?.displayName || '?').charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </span>
+                <BorderFrame border={equippedEffectCss} shape="circle" className="h-8 w-8">
+                  <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-700 ring-2 ring-transparent hover:ring-cyan-400">
+                    {profile?.profileImage ? (
+                      <img src={profile.profileImage} alt="Your Spotify profile" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-xs font-semibold text-slate-300">
+                        {(profile?.displayName || '?').charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </span>
+                </BorderFrame>
               </Link>
             </Tooltip>
           </NavBob>

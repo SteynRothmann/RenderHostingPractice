@@ -14,155 +14,31 @@
 // Rewards are NOT tied to a theme: each time a challenge starts,
 // lib/challengeRotation.js picks a random border from REWARDS that no earlier
 // challenge has used, so every reward is limited-time and never comes back.
-// Every css_class here must also exist in frontend/src/lib/cosmeticAuras.ts
-// (that's where the frontend learns how to draw it) and index.css.
+// Every css_class here must also exist in frontend/src/lib/borders.ts and as
+// art in frontend/public/borders (see tools/borders/generate_borders.py).
 
-const REWARDS = [
-  {
-    reward_id: 'cyan-border',
-    name: 'Abyssal Crest',
-    description:
-      'Bioluminescent cyan glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'cyan-glow',
-  },
-  {
-    reward_id: 'gold-border',
-    name: 'Golden Tide',
-    description:
-      'Radiant golden shimmer applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'gold-shimmer',
-  },
-  {
-    reward_id: 'aura-crimson',
-    name: 'Crimson Tide',
-    description:
-      'Deep crimson glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-crimson',
-  },
-  {
-    reward_id: 'aura-emerald',
-    name: 'Emerald Reef',
-    description:
-      'Living-reef emerald glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-emerald',
-  },
-  {
-    reward_id: 'aura-violet',
-    name: 'Violet Abyss',
-    description:
-      'Violet glow from the deepest trench applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-violet',
-  },
-  {
-    reward_id: 'aura-coral',
-    name: 'Coral Bloom',
-    description:
-      'Warm coral glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-coral',
-  },
-  {
-    reward_id: 'aura-ember',
-    name: 'Sunset Ember',
-    description:
-      'Burning sunset-orange glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-ember',
-  },
-  {
-    reward_id: 'aura-pearl',
-    name: 'Pearl Wave',
-    description:
-      'Soft pearl-white glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-pearl',
-  },
-  {
-    reward_id: 'aura-lime',
-    name: 'Aurora Lime',
-    description:
-      'Electric aurora-lime glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-lime',
-  },
-  {
-    reward_id: 'aura-orchid',
-    name: 'Orchid Pulse',
-    description:
-      'Pulsing orchid glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-orchid',
-  },
-  {
-    reward_id: 'aura-sapphire',
-    name: 'Sapphire Deep',
-    description:
-      'Rich sapphire-blue glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-sapphire',
-  },
-  {
-    reward_id: 'aura-lagoon',
-    name: 'Lagoon Teal',
-    description:
-      'Calm lagoon-teal glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-lagoon',
-  },
-  {
-    reward_id: 'aura-indigo',
-    name: 'Midnight Indigo',
-    description:
-      'Midnight indigo glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-indigo',
-  },
-  {
-    reward_id: 'aura-fuchsia',
-    name: 'Neon Fuchsia',
-    description:
-      'Vivid neon-fuchsia glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-fuchsia',
-  },
-  {
-    reward_id: 'aura-sky',
-    name: 'Sky Mirage',
-    description:
-      'Bright sky-blue glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-sky',
-  },
-  {
-    reward_id: 'aura-mint',
-    name: 'Sea Mint',
-    description:
-      'Cool sea-mint glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-mint',
-  },
-  {
-    reward_id: 'aura-quartz',
-    name: 'Rose Quartz',
-    description:
-      'Gentle rose-quartz glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-quartz',
-  },
-  {
-    reward_id: 'aura-amethyst',
-    name: 'Amethyst Haze',
-    description:
-      'Dreamy amethyst glow applied to your avatar aura and your floating ocean song marker.',
-    effect_type: 'both',
-    css_class: 'aura-amethyst',
-  },
-];
+// The borders. `css_class` is the artwork's key: it names the files in
+// frontend/public/borders/<css_class>-<circle|square>-<1|2>.svg and the
+// entry in frontend/src/lib/borders.ts. The same artwork frames both the
+// profile picture and the ocean song marker.
+const BORDER_REWARDS = [
+  ['bubble-ring', 'Bubble Ring', 'A swarm of glistening bubbles drifting around your profile picture and your ocean song marker.'],
+  ['sea-sparkle', 'Sea Sparkle', 'A shimmer of colourful sea sparkles circling your profile picture and your ocean song marker.'],
+  ['pearl-strand', 'Pearl Strand', 'A double strand of lustrous pearls wrapped around your profile picture and your ocean song marker.'],
+  ['kelp-wreath', 'Kelp Wreath', 'A lush wreath of swaying kelp framing your profile picture and your ocean song marker.'],
+  ['coral-reef', 'Coral Reef', 'Branching pink and golden coral growing around your profile picture and your ocean song marker.'],
+  ['starfish-shells', 'Starfish & Shells', 'Starfish, shells and glittering sand scattered around your profile picture and your ocean song marker.'],
+  ['skeletons', 'Skeletons', 'Bones, grinning skulls and stegosaurus plates rattling around your profile picture and your ocean song marker.'],
+  ['dino-eggs', 'Dino Eggs', 'Spotted dinosaur eggs nestled in ferns around your profile picture and your ocean song marker.'],
+].map(([key, name, description]) => ({
+  reward_id: `border-${key}`,
+  name,
+  description,
+  effect_type: 'both',
+  css_class: key,
+}));
+
+const REWARDS = BORDER_REWARDS;
 
 const CHALLENGE_POOL = [
   {

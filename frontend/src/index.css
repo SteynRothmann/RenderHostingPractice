@@ -243,85 +243,46 @@ body {
 }
 
 /* =========================================================
-   COSMETIC AURAS - Weekly Challenge rewards (cyan-glow, gold-shimmer)
-   applied to the viewer's OWN avatar (nav bar + profile page, see
-   CosmeticsContext.tsx + cosmeticAuraClass() in lib/api.ts). These class
-   names must exactly match 'wl-cosmetic-' + the rewards table's
-   css_class value. Deliberately NOT theme-tokenized (unlike the wl-*
-   tokens above) - these are fixed cosmetic brand colors that should look
-   identical in light and dark mode, same judgment as wl-chest-body's
-   dark-mode-only values, just applied to both themes here instead of one.
+   Profile / song-marker borders (weekly-challenge rewards) - see
+   components/BorderFrame.tsx and lib/borders.ts. Two layers per border:
+   each is slowly spun (circles) or rocked (squares) by an outer element,
+   and slowly "breathes" (swells and settles) via the inner <img>. Durations
+   mirror borderMotion() in lib/borders.ts, which the ocean canvas uses.
    ========================================================= */
-.wl-cosmetic-cyan-glow {
-  box-shadow: 0 0 0 2px #22d3ee, 0 0 18px 5px rgba(34, 211, 238, 0.55);
+.wl-border-move,
+.wl-border-breathe {
+  transform-origin: 50% 50%;
 }
 
-.wl-cosmetic-gold-shimmer {
-  box-shadow: 0 0 0 2px #fbbf24, 0 0 18px 5px rgba(251, 191, 36, 0.55);
+@keyframes wl-border-breathe-1 {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.075); }
+}
+@keyframes wl-border-breathe-2 {
+  0%, 100% { transform: scale(1.03); }
+  50% { transform: scale(1); }
+}
+@keyframes wl-border-spin { to { transform: rotate(360deg); } }
+@keyframes wl-border-spin-reverse { to { transform: rotate(-360deg); } }
+@keyframes wl-border-rock-1 {
+  0%, 100% { transform: rotate(-7deg); }
+  50% { transform: rotate(7deg); }
+}
+@keyframes wl-border-rock-2 {
+  0%, 100% { transform: rotate(6deg); }
+  50% { transform: rotate(-6deg); }
 }
 
-.wl-cosmetic-aura-crimson {
-  box-shadow: 0 0 0 2px rgb(244 63 94), 0 0 18px 5px rgb(244 63 94 / 0.55);
-}
+.wl-border-breathe-1 { animation: wl-border-breathe-1 7s ease-in-out infinite; }
+.wl-border-breathe-2 { animation: wl-border-breathe-2 9s ease-in-out infinite; }
+.wl-border-circle-1 { animation: wl-border-spin 120s linear infinite; }
+.wl-border-circle-2 { animation: wl-border-spin-reverse 180s linear infinite; }
+.wl-border-square-1 { animation: wl-border-rock-1 11s ease-in-out infinite; }
+.wl-border-square-2 { animation: wl-border-rock-2 15s ease-in-out infinite; }
 
-.wl-cosmetic-aura-emerald {
-  box-shadow: 0 0 0 2px rgb(16 185 129), 0 0 18px 5px rgb(16 185 129 / 0.55);
-}
-
-.wl-cosmetic-aura-violet {
-  box-shadow: 0 0 0 2px rgb(139 92 246), 0 0 18px 5px rgb(139 92 246 / 0.55);
-}
-
-.wl-cosmetic-aura-coral {
-  box-shadow: 0 0 0 2px rgb(255 127 80), 0 0 18px 5px rgb(255 127 80 / 0.55);
-}
-
-.wl-cosmetic-aura-ember {
-  box-shadow: 0 0 0 2px rgb(249 115 22), 0 0 18px 5px rgb(249 115 22 / 0.55);
-}
-
-.wl-cosmetic-aura-pearl {
-  box-shadow: 0 0 0 2px rgb(226 232 240), 0 0 18px 5px rgb(226 232 240 / 0.55);
-}
-
-.wl-cosmetic-aura-lime {
-  box-shadow: 0 0 0 2px rgb(163 230 53), 0 0 18px 5px rgb(163 230 53 / 0.55);
-}
-
-.wl-cosmetic-aura-orchid {
-  box-shadow: 0 0 0 2px rgb(232 121 249), 0 0 18px 5px rgb(232 121 249 / 0.55);
-}
-
-.wl-cosmetic-aura-sapphire {
-  box-shadow: 0 0 0 2px rgb(59 130 246), 0 0 18px 5px rgb(59 130 246 / 0.55);
-}
-
-.wl-cosmetic-aura-lagoon {
-  box-shadow: 0 0 0 2px rgb(20 184 166), 0 0 18px 5px rgb(20 184 166 / 0.55);
-}
-
-.wl-cosmetic-aura-indigo {
-  box-shadow: 0 0 0 2px rgb(99 102 241), 0 0 18px 5px rgb(99 102 241 / 0.55);
-}
-
-.wl-cosmetic-aura-fuchsia {
-  box-shadow: 0 0 0 2px rgb(236 72 153), 0 0 18px 5px rgb(236 72 153 / 0.55);
-}
-
-.wl-cosmetic-aura-sky {
-  box-shadow: 0 0 0 2px rgb(56 189 248), 0 0 18px 5px rgb(56 189 248 / 0.55);
-}
-
-.wl-cosmetic-aura-mint {
-  box-shadow: 0 0 0 2px rgb(110 231 183), 0 0 18px 5px rgb(110 231 183 / 0.55);
-}
-
-.wl-cosmetic-aura-quartz {
-  box-shadow: 0 0 0 2px rgb(253 164 175), 0 0 18px 5px rgb(253 164 175 / 0.55);
-}
-
-.wl-cosmetic-aura-amethyst {
-  box-shadow: 0 0 0 2px rgb(192 132 252), 0 0 18px 5px rgb(192 132 252 / 0.55);
+@media (prefers-reduced-motion: reduce) {
+  .wl-border-move,
+  .wl-border-breathe { animation: none !important; }
 }
 
 /* Song Details - allow scrolling without showing browser scrollbars */
