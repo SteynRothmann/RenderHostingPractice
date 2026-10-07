@@ -9,7 +9,7 @@ import OceanSongPanel from './OceanSongPanel';
 import SkyScene from './SkyScene';
 import NotificationsPanel from '../notifications/NotificationsPanel';
 import WeeklyChallengePanel from '../challenges/WeeklyChallengePanel';
-import { TOUR_EVENT_PREFIX } from '../tour/tourSteps';
+import GuestWelcome from './GuestWelcome';
 import { getSocket } from '../../lib/socket';
 import { fetchCurrentlyPlaying } from '../../lib/api';
 import type { OceanGroup } from '../../data/types';
@@ -35,19 +35,6 @@ export default function OceanPage() {
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(params.get('song'));
   const [notifOpen, setNotifOpen] = useState(false);
   const [challengeOpen, setChallengeOpen] = useState(false);
-
-  // The first-time tour (features/tour) opens/closes the Weekly Challenge
-  // panel so it can point at what's inside.
-  useEffect(() => {
-    const open = () => setChallengeOpen(true);
-    const close = () => setChallengeOpen(false);
-    window.addEventListener(`${TOUR_EVENT_PREFIX}open-challenge`, open);
-    window.addEventListener(`${TOUR_EVENT_PREFIX}close-challenge`, close);
-    return () => {
-      window.removeEventListener(`${TOUR_EVENT_PREFIX}open-challenge`, open);
-      window.removeEventListener(`${TOUR_EVENT_PREFIX}close-challenge`, close);
-    };
-  }, []);
 
   // Live groups (one per track currently playing across all logged-in
   // users), pushed over Socket.IO by the backend's poller roughly once a
@@ -293,6 +280,7 @@ export default function OceanPage() {
       <OceanSongPanel group={selectedGroup} myTrackId={myTrackId} onClose={() => setSelectedTrackId(null)} />
       <NotificationsPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
       <WeeklyChallengePanel open={challengeOpen} onClose={() => setChallengeOpen(false)} />
+      <GuestWelcome />
     </div>
   );
 }

@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bell, HelpCircle, LogOut, MessageCircle, Search, Users } from 'lucide-react';
+import { Bell, LogOut, MessageCircle, Search, Users } from 'lucide-react';
 import { useAuth } from '../../data/AuthContext';
 import { useChat } from '../../data/ChatContext';
 import { useCosmetics } from '../../data/CosmeticsContext';
-import { useTour } from '../tour/TourContext';
 import { fetchIncomingChatRequests } from '../../lib/api';
 import BorderFrame from '../../components/BorderFrame';
 import OceanButton from '../../components/OceanButton';
@@ -54,7 +53,6 @@ function NavBob({ index, children }: { index: number; children: ReactNode }) {
 
 export default function OceanNav({ onSearch, onOpenNotifications, searchResults, onSelectSearchResult }: Props) {
   const { isLoggedIn, logout, profile } = useAuth();
-  const { start: startTour } = useTour();
   const { hasAnyUnread } = useChat();
   const { equippedEffectCss } = useCosmetics();
   const navigate = useNavigate();
@@ -175,7 +173,7 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
         <div className="order-last flex w-full items-center justify-center gap-6 sm:order-none sm:w-auto sm:absolute sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:gap-8">
           <NavBob index={0}>
             <Tooltip label="Profile">
-              <Link to="/profile" aria-label="Your profile" data-tour="nav-profile" className="flex items-center">
+              <Link to="/profile" aria-label="Your profile" className="flex items-center">
                 <BorderFrame border={equippedEffectCss} shape="circle" className="h-8 w-8">
                   <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-700 ring-2 ring-transparent hover:ring-cyan-400">
                     {profile?.profileImage ? (
@@ -196,7 +194,6 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
               <OceanButton
                 onClick={() => navigate('/chat')}
                 aria-label="Chat"
-                data-tour="nav-chat"
                 className="relative flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium hover:bg-cyan-500/10 hover:text-wl-title"
               >
                 <MessageCircle className="h-5 w-5" />
@@ -210,7 +207,6 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
               <OceanButton
                 onClick={onOpenNotifications}
                 aria-label="Notifications"
-                data-tour="nav-notifications"
                 className="relative flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium hover:bg-cyan-500/10 hover:text-wl-title"
               >
                 <Bell className="h-5 w-5" />
@@ -226,7 +222,6 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
           {/* The whole pill (icon + padding, not just the input's own box) focuses
               the input, so clicking anywhere on the search bar opens the list. */}
           <div
-            data-tour="search"
             onClick={() => searchInputRef.current?.focus()}
             className="flex cursor-text items-center gap-2 rounded-full border border-cyan-500/20 bg-wl-panel/60 px-3 py-1.5"
           >
@@ -297,20 +292,7 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
         </div>
 
         <Tooltip label="Toggle theme">
-          <span data-tour="theme" className="inline-flex">
-            <ThemeToggle />
-          </span>
-        </Tooltip>
-
-        <Tooltip label="Take the tour">
-          <OceanButton
-            onClick={startTour}
-            aria-label="Take the tour"
-            data-tour="help"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-wl-cyan/80 hover:bg-cyan-500/10 hover:text-wl-title"
-          >
-            <HelpCircle className="h-[18px] w-[18px]" />
-          </OceanButton>
+          <ThemeToggle />
         </Tooltip>
 
         {isLoggedIn ? (
@@ -326,7 +308,7 @@ export default function OceanNav({ onSearch, onOpenNotifications, searchResults,
             </Tooltip>
           </NavBob>
         ) : (
-          <Link to="/login" data-tour="login" className="rounded-full bg-wl-accent px-4 py-1.5 text-sm font-semibold text-black hover:bg-[#1fdf64]">
+          <Link to="/login" className="rounded-full bg-wl-accent px-4 py-1.5 text-sm font-semibold text-black hover:bg-[#1fdf64]">
             Log in
           </Link>
         )}

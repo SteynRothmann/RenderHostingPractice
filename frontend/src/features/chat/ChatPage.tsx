@@ -84,12 +84,11 @@ export default function ChatPage() {
           } w-full flex-col overflow-hidden rounded-2xl border border-cyan-400/15 bg-wl-panel/55 shadow-[0_16px_50px_rgba(2,10,25,0.35)] backdrop-blur-xl md:flex md:w-[320px] md:shrink-0`}        >
 
           {/* Friends / Groups tabs */}
-          <nav data-tour="chat-tabs" className="flex border-b border-wl-fg/10 text-sm font-medium">
+          <nav className="flex border-b border-wl-fg/10 text-sm font-medium">
             {(['friends', 'groups'] as const).map((item) => (
               <button
                 key={item}
                 type="button"
-                data-tour={`chat-tab-${item}`}
                 onClick={() => setTab(item)}
                 className={`relative flex-1 py-4 capitalize transition ${
                   tab === item
@@ -129,7 +128,6 @@ export default function ChatPage() {
               <button
                 type="button"
                 onClick={() => setGroupPanelOpen(true)}
-                data-tour="new-group"
                 className="rounded-full border border-wl-fg/20 px-3 py-1.5 text-xs text-wl-fg/80 transition hover:bg-wl-fg/10 hover:text-wl-fg"
               >
                 + New group

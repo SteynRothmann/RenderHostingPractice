@@ -155,7 +155,7 @@ export default function MyProfilePage() {
             </div>
           </BorderFrame>
 
-          <div className="flex-1 space-y-4" data-tour="profile-edit">
+          <div className="flex-1 space-y-4">
             {profile?.displayName && (
               <p className="text-sm text-wl-link">
                 Spotify: <span className="font-semibold text-wl-title">{profile.displayName}</span>
@@ -192,7 +192,7 @@ export default function MyProfilePage() {
         </div>
 
         {/* Stats bar */}
-        <div data-tour="profile-stats" className="flex items-center justify-around border-b border-cyan-500/20 py-6 text-center">
+        <div className="flex items-center justify-around border-b border-cyan-500/20 py-6 text-center">
           <div>
             <p className="text-xl font-bold text-wl-title">{stats?.followers != null ? stats.followers : '—'}</p>
             <p className="text-xs uppercase tracking-wider text-wl-link">Followers</p>

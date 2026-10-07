@@ -344,7 +344,6 @@ export default function WeeklyChallengePanel({
             role="dialog"
             aria-modal="true"
             aria-label="Weekly Challenge"
-            data-tour="challenge-panel"
             onClick={(e) => e.stopPropagation()}
             className="relative flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-cyan-400/20 bg-wl-panel/90 shadow-[0_30px_80px_rgba(2,10,25,0.6)] backdrop-blur-xl light:border-sky-200 light:shadow-[0_30px_80px_rgba(8,36,58,0.25)] lg:max-w-4xl"
             initial={{ opacity: 0, scale: 0.94, y: -24 }}
@@ -389,7 +388,7 @@ export default function WeeklyChallengePanel({
               ) : (
                 <div className="relative z-10 space-y-5">
                   {/* 1. HERO / THEME CARD */}
-                  <section data-tour="challenge-hero" className="relative overflow-hidden rounded-3xl border border-white/20 bg-gradient-to-b from-white/10 via-white/[0.04] to-transparent p-5 shadow-[0_12px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl light:border-sky-200 light:from-white light:via-white/80 light:to-sky-50/60 light:shadow-[0_12px_32px_rgba(8,36,58,0.12)] sm:p-6">
+                  <section className="relative overflow-hidden rounded-3xl border border-white/20 bg-gradient-to-b from-white/10 via-white/[0.04] to-transparent p-5 shadow-[0_12px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl light:border-sky-200 light:from-white light:via-white/80 light:to-sky-50/60 light:shadow-[0_12px_32px_rgba(8,36,58,0.12)] sm:p-6">
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                       <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/15 px-3.5 py-1.5 shadow-[0_0_12px_rgba(245,158,11,0.2)] backdrop-blur-md light:bg-amber-100 light:shadow-none">
                         <Trophy className="h-3.5 w-3.5 text-amber-300 light:text-amber-700" />
@@ -508,7 +507,7 @@ export default function WeeklyChallengePanel({
                   </section>
 
                   {/* 2. PROFILE BORDER (compact - opens a dropdown picker) */}
-                  <section data-tour="challenge-border" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 px-4 py-3 backdrop-blur-xl light:border-sky-200 light:from-white light:to-sky-50 light:shadow-[0_6px_20px_rgba(8,36,58,0.08)]">
+                  <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 px-4 py-3 backdrop-blur-xl light:border-sky-200 light:from-white light:to-sky-50 light:shadow-[0_6px_20px_rgba(8,36,58,0.08)]">
                     <div className="flex min-w-0 items-center gap-3">
                       <BorderFrame border={equippedRelic?.css_class} shape="circle" className={`h-10 w-10 ${equippedRelic ? 'mx-3' : ''}`}>
                         <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border-2 border-cyan-300 bg-slate-800">
@@ -542,7 +541,7 @@ export default function WeeklyChallengePanel({
                   </section>
 
                   {/* 3. ENTRIES - everyone's songs for this challenge */}
-                  <section data-tour="challenge-entries" className="rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 p-4 backdrop-blur-xl light:border-sky-200 light:from-white light:to-sky-50 light:shadow-[0_6px_20px_rgba(8,36,58,0.08)] sm:p-5">
+                  <section className="rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 p-4 backdrop-blur-xl light:border-sky-200 light:from-white light:to-sky-50 light:shadow-[0_6px_20px_rgba(8,36,58,0.08)] sm:p-5">
                     <div className="mb-3 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5">
                         <ListMusic className="h-4 w-4 text-cyan-300 light:text-cyan-600" />

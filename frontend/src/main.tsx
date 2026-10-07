@@ -8,7 +8,6 @@ import { AuthProvider } from './data/AuthContext.tsx'
 import { ChatProvider } from './data/ChatContext.tsx'
 import { CosmeticsProvider } from './data/CosmeticsContext.tsx'
 import { ThemeProvider } from './data/ThemeContext.tsx'
-import { TourProvider } from './features/tour/TourContext.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -18,9 +17,7 @@ createRoot(document.getElementById('root')!).render(
           <DataProvider>
             <ChatProvider>
               <CosmeticsProvider>
-                <TourProvider>
-                  <App />
-                </TourProvider>
+                <App />
               </CosmeticsProvider>
             </ChatProvider>
           </DataProvider>
