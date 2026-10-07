@@ -9,6 +9,7 @@ import OceanSongPanel from './OceanSongPanel';
 import SkyScene from './SkyScene';
 import NotificationsPanel from '../notifications/NotificationsPanel';
 import WeeklyChallengePanel from '../challenges/WeeklyChallengePanel';
+import { TOUR_EVENT_PREFIX } from '../tour/tourSteps';
 import { getSocket } from '../../lib/socket';
 import { fetchCurrentlyPlaying } from '../../lib/api';
 import type { OceanGroup } from '../../data/types';
@@ -35,14 +36,27 @@ export default function OceanPage() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [challengeOpen, setChallengeOpen] = useState(false);
 
+  // The first-time tour (features/tour) opens/closes the Weekly Challenge
+  // panel so it can point at what's inside.
+  useEffect(() => {
+    const open = () => setChallengeOpen(true);
+    const close = () => setChallengeOpen(false);
+    window.addEventListener(`${TOUR_EVENT_PREFIX}open-challenge`, open);
+    window.addEventListener(`${TOUR_EVENT_PREFIX}close-challenge`, close);
+    return () => {
+      window.removeEventListener(`${TOUR_EVENT_PREFIX}open-challenge`, open);
+      window.removeEventListener(`${TOUR_EVENT_PREFIX}close-challenge`, close);
+    };
+  }, []);
+
   // Live groups (one per track currently playing across all logged-in
   // users), pushed over Socket.IO by the backend's poller roughly once a
   // second - see backend/lib/spotifyPoller.js. Public: guests get this too.
   const [groups, setGroups] = useState<Record<string, OceanGroup>>({});
 
-  // Whatever track I'M personally listening to right now (playing or
-  // paused) - mirrors the backend's own test dashboard's pollMyStatus(),
-  // so "Join"/bubble highlighting stays accurate even while paused.
+  // Whatever track I'M personally playing right now (null when paused,
+  // stopped or unknown) - drives the "Your song" marker and the panel's
+  // "you're already listening" state.
   const [myTrackId, setMyTrackId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,12 +80,20 @@ export default function OceanPage() {
       return;
     }
     let cancelled = false;
+    let failures = 0;
     async function poll() {
       try {
         const data = await fetchCurrentlyPlaying();
-        if (!cancelled) setMyTrackId(data.trackId ?? null);
+        failures = 0;
+        // Spotify keeps reporting the last track (is_playing: false) long
+        // after playback stopped - only a track that is really playing
+        // counts as "mine", otherwise an old song stays highlighted.
+        if (!cancelled) setMyTrackId(data.playing ? data.trackId ?? null : null);
       } catch {
-        // non-fatal - keep the last known value until the next poll succeeds
+        // A blip keeps the last value, but a run of failures means we no
+        // longer know what's playing - don't show an old song as current.
+        failures += 1;
+        if (!cancelled && failures >= 3) setMyTrackId(null);
       }
     }
     poll();

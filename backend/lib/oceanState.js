@@ -42,6 +42,13 @@ function getUserActiveEffect(spotifyUserId) {
 }
 
 const PAUSE_SINK_MS = 10_000; // sink a listener's bubble after 10s paused
+// A session is only trustworthy while polls keep succeeding. If we haven't
+// had a successful poll for this long (Spotify rate-limiting us, a network
+// error, a token that stopped working), we no longer KNOW the person is
+// still listening - so their bubble is removed instead of drifting on
+// forever (the progress bar is extrapolated, so a stale session otherwise
+// looks like a song that is still playing).
+const STALE_SESSION_MS = 30_000;
 
 // Called once per session, per poll cycle, with the raw Spotify
 // currently-playing response (or null if nothing/no device) plus the
@@ -105,6 +112,10 @@ function updateSessionFromPoll(sessionId, spotifyData, accountInfo) {
 function pruneStalePausedSessions() {
   const now = Date.now();
   for (const [sessionId, session] of sessions.entries()) {
+    if (now - session.lastPolledAt > STALE_SESSION_MS) {
+      sessions.delete(sessionId);
+      continue;
+    }
     if (!session.sunk && session.pausedSince && now - session.pausedSince > PAUSE_SINK_MS) {
       sessions.set(sessionId, { ...session, sunk: true });
     }

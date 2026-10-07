@@ -294,3 +294,29 @@ body {
 .song-details-scroll::-webkit-scrollbar {
   display: none;
 }
+
+/* ---------- First-time tour (features/tour) ---------- */
+.wl-tour-ring {
+  animation: wl-tour-pulse 1.8s ease-in-out infinite;
+}
+@keyframes wl-tour-pulse {
+  0%, 100% { stroke-opacity: 0.95; }
+  50% { stroke-opacity: 0.35; }
+}
+.wl-tour-bubble {
+  animation: wl-tour-in 0.28s ease-out both;
+}
+@keyframes wl-tour-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.wl-tour-dot {
+  animation: wl-tour-bounce 0.9s ease-in-out infinite;
+}
+@keyframes wl-tour-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wl-tour-ring, .wl-tour-bubble, .wl-tour-dot { animation: none; }
+}

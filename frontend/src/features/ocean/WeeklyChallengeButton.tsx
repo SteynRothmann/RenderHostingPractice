@@ -108,6 +108,7 @@ export default function WeeklyChallengeButton({ isOpen, onOpen }: Props) {
         <button
           type="button"
           aria-label="Weekly Challenge"
+          data-tour="challenge-button"
           onClick={handleClick}
           className="
             relative h-10 w-48 overflow-hidden rounded-full p-[1px]
