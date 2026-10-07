@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { X, ExternalLink, Play, Pause, Radio, Check, Heart } from 'lucide-react';
 import { useAuth } from '../../data/AuthContext';
 import { joinTrack, followHost, unfollowHost, fetchFollowStatus, saveTrackToLibrary } from '../../lib/api';
+import BorderFrame from '../../components/BorderFrame';
 import type { OceanGroup } from '../../data/types';
 
 function formatMs(ms: number): string {
@@ -274,11 +275,13 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
                 onClick={onClose}
                 className="relative mt-5 flex w-full items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.08] p-3 text-left transition hover:bg-white/[0.13]"
               >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-white/10">
-                  {group.hostProfileImage && (
-                    <img src={group.hostProfileImage} alt="" className="h-full w-full object-cover" />
-                  )}
-                </div>
+                <BorderFrame border={group.activeEffectCss} shape="circle" className="h-11 w-11" reserve="m-4">
+                  <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-white/30 bg-white/10">
+                    {group.hostProfileImage && (
+                      <img src={group.hostProfileImage} alt="" className="h-full w-full object-cover" />
+                    )}
+                  </div>
+                </BorderFrame>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] uppercase tracking-[0.15em] text-white/40">Host</p>
                   <p className="truncate text-sm font-semibold text-white">{group.hostDisplayName || 'someone'}</p>
@@ -287,11 +290,13 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
               </Link>
             ) : (
               <div className="relative mt-5 flex w-full items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.08] p-3 text-left">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-white/10">
-                  {group.hostProfileImage && (
-                    <img src={group.hostProfileImage} alt="" className="h-full w-full object-cover" />
-                  )}
-                </div>
+                <BorderFrame border={group.activeEffectCss} shape="circle" className="h-11 w-11" reserve="m-4">
+                  <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-white/30 bg-white/10">
+                    {group.hostProfileImage && (
+                      <img src={group.hostProfileImage} alt="" className="h-full w-full object-cover" />
+                    )}
+                  </div>
+                </BorderFrame>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] uppercase tracking-[0.15em] text-white/40">Host</p>
                   <p className="truncate text-sm font-semibold text-white">{group.hostDisplayName || 'someone'}</p>
