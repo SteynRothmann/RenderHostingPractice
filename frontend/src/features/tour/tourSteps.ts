@@ -36,27 +36,21 @@ export const GUEST_STEPS: TourStep[] = [
     id: 'welcome',
     route: '/',
     title: 'Welcome to Wavelength',
-    body: "I'm your guide. In about a minute I'll show you what everything does. You can skip me whenever you like.",
+    body: 'A quick tour. Skip any time.',
   },
   {
     id: 'ocean',
     route: '/',
     title: 'The Ocean',
-    body: "Every floating square is a song someone on Wavelength is listening to right now. It moves live - when someone changes song, the square changes too. A green number on a square shows how many people are listening to it together.",
-  },
-  {
-    id: 'hover',
-    route: '/',
-    title: 'Hover to peek',
-    body: "Hover a square to see its song and artist. Clicking one opens the song panel - that needs a free account, so you'll be taken to the login page.",
+    body: 'Each square is a song someone is playing right now. The green number shows how many are listening.',
   },
   {
     id: 'search',
     route: '/',
     target: 'search',
-    title: 'Search the ocean',
-    body: "Look for a song, an artist or a genre. Squares that don't match fade away. Click the box to see everything playing right now.",
-    hint: 'Try it: click the search bar',
+    title: 'Search',
+    body: 'Find a song, artist or genre.',
+    hint: 'Click the search bar',
     advanceOn: 'focus',
     blurOnExit: true,
   },
@@ -65,8 +59,8 @@ export const GUEST_STEPS: TourStep[] = [
     route: '/',
     target: 'theme',
     title: 'Day or night',
-    body: 'Switch between the light and dark ocean. Wavelength remembers your choice.',
-    hint: 'Try it: flip the switch',
+    body: 'Switch the ocean between light and dark.',
+    hint: 'Flip the switch',
     advanceOn: 'click',
   },
   {
@@ -74,14 +68,14 @@ export const GUEST_STEPS: TourStep[] = [
     route: '/',
     target: 'login',
     title: 'Join in',
-    body: "Log in with Spotify to open song panels, chat with people, take part in the Weekly Challenge and win profile borders. Any Spotify account works - Premium is only needed to listen along with someone.",
+    body: 'Log in with Spotify to open songs, chat and join challenges.',
   },
   {
     id: 'done',
     route: '/',
     target: 'help',
-    title: "That's the tour",
-    body: 'Press this ? button any time to see the tour again. Enjoy the ocean!',
+    title: "That's it",
+    body: 'Press ? to see this tour again.',
   },
 ];
 
@@ -90,33 +84,21 @@ export const USER_STEPS: TourStep[] = [
     id: 'welcome',
     route: '/',
     title: 'Welcome to Wavelength',
-    body: "I'm your guide. In about a minute I'll show you what everything does. You can skip me whenever you like.",
+    body: 'A quick tour. Skip any time.',
   },
   {
     id: 'ocean',
     route: '/',
     title: 'The Ocean',
-    body: "Every floating square is a song someone on Wavelength is listening to right now. It moves live - when someone changes song, the square changes too. A green number on a square shows how many people are listening to it together.",
-  },
-  {
-    id: 'your-song',
-    route: '/',
-    title: 'Your own song',
-    body: "Play something on Spotify and your song joins the ocean with a glowing ring and rising bubbles. Pause for 10 seconds, or stop playing, and it sinks away again.",
-  },
-  {
-    id: 'hover',
-    route: '/',
-    title: 'Hover to peek, click to open',
-    body: 'Hover a square to see its song and artist. Click it to open the song panel.',
+    body: 'Each square is a song someone is playing right now. Hover for details, click to open. Your own song gets a glowing ring.',
   },
   {
     id: 'search',
     route: '/',
     target: 'search',
-    title: 'Search the ocean',
-    body: "Look for a song, an artist or a genre. Squares that don't match fade away. Click the box to see everything playing right now.",
-    hint: 'Try it: click the search bar',
+    title: 'Search',
+    body: 'Find a song, artist or genre.',
+    hint: 'Click the search bar',
     advanceOn: 'focus',
     blurOnExit: true,
   },
@@ -125,19 +107,18 @@ export const USER_STEPS: TourStep[] = [
     route: '/',
     title: 'Inside a song',
     body:
-      'The song panel lets you:\n' +
-      '- Listen on Spotify: starts that exact song for you, in sync with the host (needs Spotify Premium)\n' +
-      '- Save to Playlist: adds it to your Spotify Liked Songs\n' +
-      '- Follow Along: automatically follow the host from song to song\n' +
-      '- Tap the host to see their profile and send them a chat request',
+      'Listen on Spotify plays it for you (Premium).\n' +
+      'Save adds it to Liked Songs.\n' +
+      'Follow Along keeps you with the host.\n' +
+      'Tap the host to request a chat.',
   },
   {
     id: 'theme',
     route: '/',
     target: 'theme',
     title: 'Day or night',
-    body: 'Switch between the light and dark ocean. Wavelength remembers your choice.',
-    hint: 'Try it: flip the switch',
+    body: 'Switch the ocean between light and dark.',
+    hint: 'Flip the switch',
     advanceOn: 'click',
   },
   {
@@ -145,8 +126,8 @@ export const USER_STEPS: TourStep[] = [
     route: '/',
     target: 'challenge-button',
     title: 'Weekly Challenge',
-    body: "A new theme every week, like \"Short & Sweet\" or \"Hidden Gems\". Pick a song that fits, join in, and win a limited-time animated border.",
-    hint: 'Try it: click the button',
+    body: 'A new theme every week. Join with a song that fits and win a limited border.',
+    hint: 'Click the button',
     advanceOn: 'click',
   },
   {
@@ -156,7 +137,7 @@ export const USER_STEPS: TourStep[] = [
     enter: 'open-challenge',
     placement: 'bottom',
     title: "This week's theme",
-    body: "Here's the theme, the time left and how many people have joined. Press \"Join this challenge\", search for a song that fits and confirm. Your song starts playing on your Spotify so it shows up in the ocean.",
+    body: 'See the theme and time left. Press Join, pick a song and confirm.',
   },
   {
     id: 'challenge-border',
@@ -165,16 +146,7 @@ export const USER_STEPS: TourStep[] = [
     enter: 'open-challenge',
     placement: 'top',
     title: 'Borders',
-    body: "Joining unlocks that week's border - an animated frame for your profile picture and your song square in the ocean. Each border is only on offer for one week, so grab it! \"Change border\" lets you wear any border you own.",
-  },
-  {
-    id: 'challenge-entries',
-    route: '/',
-    target: 'challenge-entries',
-    enter: 'open-challenge',
-    placement: 'top',
-    title: "Everyone's songs",
-    body: "Every song submitted this week is listed here, with each person's border. Great for finding new music.",
+    body: 'Joining unlocks an animated border for your picture and song. Each one is only offered for a week.',
   },
   {
     id: 'notifications',
@@ -182,22 +154,22 @@ export const USER_STEPS: TourStep[] = [
     target: 'nav-notifications',
     enter: 'close-challenge',
     title: 'Notifications',
-    body: 'When someone asks to chat with you, a red dot appears here. Open it to accept (you become friends and can message) or decline.',
+    body: 'Chat requests show up here. Accept to become friends.',
   },
   {
     id: 'nav-chat',
     route: '/',
     target: 'nav-chat',
     title: 'Chat',
-    body: 'Your private messages and group chats live here. A red dot means you have unread messages. To chat with someone new, tap their name on a song panel and press "Request Chat".',
+    body: 'Your messages and groups. A red dot means something new.',
   },
   {
     id: 'nav-profile',
     route: '/',
     target: 'nav-profile',
     title: 'Your profile',
-    body: "That's you! Your picture shows your border once you've won one. Open your profile now.",
-    hint: 'Try it: click your picture',
+    body: 'This is you.',
+    hint: 'Click your picture',
     advanceOn: 'click',
   },
   {
@@ -205,21 +177,14 @@ export const USER_STEPS: TourStep[] = [
     route: '/profile',
     target: 'profile-edit',
     title: 'Make it yours',
-    body: 'Add a nickname - friends see it instead of your Spotify name - and a short bio. Press "Save changes" when you are done.',
-  },
-  {
-    id: 'profile-stats',
-    route: '/profile',
-    target: 'profile-stats',
-    title: 'Your listening',
-    body: 'Below this you will find your Spotify followers, your top genres, your recently played songs and your public playlists.',
+    body: 'Add a nickname and bio, then press Save changes.',
   },
   {
     id: 'chat-tabs',
     route: '/chat',
     target: 'chat-tabs',
     title: 'Friends and Groups',
-    body: 'Friends are people whose chat request was accepted. Groups let several friends talk together. A red dot marks unread messages.',
+    body: 'Friends are accepted requests. Groups let several friends chat together.',
   },
   {
     id: 'new-group',
@@ -227,22 +192,12 @@ export const USER_STEPS: TourStep[] = [
     target: 'new-group',
     enterClick: 'chat-tab-groups',
     title: 'Create a group',
-    body: 'Press "+ New group", choose a name and a picture, and tick the friends to add. You become the group Admin.',
-  },
-  {
-    id: 'group-roles',
-    route: '/chat',
-    title: 'Group roles',
-    body:
-      'Click a group\'s name at the top of its chat to see everyone in it.\n' +
-      '- Admin (the creator): adds people, makes moderators, removes anyone\n' +
-      '- Mod: can remove regular members\n' +
-      '- Everyone can leave at any time',
+    body: 'Name it, pick a picture and add friends. You become Admin and can add people, make moderators and remove members.',
   },
   {
     id: 'done',
     route: '/chat',
-    title: "You're all set!",
-    body: 'That is everything. Press the ? button at the top of the ocean any time to see this tour again. Enjoy Wavelength!',
+    title: "You're all set",
+    body: 'Press ? at the top of the ocean to replay this tour.',
   },
 ];

@@ -28,7 +28,7 @@ interface Box {
 }
 
 const PAD = 8; // breathing room between the element and the edge of the light
-const GIVE_UP_MS = 4000; // stop looking for a missing element and just talk
+const GIVE_UP_MS = 3000; // stop looking for a missing element and just talk
 const BUBBLE_W = 340;
 const MARGIN = 12;
 
@@ -96,7 +96,7 @@ export default function TourOverlay({ step, index, total, onNext, onBack, onSkip
   useEffect(() => {
     setTyping(true);
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const timer = window.setTimeout(() => setTyping(false), reduce ? 0 : 450);
+    const timer = window.setTimeout(() => setTyping(false), reduce ? 0 : 220);
     return () => window.clearTimeout(timer);
   }, [step.id]);
 
@@ -122,7 +122,7 @@ export default function TourOverlay({ step, index, total, onNext, onBack, onSkip
       if (el && e.target instanceof Node && el.contains(e.target)) {
         window.clearTimeout(timer);
         // Let the element's own handler run first (open the panel, etc.).
-        timer = window.setTimeout(onNext, 450);
+        timer = window.setTimeout(onNext, 300);
       }
     };
     document.addEventListener(eventName, handler, true);
@@ -298,7 +298,7 @@ export default function TourOverlay({ step, index, total, onNext, onBack, onSkip
                     onClick={onNext}
                     className="rounded-full bg-wl-accent px-3.5 py-1.5 text-xs font-semibold text-black hover:bg-[#1fdf64]"
                   >
-                    {last ? 'Finish' : step.advanceOn ? 'Skip step' : index === 0 ? "Let's go" : 'Next'}
+                    {last ? 'Finish' : step.advanceOn ? 'Skip' : index === 0 ? 'Start' : 'Next'}
                   </button>
                 </div>
               </div>
