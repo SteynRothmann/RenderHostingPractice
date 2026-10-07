@@ -14,6 +14,7 @@ const challengesRouter = require('./routes/challenges');
 const cosmeticsRouter = require('./routes/cosmetics');
 const { useMemoryStore, getTokens } = require('./db/tokenStore');
 const { startOceanPoller } = require('./lib/spotifyPoller');
+const { startChallengeScheduler } = require('./lib/challengeRotation');
 const { identifyRequest } = require('./lib/identity');
 const groupStore = require('./lib/groupStore');
 const { hasAcceptedPrivateChatRequest } = require('./lib/chatRequests');
@@ -1118,5 +1119,6 @@ httpServer.listen(PORT, () => {
     );
   }
   startOceanPoller(io);
+  startChallengeScheduler(io);
   console.log('Ocean poller started - checking all logged-in users every 1s.');
 });

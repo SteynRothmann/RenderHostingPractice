@@ -11,10 +11,12 @@ const axios = require('axios');
 // no sensible in-memory equivalent for challenge/reward persistence, so
 // this feature simply requires Postgres to actually work).
 const pool = require('../db/pool');
-const { getTokens } = require('../db/tokenStore');
+const crypto = require('crypto');
+const { getTokens, getTokensBySpotifyUserId } = require('../db/tokenStore');
 const { getValidAccessToken } = require('../lib/authHelper');
 const { playTrackAt } = require('../lib/spotifyClient');
 const { validateChallengeSubmission } = require('../lib/challengesValidation');
+const { rotateChallenges, ensureActiveChallenge } = require('../lib/challengeRotation');
 
 function requirePool(res) {
   if (pool) return true;
@@ -29,6 +31,11 @@ router.get('/active', async (req, res) => {
   if (!requirePool(res)) return;
 
   try {
+    // If the live challenge has expired (or none exists yet), roll over to
+    // the next one before answering - the background scheduler normally has
+    // already, this just covers a server that was asleep past a deadline.
+    await ensureActiveChallenge(req.app.get('io'));
+
     const challengeResult = await pool.query(
       `SELECT id, theme, description, reward_id, deadline, is_active, created_at
        FROM challenges
@@ -80,12 +87,101 @@ router.get('/active', async (req, res) => {
       description: activeChallenge.description,
       rewardId: activeChallenge.reward_id,
       deadline: activeChallenge.deadline,
+      // When this challenge began - with `deadline`, this is the window the
+      // frontend's countdown/progress bar runs across.
+      startedAt: activeChallenge.created_at,
       mySubmission,
       participantCount,
     });
   } catch (err) {
     console.error('Failed to fetch active challenge:', err);
     res.status(500).json({ error: 'Server error fetching active challenge' });
+  }
+});
+
+// GET /challenges/:id/entries - everyone's submission to one challenge, as
+// a display list (newest first). Needs a login (it shows other people's
+// names). Names are nickname-first, then Spotify display name, and never a
+// raw account id.
+router.get('/:id/entries', async (req, res) => {
+  if (!requirePool(res)) return;
+
+  const challengeId = parseInt(req.params.id, 10);
+  if (Number.isNaN(challengeId)) {
+    return res.status(400).json({ error: 'Invalid challenge id' });
+  }
+
+  try {
+    const stored = await getTokens(req.userId);
+    const mySpotifyUserId = stored?.spotifyUserId;
+    if (!mySpotifyUserId) {
+      return res.status(401).json({ error: 'You need to log in first' });
+    }
+
+    const result = await pool.query(
+      `SELECT spotify_user_id, track_id, track_title, artist, album_art, created_at
+       FROM challenge_submissions
+       WHERE challenge_id = $1
+       ORDER BY created_at DESC
+       LIMIT 100`,
+      [challengeId]
+    );
+
+    const entries = await Promise.all(
+      result.rows.map(async (row) => {
+        const profile = await getTokensBySpotifyUserId(row.spotify_user_id);
+        return {
+          spotifyUserId: row.spotify_user_id,
+          displayName: profile?.nickname || profile?.displayName || 'A Wavelength listener',
+          profileImage: profile?.profileImage || null,
+          trackId: row.track_id,
+          title: row.track_title,
+          artist: row.artist,
+          cover: row.album_art,
+          submittedAt: row.created_at,
+          isMine: row.spotify_user_id === mySpotifyUserId,
+        };
+      })
+    );
+
+    res.json({ entries });
+  } catch (err) {
+    console.error('Failed to fetch challenge entries:', err);
+    res.status(500).json({ error: 'Could not load challenge entries' });
+  }
+});
+
+// POST /challenges/admin/rotate - end the current challenge right now and
+// start the next one (everyone becomes un-joined, same as a normal
+// rollover). For whoever runs the app, not players: it needs the secret in
+// the CHALLENGE_ADMIN_KEY environment variable, sent as an x-admin-key
+// header, and is switched off entirely when that variable isn't set.
+router.post('/admin/rotate', async (req, res) => {
+  if (!requirePool(res)) return;
+
+  const expected = process.env.CHALLENGE_ADMIN_KEY;
+  if (!expected) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  const provided = String(req.get('x-admin-key') || '');
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.status(401).json({ error: 'Invalid admin key' });
+  }
+
+  try {
+    const result = await rotateChallenges({ io: req.app.get('io'), force: true });
+    res.json({
+      rotated: result.rotated,
+      endedChallengeIds: result.endedChallengeIds,
+      challenge: result.challenge
+        ? { id: result.challenge.id, theme: result.challenge.theme, deadline: result.challenge.deadline }
+        : null,
+    });
+  } catch (err) {
+    console.error('Admin challenge rotation failed:', err);
+    res.status(500).json({ error: 'Could not rotate challenges' });
   }
 });
 

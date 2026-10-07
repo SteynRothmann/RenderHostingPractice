@@ -3,10 +3,7 @@
 -- The user has said these tables may already exist on Supabase - review
 -- this against what's already there before running it. This file is
 -- idempotent (CREATE TABLE IF NOT EXISTS / ON CONFLICT DO NOTHING) so it's
--- safe to run even if some of it already exists, but it will NOT insert
--- duplicate seed rows only if a uniqueness constraint already prevents
--- them, so check before running the two seed INSERT statements if the
--- challenges/rewards tables might already have rows.
+-- safe to run even if some of it already exists.
 
 CREATE TABLE IF NOT EXISTS public.challenges (
   id SERIAL PRIMARY KEY,
@@ -52,26 +49,13 @@ CREATE TABLE IF NOT EXISTS public.user_cosmetics (
   UNIQUE(spotify_user_id, reward_id)
 );
 
--- Seed challenges - guarded by theme so re-running this file doesn't
--- duplicate them (there's no unique constraint on theme itself, just on
--- is_active while TRUE, which only covers one row at a time).
-INSERT INTO public.challenges (theme, description, reward_id, deadline, is_active)
-SELECT
-  'Throwback Anthems',
-  'Share a track released before the year 2000 that defines a generation. Entering unlocks a themed profile border.',
-  'cyan-border',
-  '2026-10-07 23:59:59+00',
-  TRUE
-WHERE NOT EXISTS (SELECT 1 FROM public.challenges WHERE theme = 'Throwback Anthems');
-
-INSERT INTO public.challenges (theme, description, reward_id, deadline, is_active)
-SELECT
-  'Golden Tide',
-  'Share a track featuring gold or shining imagery in its theme or title.',
-  'gold-border',
-  '2026-09-30 23:59:59+00',
-  FALSE
-WHERE NOT EXISTS (SELECT 1 FROM public.challenges WHERE theme = 'Golden Tide');
+-- No challenges are seeded here anymore: the backend now starts them on its
+-- own (lib/challengeRotation.js) - when nothing is active, or when the active
+-- one's deadline passes, it ends it and starts the next one from the pool in
+-- lib/challengePool.js, with a fresh start time and deadline. To end the
+-- current challenge early and start the next, run:
+--   UPDATE public.challenges SET deadline = now() WHERE is_active = TRUE;
+-- (it rolls over within ~15 seconds), or call POST /challenges/admin/rotate.
 
 -- Seed cosmetic rewards
 INSERT INTO public.rewards (reward_id, name, description, effect_type, css_class)

@@ -9,7 +9,7 @@
 // src/data/AuthContext.tsx), and kept in localStorage from then on. See
 // socket.ts for the companion Socket.IO connection used for live
 // 'oceanUpdate' events (that one's just a public broadcast, no auth).
-import type { ActiveChallenge, ActiveChallengeSubmission, ChallengeSearchResult, ChatFriend, ChatRequest, CosmeticItem, HostProfile, MyPlayback, ProfileStats, PublicPlaylist, RealChatMessage, RealGroup, RecentTrack, SpotifyProfile } from '../data/types';
+import type { ActiveChallenge, ActiveChallengeSubmission, ChallengeEntry, ChallengeSearchResult, ChatFriend, ChatRequest, CosmeticItem, HostProfile, MyPlayback, ProfileStats, PublicPlaylist, RealChatMessage, RealGroup, RecentTrack, SpotifyProfile } from '../data/types';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -303,6 +303,14 @@ export async function fetchActiveChallenge(): Promise<ActiveChallenge | null> {
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(await errorFrom(res, 'Could not load this week’s challenge'));
   return res.json();
+}
+
+// Everyone's entries to one challenge (including your own), newest first.
+export async function fetchChallengeEntries(challengeId: string | number): Promise<ChallengeEntry[]> {
+  const res = await apiFetch(`/challenges/${encodeURIComponent(String(challengeId))}/entries`);
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not load challenge entries'));
+  const body = await res.json();
+  return body.entries;
 }
 
 export async function searchChallengeTracks(query: string): Promise<ChallengeSearchResult[]> {

@@ -1,20 +1,15 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Trophy,
   Clock,
   Users,
-  Search,
   X,
   CheckCircle2,
-  Lock,
-  Compass,
-  Check,
-  Power,
   Sparkles,
-  Eye,
-  Disc,
-  User,
+  Palette,
+  ListMusic,
+  Plus,
 } from 'lucide-react';
 
 import Cover from '../../components/Cover';
@@ -22,13 +17,36 @@ import { useAuth } from '../../data/AuthContext';
 import { formatCountdown } from '../../data/mockData';
 import {
   fetchActiveChallenge,
-  searchChallengeTracks,
-  submitChallengeEntry,
+  fetchChallengeEntries,
   fetchCosmeticsInventory,
   equipCosmetic,
+  cosmeticAuraClass,
 } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
-import type { ActiveChallenge, ChallengeSearchResult, CosmeticItem } from '../../data/types';
+import JoinChallengeModal from './JoinChallengeModal';
+import BorderPickerModal from './BorderPickerModal';
+import type { ActiveChallenge, ChallengeEntry, CosmeticItem } from '../../data/types';
+
+// "5m ago" / "3h ago" / "2d ago" for the entries list.
+function timeAgo(iso: string): string {
+  const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function formatEnd(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 // Unlike the other overlays (Notifications, Create Group), Weekly
 // Challenges gets its own large, top-of-viewport presentation rather than
@@ -36,6 +54,11 @@ import type { ActiveChallenge, ChallengeSearchResult, CosmeticItem } from '../..
 // panel emphasized: big, anchored near the top-middle of the Ocean page,
 // well clear of the floating song bubbles beneath it, and responsive down
 // to phone width.
+//
+// Layout: the challenge (name, description, live countdown, Join button),
+// a compact "profile border" row that opens a dropdown picker, and the
+// list of everyone's entries. Joining happens in its own sub-panel
+// (JoinChallengeModal) - the song search lives only there.
 export default function WeeklyChallengePanel({
   open,
   onClose,
@@ -47,43 +70,63 @@ export default function WeeklyChallengePanel({
 
   const [challenge, setChallenge] = useState<ActiveChallenge | null>(null);
   const [loadingChallenge, setLoadingChallenge] = useState(false);
-  const [remaining, setRemaining] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
 
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<ChallengeSearchResult[]>([]);
-  const [pending, setPending] = useState<ChallengeSearchResult | null>(null);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
-  // Submitting also tries to start the track playing on Spotify right
-  // now (so it shows up in the ocean) - that can fail independently of
-  // the submission itself (no Premium, no active device). Not an error
-  // (the entry is saved either way), so it gets its own, calmer notice.
-  const [playbackNotice, setPlaybackNotice] = useState('');
+  const [entries, setEntries] = useState<ChallengeEntry[]>([]);
+  const [entriesLoading, setEntriesLoading] = useState(false);
+  const [entriesError, setEntriesError] = useState('');
 
   const [cosmetics, setCosmetics] = useState<CosmeticItem[]>([]);
-  const [equippingRewardId, setEquippingRewardId] = useState<string | null>(null);
+  const [equipping, setEquipping] = useState(false);
 
-  const [previewTab, setPreviewTab] = useState<'avatar' | 'track'>('avatar');
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [borderOpen, setBorderOpen] = useState(false);
+  // Joining also tries to start the track playing on Spotify (so it shows
+  // up in the ocean) - that can fail independently of the entry itself (no
+  // Premium, no active device). Not an error, so it gets a calmer notice.
+  const [playbackNotice, setPlaybackNotice] = useState('');
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const challengeIdRef = useRef<string | number | null>(null);
 
-  // Load the real active challenge + the caller's cosmetics inventory
-  // whenever the panel opens.
+  const loadChallenge = useCallback(async () => {
+    try {
+      const active = await fetchActiveChallenge();
+      setChallenge(active);
+    } catch (err) {
+      console.error('Could not load active challenge:', err instanceof Error ? err.message : err);
+    }
+  }, []);
+
+  const loadEntries = useCallback(async (challengeId: string | number) => {
+    try {
+      const list = await fetchChallengeEntries(challengeId);
+      // Ignore a response for a challenge that's no longer the one shown.
+      if (challengeIdRef.current === challengeId) {
+        setEntries(list);
+        setEntriesError('');
+      }
+    } catch (err) {
+      if (challengeIdRef.current === challengeId) {
+        setEntriesError(err instanceof Error ? err.message : 'Could not load entries');
+      }
+    } finally {
+      if (challengeIdRef.current === challengeId) setEntriesLoading(false);
+    }
+  }, []);
+
+  // Load the active challenge + the caller's cosmetics whenever the panel opens.
   useEffect(() => {
     if (!open) return;
-
     let cancelled = false;
+    setJoinOpen(false);
+    setBorderOpen(false);
     setLoadingChallenge(true);
     fetchActiveChallenge()
       .then((active) => {
         if (!cancelled) setChallenge(active);
       })
-      .catch((err) => {
-        console.error('Could not load active challenge:', err.message);
-      })
+      .catch((err) => console.error('Could not load active challenge:', err.message))
       .finally(() => {
         if (!cancelled) setLoadingChallenge(false);
       });
@@ -92,20 +135,29 @@ export default function WeeklyChallengePanel({
       .then((items) => {
         if (!cancelled) setCosmetics(items);
       })
-      .catch((err) => {
-        console.error('Could not load cosmetics inventory:', err.message);
-      });
+      .catch((err) => console.error('Could not load cosmetics inventory:', err.message));
 
     return () => {
       cancelled = true;
     };
   }, [open]);
 
-  // Live participant count: the backend broadcasts 'challenge:update'
-  // right after any submission is saved (see POST /challenges/submit),
-  // so the count here updates without the viewer needing to reopen the
-  // panel. Only subscribed while the panel is actually open, and only
-  // applied when the event's challengeId matches what's currently shown.
+  // A different challenge than before (the weekly rollover): everyone starts
+  // un-joined, so drop the old entries/notice/sub-panels and load the new list.
+  const challengeId = challenge?.id ?? null;
+  useEffect(() => {
+    challengeIdRef.current = challengeId;
+    setPlaybackNotice('');
+    setJoinOpen(false);
+    setEntries([]);
+    setEntriesError('');
+    if (!open || challengeId === null) return;
+    setEntriesLoading(true);
+    void loadEntries(challengeId);
+  }, [challengeId, open, loadEntries]);
+
+  // Live updates while open: someone joined (new count + entries list), or
+  // the backend rolled over to the next challenge.
   useEffect(() => {
     if (!open) return;
     const socket = getSocket();
@@ -115,25 +167,54 @@ export default function WeeklyChallengePanel({
         if (!current || String(current.id) !== String(payload.challengeId)) return current;
         return { ...current, participantCount: payload.participantCount };
       });
+      const shownId = challengeIdRef.current;
+      if (shownId !== null && String(shownId) === String(payload.challengeId)) {
+        void loadEntries(shownId);
+      }
+    }
+    function onChallengeRotated() {
+      void loadChallenge();
     }
 
     socket.on('challenge:update', onChallengeUpdate);
+    socket.on('challenge:rotated', onChallengeRotated);
     return () => {
       socket.off('challenge:update', onChallengeUpdate);
+      socket.off('challenge:rotated', onChallengeRotated);
     };
+  }, [open, loadEntries, loadChallenge]);
+
+  // Countdown clock.
+  useEffect(() => {
+    if (!open) return;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
   }, [open]);
 
-  // Countdown, fed by the real deadline once it's loaded.
-  useEffect(() => {
-    if (!open || !challenge) return;
-    const deadlineMs = new Date(challenge.deadline).getTime();
-    setRemaining(deadlineMs - Date.now());
-    const id = setInterval(() => {
-      setRemaining(deadlineMs - Date.now());
-    }, 1000);
-    return () => clearInterval(id);
-  }, [open, challenge]);
+  const deadlineMs = challenge ? new Date(challenge.deadline).getTime() : 0;
+  const startedMs = challenge ? new Date(challenge.startedAt).getTime() : 0;
+  const remaining = challenge ? deadlineMs - now : 0;
+  const ended = !!challenge && remaining <= 0;
 
+  // Safety net for the rollover: once the timer hits zero (or there is no
+  // challenge yet), keep checking for the next one in case the socket
+  // event was missed.
+  useEffect(() => {
+    if (!open || loadingChallenge || (challenge && !ended)) return;
+    const id = setInterval(() => void loadChallenge(), 5000);
+    return () => clearInterval(id);
+  }, [open, loadingChallenge, challenge, ended, loadChallenge]);
+
+  // Share of the challenge's time window still left, for the progress bar.
+  const remainingPct = useMemo(() => {
+    if (!challenge) return 0;
+    const total = deadlineMs - startedMs;
+    if (total <= 0) return 0;
+    return Math.min(100, Math.max(0, ((deadlineMs - now) / total) * 100));
+  }, [challenge, deadlineMs, startedMs, now]);
+
+  // Animated light-ray backdrop (dark mode only - hidden in light mode).
   useEffect(() => {
     if (!open) return;
     const canvas = canvasRef.current;
@@ -192,87 +273,51 @@ export default function WeeklyChallengePanel({
   }, [open]);
 
   const alreadyEntered = !!challenge?.mySubmission;
+  const reward = challenge?.rewardId ? cosmetics.find((c) => c.reward_id === challenge.rewardId) ?? null : null;
+  const unlockedCosmetics = cosmetics.filter((c) => c.is_unlocked);
+  const equippedRelic = unlockedCosmetics.find((c) => c.is_equipped) ?? null;
 
-  const runSearch = useCallback((value: string) => {
-    if (!value.trim()) {
-      setResults([]);
-      return;
+  // Mine first, then newest (the backend already returns newest first).
+  const sortedEntries = useMemo(
+    () => [...entries].sort((a, b) => Number(b.isMine) - Number(a.isMine)),
+    [entries]
+  );
+
+  function handleJoined(result: {
+    submission: ActiveChallenge['mySubmission'];
+    playbackStarted: boolean;
+    playbackError: string | null;
+  }) {
+    setChallenge((current) => (current ? { ...current, mySubmission: result.submission } : current));
+    if (!result.playbackStarted && result.playbackError) setPlaybackNotice(result.playbackError);
+    // Joining grants the challenge's border - refresh what's unlocked.
+    fetchCosmeticsInventory()
+      .then(setCosmetics)
+      .catch((err) => console.error('Could not refresh cosmetics:', err.message));
+    if (challenge) void loadEntries(challenge.id);
+  }
+
+  async function selectBorder(rewardId: string | null) {
+    if (equipping) return;
+    const target = rewardId ?? equippedRelic?.reward_id ?? null;
+    if (!target) return;
+    const nextEquipped = rewardId !== null;
+
+    setEquipping(true);
+    try {
+      await equipCosmetic(target, nextEquipped);
+      setCosmetics((current) =>
+        current.map((item) => ({
+          ...item,
+          is_equipped: nextEquipped ? item.reward_id === rewardId : false,
+        }))
+      );
+    } catch (err) {
+      console.error('Could not update cosmetic:', err instanceof Error ? err.message : err);
+    } finally {
+      setEquipping(false);
     }
-    searchChallengeTracks(value)
-      .then((found) => setResults(found))
-      .catch((err) => {
-        console.error('Challenge track search failed:', err.message);
-        setResults([]);
-      });
-  }, []);
-
-  function handleQuery(value: string) {
-    setQuery(value);
-    setPending(null);
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    searchDebounceRef.current = setTimeout(() => runSearch(value), 300);
   }
-
-  useEffect(() => {
-    return () => {
-      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    };
-  }, []);
-
-  function submit() {
-    if (!pending || !challenge) return;
-    setSubmitting(true);
-    setSubmitError('');
-    setPlaybackNotice('');
-
-    submitChallengeEntry(challenge.id, pending.id)
-      .then((result) => {
-        setChallenge((current) =>
-          current
-            ? {
-                ...current,
-                mySubmission: result.submission,
-              }
-            : current
-        );
-        setQuery('');
-        setResults([]);
-        setPending(null);
-        if (!result.playbackStarted && result.playbackError) {
-          setPlaybackNotice(result.playbackError);
-        }
-      })
-      .catch((err) => {
-        setSubmitError(err.message || 'Could not submit challenge entry');
-      })
-      .finally(() => {
-        setSubmitting(false);
-      });
-  }
-
-  function toggleRelic(relic: CosmeticItem) {
-    if (!relic.is_unlocked || equippingRewardId) return;
-    const nextEquipped = !relic.is_equipped;
-
-    setEquippingRewardId(relic.reward_id);
-    equipCosmetic(relic.reward_id, nextEquipped)
-      .then(() => {
-        setCosmetics((current) =>
-          current.map((item) => ({
-            ...item,
-            is_equipped: item.reward_id === relic.reward_id ? nextEquipped : nextEquipped ? false : item.is_equipped,
-          }))
-        );
-      })
-      .catch((err) => {
-        console.error('Could not update cosmetic:', err.message);
-      })
-      .finally(() => {
-        setEquippingRewardId(null);
-      });
-  }
-
-  const equippedRelic = cosmetics.find((c) => c.is_equipped) || null;
 
   return (
     <AnimatePresence>
@@ -295,7 +340,7 @@ export default function WeeklyChallengePanel({
             aria-modal="true"
             aria-label="Weekly Challenge"
             onClick={(e) => e.stopPropagation()}
-            className="relative flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-cyan-400/20 bg-wl-panel/90 shadow-[0_30px_80px_rgba(2,10,25,0.6)] light:border-sky-200 light:shadow-[0_30px_80px_rgba(8,36,58,0.25)] backdrop-blur-xl lg:max-w-4xl"
+            className="relative flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-cyan-400/20 bg-wl-panel/90 shadow-[0_30px_80px_rgba(2,10,25,0.6)] backdrop-blur-xl light:border-sky-200 light:shadow-[0_30px_80px_rgba(8,36,58,0.25)] lg:max-w-4xl"
             initial={{ opacity: 0, scale: 0.94, y: -24 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: -24 }}
@@ -319,7 +364,7 @@ export default function WeeklyChallengePanel({
             </div>
 
             {/* Scrollable content */}
-            <div className="nav-panel-scroll relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-gradient-to-b from-[#0e3a5a] via-[#061e38] to-[#020914] px-4 py-6 font-sans text-slate-100 antialiased light:from-sky-100 light:via-sky-50 light:to-white light:text-slate-800 selection:bg-cyan-500/30 sm:px-6">
+            <div className="nav-panel-scroll relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-gradient-to-b from-[#0e3a5a] via-[#061e38] to-[#020914] px-4 py-6 font-sans text-slate-100 antialiased selection:bg-cyan-500/30 light:from-sky-100 light:via-sky-50 light:to-white light:text-slate-800 sm:px-6">
               <canvas
                 ref={canvasRef}
                 className="pointer-events-none absolute inset-0 z-0 h-full w-full opacity-80 light:hidden"
@@ -329,28 +374,28 @@ export default function WeeklyChallengePanel({
 
               {loadingChallenge && !challenge ? (
                 <div className="relative z-10 flex items-center justify-center py-16 text-xs font-medium text-cyan-200/70 light:text-sky-800">
-                  Loading this week's challenge…
+                  Loading this week&apos;s challenge…
                 </div>
               ) : !challenge ? (
                 <div className="relative z-10 flex items-center justify-center py-16 text-xs font-medium text-slate-300/80 light:text-slate-600">
-                  No active challenge right now - check back soon.
+                  The next challenge is starting - check back in a moment.
                 </div>
               ) : (
-                <div className="relative z-10 space-y-6">
+                <div className="relative z-10 space-y-5">
                   {/* 1. HERO / THEME CARD */}
                   <section className="relative overflow-hidden rounded-3xl border border-white/20 bg-gradient-to-b from-white/10 via-white/[0.04] to-transparent p-5 shadow-[0_12px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl light:border-sky-200 light:from-white light:via-white/80 light:to-sky-50/60 light:shadow-[0_12px_32px_rgba(8,36,58,0.12)] sm:p-6">
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                       <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/15 px-3.5 py-1.5 shadow-[0_0_12px_rgba(245,158,11,0.2)] backdrop-blur-md light:bg-amber-100 light:shadow-none">
                         <Trophy className="h-3.5 w-3.5 text-amber-300 light:text-amber-700" />
                         <span className="text-xs font-semibold text-amber-100 light:text-amber-900">
-                          This Week's Challenge
+                          This Week&apos;s Challenge
                         </span>
                       </div>
 
                       <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3.5 py-1.5 backdrop-blur-md light:border-sky-200 light:bg-white">
                         <Clock className="h-3.5 w-3.5 text-cyan-300 light:text-cyan-700" />
                         <span className="font-mono text-xs font-medium text-slate-200 light:text-slate-700">
-                          {remaining > 0 ? formatCountdown(remaining) : 'Closed'}
+                          {ended ? 'Ended' : formatCountdown(remaining)}
                         </span>
                       </div>
                     </div>
@@ -363,15 +408,38 @@ export default function WeeklyChallengePanel({
                       {challenge.theme}
                     </h2>
 
-                    <p className="mt-2 max-w-lg text-xs leading-relaxed text-slate-300/90 light:text-slate-600">
+                    <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300/90 light:text-slate-600">
                       {challenge.description}
                     </p>
 
-                    <div className="mt-5 flex flex-wrap items-center gap-3">
+                    {/* Time window: bar drains as the challenge runs out. */}
+                    <div className="mt-4">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-white/10 light:bg-sky-100">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-amber-300 transition-[width] duration-1000 ease-linear"
+                          style={{ width: `${remainingPct}%` }}
+                        />
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-slate-400 light:text-slate-500">
+                        {ended ? 'This challenge has ended.' : `Ends ${formatEnd(challenge.deadline)}`}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-2.5">
                       <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs text-slate-200 light:border-sky-200 light:bg-sky-50 light:text-slate-700">
                         <Users className="h-3.5 w-3.5 text-cyan-400 light:text-cyan-600" />
                         <span>{challenge.participantCount} joined</span>
                       </div>
+
+                      {reward && (
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-100 light:bg-amber-50 light:text-amber-900">
+                          <Sparkles className="h-3.5 w-3.5 text-amber-300 light:text-amber-600" />
+                          <span>
+                            Reward: {reward.name}
+                            {reward.is_unlocked ? ' (unlocked)' : ''}
+                          </span>
+                        </div>
+                      )}
 
                       {alreadyEntered && (
                         <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200 light:bg-emerald-100 light:text-emerald-800">
@@ -380,287 +448,168 @@ export default function WeeklyChallengePanel({
                         </div>
                       )}
                     </div>
-                  </section>
 
-                  {/* 2. SONG SEARCH & ENTRY */}
-                  <section className="relative">
-                    <div className="mb-2">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/80 light:text-cyan-700">
-                        Your Entry
-                      </p>
-                      <h3 className="text-sm font-bold text-white light:text-sky-950">Choose your song</h3>
-                    </div>
-
-                    <div className="relative">
-                      <div
-                        className={`flex items-center gap-3 rounded-xl border px-3.5 transition-all duration-200 ${
-                          isSearchFocused
-                            ? 'border-cyan-400/80 bg-black/60 shadow-[0_0_18px_rgba(34,211,238,0.25)] light:bg-white light:shadow-[0_0_14px_rgba(14,165,233,0.25)]'
-                            : 'border-white/10 bg-black/30 light:border-sky-200 light:bg-white/80'
-                        }`}
-                      >
-                        <Search className="h-4 w-4 shrink-0 text-slate-400" />
-                        <input
-                          type="text"
-                          disabled={alreadyEntered}
-                          value={query}
-                          onFocus={() => setIsSearchFocused(true)}
-                          onBlur={() => setIsSearchFocused(false)}
-                          onChange={(e) => handleQuery(e.target.value)}
-                          placeholder="Search songs or artists..."
-                          className="w-full bg-transparent py-3 text-xs text-white outline-none placeholder:text-slate-500 disabled:opacity-50 light:text-slate-900"
-                        />
-                        {query && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setQuery('');
-                              setResults([]);
-                              setPending(null);
-                            }}
-                            className="text-slate-400 hover:text-white light:hover:text-slate-900"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-
-                      {results.length > 0 && (
-                        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-white/15 bg-[#071325]/95 shadow-2xl backdrop-blur-2xl light:border-sky-200 light:bg-white light:shadow-[0_12px_32px_rgba(8,36,58,0.15)]">
-                          {results.map((song) => (
-                            <button
-                              key={song.id}
-                              onClick={() => {
-                                setPending(song);
-                                setQuery(`${song.title} — ${song.artist}`);
-                                setResults([]);
-                              }}
-                              className="flex w-full items-center gap-3 border-b border-white/5 px-3.5 py-2.5 text-left text-xs text-white transition hover:bg-white/10 light:border-sky-100 light:hover:bg-sky-50"
-                              type="button"
-                            >
-                              <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-white/10 light:border-sky-200">
-                                <Cover song={song} />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="truncate font-medium text-slate-200 light:text-slate-800">{song.title}</p>
-                                <p className="truncate text-[11px] text-slate-400 light:text-slate-500">{song.artist}</p>
-                              </div>
-                            </button>
-                          ))}
+                    {/* Join / your entry */}
+                    <div className="mt-5">
+                      {alreadyEntered && challenge.mySubmission ? (
+                        <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3">
+                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-white/10 light:border-sky-200">
+                            <Cover song={challenge.mySubmission} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300 light:text-emerald-700">
+                              Your entry
+                            </p>
+                            <p className="truncate text-sm font-semibold text-white light:text-sky-950">
+                              {challenge.mySubmission.title}
+                            </p>
+                            <p className="truncate text-xs text-slate-300/80 light:text-slate-600">
+                              {challenge.mySubmission.artist}
+                            </p>
+                            {playbackNotice && (
+                              <p className="mt-1 text-[11px] text-emerald-200/80 light:text-emerald-700/90">
+                                {playbackNotice}
+                              </p>
+                            )}
+                          </div>
                         </div>
+                      ) : ended ? (
+                        <p className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-center text-xs font-medium text-slate-300 light:border-sky-200 light:bg-white light:text-slate-600">
+                          This challenge has ended - the next one is starting…
+                        </p>
+                      ) : (
+                        <motion.button
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.98 }}
+                          type="button"
+                          onClick={() => setJoinOpen(true)}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-cyan-300 py-3 text-sm font-bold text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Join this challenge
+                        </motion.button>
                       )}
                     </div>
-
-                    {pending && !alreadyEntered && (
-                      <motion.button
-                        whileHover={{ scale: 1.01 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={submit}
-                        disabled={submitting}
-                        className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-cyan-300 py-3 text-xs font-bold text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.3)] disabled:opacity-60"
-                        type="button"
-                      >
-                        <span>{submitting ? 'Submitting…' : 'Confirm & Submit Entry'}</span>
-                      </motion.button>
-                    )}
-
-                    {submitError && (
-                      <p className="mt-2 text-xs text-wl-danger">{submitError}</p>
-                    )}
-
-                    {alreadyEntered && (
-                      <div className="mt-3.5 flex flex-col items-center gap-1 rounded-xl border border-emerald-400/30 bg-emerald-500/10 py-3 text-center text-xs font-bold text-emerald-300 light:text-emerald-700">
-                        <span>Challenge entry submitted ✓</span>
-                        {playbackNotice && (
-                          <span className="px-4 text-[10px] font-normal text-emerald-200/80 light:text-emerald-700/90">{playbackNotice}</span>
-                        )}
-                      </div>
-                    )}
                   </section>
 
-                  {/* 3. LIVE REWARD PREVIEW */}
+                  {/* 2. PROFILE BORDER (compact - opens a dropdown picker) */}
+                  <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 px-4 py-3 backdrop-blur-xl light:border-sky-200 light:from-white light:to-sky-50 light:shadow-[0_6px_20px_rgba(8,36,58,0.08)]">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-300 bg-slate-800 ${cosmeticAuraClass(equippedRelic?.css_class)}`}
+                      >
+                        {profile?.profileImage ? (
+                          <img src={profile.profileImage} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-sm font-semibold text-slate-200">
+                            {(profile?.displayName || '?').charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/80 light:text-cyan-700">
+                          Profile border
+                        </p>
+                        <p className="truncate text-sm font-semibold text-white light:text-sky-950">
+                          {equippedRelic ? equippedRelic.name : 'No border equipped'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setBorderOpen(true)}
+                      className="flex items-center gap-1.5 rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-3.5 py-2 text-xs font-bold text-cyan-200 transition hover:bg-cyan-500/25 light:border-cyan-400/60 light:bg-cyan-50 light:text-cyan-800 light:hover:bg-cyan-100"
+                    >
+                      <Palette className="h-3.5 w-3.5" />
+                      {unlockedCosmetics.length > 0 ? 'Change border' : 'Borders'}
+                    </button>
+                  </section>
+
+                  {/* 3. ENTRIES - everyone's songs for this challenge */}
                   <section className="rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 p-4 backdrop-blur-xl light:border-sky-200 light:from-white light:to-sky-50 light:shadow-[0_6px_20px_rgba(8,36,58,0.08)] sm:p-5">
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Eye className="h-4 w-4 text-cyan-300 light:text-cyan-600" />
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <ListMusic className="h-4 w-4 text-cyan-300 light:text-cyan-600" />
                         <h3 className="text-xs font-bold uppercase tracking-wider text-white light:text-sky-950">
-                          Live Reward Preview
+                          Challenge entries
                         </h3>
                       </div>
-
-                      <div className="flex rounded-lg border border-white/10 bg-black/40 p-1 light:border-sky-200 light:bg-sky-100">
-                        <button
-                          type="button"
-                          onClick={() => setPreviewTab('avatar')}
-                          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
-                            previewTab === 'avatar'
-                              ? 'border border-cyan-400/30 bg-cyan-500/20 text-cyan-200 light:border-cyan-400/50 light:bg-white light:text-cyan-800 light:shadow-sm'
-                              : 'text-slate-400 hover:text-white light:text-slate-500 light:hover:text-slate-900'
-                          }`}
-                        >
-                          <User className="h-3 w-3" />
-                          <span>Avatar Aura</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPreviewTab('track')}
-                          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
-                            previewTab === 'track'
-                              ? 'border border-cyan-400/30 bg-cyan-500/20 text-cyan-200 light:border-cyan-400/50 light:bg-white light:text-cyan-800 light:shadow-sm'
-                              : 'text-slate-400 hover:text-white light:text-slate-500 light:hover:text-slate-900'
-                          }`}
-                        >
-                          <Disc className="h-3 w-3" />
-                          <span>Song Marker</span>
-                        </button>
-                      </div>
+                      <span className="text-[11px] text-slate-400 light:text-slate-500">
+                        {entries.length} {entries.length === 1 ? 'song' : 'songs'}
+                      </span>
                     </div>
 
-                    <div className="flex h-40 items-center justify-center rounded-xl border border-white/10 bg-black/50 p-4 light:border-sky-200 light:bg-sky-100/70">
-                      <div className="relative flex items-center justify-center">
-                        {equippedRelic?.css_class === 'cyan-glow' && (
-                          <>
-                            <div className="absolute -inset-4 animate-pulse rounded-full bg-gradient-to-tr from-cyan-400 via-sky-300 to-teal-300 opacity-70 blur-lg" />
-                            <div className="absolute -inset-2 animate-ping rounded-full border border-cyan-400/40 opacity-40" />
-                          </>
-                        )}
-
-                        {equippedRelic?.css_class === 'gold-shimmer' && (
-                          <>
-                            <div className="absolute -inset-4 animate-pulse rounded-full bg-gradient-to-tr from-amber-400 via-yellow-300 to-amber-500 opacity-80 blur-lg" />
-                            <div className="absolute -inset-2 animate-ping rounded-full border border-amber-400/40 opacity-40" />
-                          </>
-                        )}
-
-                        {previewTab === 'avatar' ? (
-                          <div className="relative z-10 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-300 bg-slate-900 shadow-xl">
-                            {profile?.profileImage ? (
-                              <img
-                                src={profile.profileImage}
-                                alt="Preview Avatar"
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center bg-amber-500 font-bold text-slate-950">
-                                <User className="h-10 w-10 text-white" />
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-2xl border-2 border-cyan-400/80 bg-slate-950/90 shadow-2xl">
-                            {challenge.mySubmission ? (
-                              <div className="h-full w-full overflow-hidden rounded-xl p-1">
-                                <Cover song={challenge.mySubmission} />
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center justify-center text-cyan-300">
-                                <Disc className="h-8 w-8 animate-spin" />
-                                <span className="mt-0.5 text-[9px] font-bold tracking-wider">NODE</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* 4. UNLOCKED COSMETICS */}
-                  <section className="rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-[#061b2e]/80 to-[#030d17]/90 p-4 backdrop-blur-xl light:border-sky-200 light:from-white light:to-sky-50 light:shadow-[0_6px_20px_rgba(8,36,58,0.08)] sm:p-5">
-                    <div className="mb-1 flex items-center gap-2.5">
-                      <Compass className="h-4 w-4 text-cyan-300 light:text-cyan-600" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-white light:text-sky-950">
-                        Unlocked Cosmetics
-                      </h3>
-                    </div>
-                    <p className="mb-4 text-[11px] text-slate-400 light:text-slate-600">
-                      Toggle effects on or off. Equipping a cosmetic applies the effect to both your profile avatar and your ocean song marker.
-                    </p>
-
-                    <div className="grid grid-cols-1 gap-3">
-                      {cosmetics.map((relic) => {
-                        const isActive = relic.is_equipped;
-
-                        return (
-                          <div
-                            key={relic.reward_id}
-                            className={`relative overflow-hidden rounded-xl border p-3.5 transition-all duration-200 ${
-                              !relic.is_unlocked
-                                ? 'border-white/5 bg-black/40 opacity-50 light:border-sky-100 light:bg-white/60'
-                                : isActive
-                                  ? 'border-cyan-400/50 bg-gradient-to-r from-cyan-950/40 via-cyan-900/20 to-black/40 shadow-[0_0_15px_rgba(34,211,238,0.15)] light:from-cyan-100 light:via-cyan-50 light:to-white light:shadow-[0_0_12px_rgba(14,165,233,0.2)]'
-                                  : 'border-white/10 bg-black/30 hover:border-white/20 light:border-sky-200 light:bg-white light:hover:border-sky-300'
+                    {entriesLoading && entries.length === 0 ? (
+                      <p className="py-6 text-center text-xs text-slate-400 light:text-slate-500">Loading entries…</p>
+                    ) : entriesError && entries.length === 0 ? (
+                      <p className="py-6 text-center text-xs text-wl-danger">{entriesError}</p>
+                    ) : entries.length === 0 ? (
+                      <p className="py-6 text-center text-xs text-slate-400 light:text-slate-500">
+                        No entries yet - be the first to join!
+                      </p>
+                    ) : (
+                      <ul className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                        {sortedEntries.map((entry) => (
+                          <li
+                            key={entry.spotifyUserId}
+                            className={`flex items-center gap-3 rounded-xl border p-2.5 ${
+                              entry.isMine
+                                ? 'border-cyan-400/50 bg-cyan-500/10 light:border-cyan-400 light:bg-cyan-50'
+                                : 'border-white/10 bg-black/30 light:border-sky-200 light:bg-white'
                             }`}
                           >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex min-w-0 items-center gap-3">
-                                <div
-                                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
-                                    isActive
-                                      ? 'border-cyan-300 bg-cyan-400/20 text-cyan-200 shadow-[0_0_8px_rgba(34,211,238,0.5)] light:border-cyan-400 light:bg-cyan-100 light:text-cyan-700 light:shadow-none'
-                                      : 'border-white/10 bg-white/5 text-slate-400 light:border-sky-200 light:bg-sky-50 light:text-slate-500'
-                                  }`}
-                                >
-                                  {relic.is_unlocked ? (
-                                    <Sparkles className="h-4 w-4" />
-                                  ) : (
-                                    <Lock className="h-4 w-4 text-slate-500" />
-                                  )}
-                                </div>
-
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <p className="truncate text-xs font-bold text-white light:text-sky-950">
-                                      {relic.name}
-                                    </p>
-                                    <span className="rounded border border-cyan-400/30 bg-cyan-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-cyan-300 light:text-cyan-700">
-                                      Profile & Ocean
-                                    </span>
-                                  </div>
-                                  <p className="mt-0.5 text-[11px] leading-snug text-slate-300/80 light:text-slate-600">
-                                    {relic.description}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div>
-                                {relic.is_unlocked ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleRelic(relic)}
-                                    disabled={equippingRewardId === relic.reward_id}
-                                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-bold transition-all disabled:opacity-60 ${
-                                      isActive
-                                        ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.3)] light:bg-cyan-100 light:text-cyan-800 light:shadow-none'
-                                        : 'border-white/10 bg-white/5 text-slate-400 hover:text-white light:border-sky-200 light:bg-white light:text-slate-500 light:hover:text-slate-900'
-                                    }`}
-                                  >
-                                    {isActive ? (
-                                      <>
-                                        <Check className="h-3.5 w-3.5 text-cyan-300 light:text-cyan-700" />
-                                        <span>Equipped</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Power className="h-3.5 w-3.5" />
-                                        <span>Unequipped</span>
-                                      </>
-                                    )}
-                                  </button>
-                                ) : (
-                                  <span className="inline-flex items-center px-2 py-1 text-[10px] font-semibold text-slate-500">
-                                    Locked
-                                  </span>
-                                )}
-                              </div>
+                            <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-white/10 light:border-sky-200">
+                              <Cover song={entry} />
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-white light:text-slate-900">
+                                {entry.title}
+                              </p>
+                              <p className="truncate text-xs text-slate-300/80 light:text-slate-600">{entry.artist}</p>
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end gap-0.5 text-right">
+                              <div className="flex items-center gap-1.5">
+                                <span className="max-w-[7rem] truncate text-[11px] font-medium text-slate-200 light:text-slate-700">
+                                  {entry.isMine ? 'You' : entry.displayName}
+                                </span>
+                                <span className="h-5 w-5 shrink-0 overflow-hidden rounded-full bg-slate-700">
+                                  {entry.profileImage && (
+                                    <img src={entry.profileImage} alt="" className="h-full w-full object-cover" />
+                                  )}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-slate-400 light:text-slate-500">
+                                {timeAgo(entry.submittedAt)}
+                              </span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </section>
                 </div>
               )}
             </div>
+
+            {challenge && (
+              <JoinChallengeModal
+                open={joinOpen && !alreadyEntered && !ended}
+                challenge={challenge}
+                onClose={() => setJoinOpen(false)}
+                onJoined={handleJoined}
+              />
+            )}
+            <BorderPickerModal
+              open={borderOpen}
+              onClose={() => setBorderOpen(false)}
+              cosmetics={cosmetics}
+              onSelect={(id) => void selectBorder(id)}
+              saving={equipping}
+              profileImage={profile?.profileImage ?? null}
+              initial={(profile?.displayName || '?').charAt(0).toUpperCase()}
+              markerCover={challenge?.mySubmission?.cover ?? null}
+            />
           </motion.div>
         </motion.div>
       )}

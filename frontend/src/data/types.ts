@@ -258,12 +258,26 @@ export interface ActiveChallenge {
   theme: string;
   description: string;
   rewardId: string | null;
-  deadline: string; // ISO timestamp
+  deadline: string; // ISO timestamp - when this challenge ends
+  startedAt: string; // ISO timestamp - when this challenge began (countdown window = startedAt..deadline)
   mySubmission: ActiveChallengeSubmission | null;
   // Real count of rows in challenge_submissions for this challenge (see
   // GET /challenges/active) - kept live afterward via the 'challenge:update'
   // socket event broadcast from POST /challenges/submit, not by refetching.
   participantCount: number;
+}
+
+// GET /challenges/:id/entries - one row per person who joined, newest first.
+export interface ChallengeEntry {
+  spotifyUserId: string;
+  displayName: string; // nickname if they set one, else their Spotify name
+  profileImage: string | null;
+  trackId: string;
+  title: string;
+  artist: string;
+  cover: string | null;
+  submittedAt: string; // ISO timestamp
+  isMine: boolean;
 }
 
 // GET /challenges/search?q=...
