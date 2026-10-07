@@ -10,10 +10,9 @@ interface QuotaStatus {
 
 function messageFor(status: QuotaStatus): string {
   const mins = Math.ceil(status.retryAfterSeconds / 60);
-  const wait =
-    status.retryAfterSeconds > 0
-      ? ` It should clear in about ${mins <= 1 ? 'a minute' : `${mins} minutes`}.`
-      : '';
+  const hours = Math.round(status.retryAfterSeconds / 3600);
+  const when = mins <= 1 ? 'a minute' : mins < 90 ? `${mins} minutes` : `${hours} hours`;
+  const wait = status.retryAfterSeconds > 0 ? ` It should clear in about ${when}.` : '';
   return `Spotify's request quota for Wavelength has been reached, so the ocean may be slow or paused.${wait} It resumes on its own.`;
 }
 

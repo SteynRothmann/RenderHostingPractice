@@ -12,7 +12,9 @@
 //    That's reported per login attempt (see routes/auth.js), not globally.
 
 const DEFAULT_COOLDOWN_MS = 60 * 1000;
-const MAX_COOLDOWN_MS = 60 * 60 * 1000;
+// Spotify can send very long back-offs (hours, even about a day) for apps
+// that hit their quota hard, so trust what it says up to 48h.
+const MAX_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 
 let until = 0; // epoch ms the rate-limit back-off lasts until (0 = not limited)
 
@@ -65,4 +67,8 @@ function syncQuotaAnnouncement(io) {
   }
 }
 
-module.exports = { isRateLimitError, isUserCapError, noteRateLimit, getQuotaStatus, syncQuotaAnnouncement };
+function isRateLimited() {
+  return isActive();
+}
+
+module.exports = { isRateLimited, isRateLimitError, isUserCapError, noteRateLimit, getQuotaStatus, syncQuotaAnnouncement };

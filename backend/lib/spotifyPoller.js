@@ -3,7 +3,7 @@ const { getValidAccessToken } = require('./authHelper');
 const { getCurrentlyPlaying, playTrackAt, getArtistGenres } = require('./spotifyClient');
 const { getGenresForArtist } = require('./genreCache');
 const oceanState = require('./oceanState');
-const { isRateLimitError, noteRateLimit, syncQuotaAnnouncement } = require('./spotifyQuota');
+const { isRateLimited, isRateLimitError, noteRateLimit, syncQuotaAnnouncement } = require('./spotifyQuota');
 
 // Spotify's token endpoint returns one of these in the error body when a
 // refresh can never succeed again (the refresh token was revoked, expired,
@@ -19,6 +19,14 @@ function isPermanentAuthFailure(err) {
 const POLL_INTERVAL_MS = 2000; // how often we check each user's playback
 
 async function pollAllSessions(io) {
+  // While Spotify has us rate-limited, polling every user every second only
+  // keeps the limit going - sit it out until the back-off window ends.
+  if (isRateLimited()) {
+    oceanState.pruneStalePausedSessions();
+    syncQuotaAnnouncement(io);
+    return;
+  }
+
   const userIds = await getAllUserIds();
 
   // Poll everyone in parallel - fine for a class-project-sized user
