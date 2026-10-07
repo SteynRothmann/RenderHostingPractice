@@ -228,6 +228,7 @@ export interface RealGroup {
   icon: string | null;
   visibility: 'public' | 'private';
   ownerSpotifyUserId: string;
+  createdAt?: number;
   members: RealGroupMember[];
 }
 

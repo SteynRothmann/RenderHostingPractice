@@ -6,6 +6,8 @@ const chatHistory = require('../db/chatHistory');
 // Routes use this store API so its in-memory implementation can later be
 // replaced without changing the HTTP endpoints.
 const groupStore = require('../lib/groupStore');
+const { hasAcceptedPrivateChatRequest } = require('../lib/chatRequests');
+const { notifyUsers, removeFromGroupRoom } = require('../lib/groupEvents');
 
 // Always get the acting user from their identified bearer token, never from
 // request data. req.userId is set by this repo's identifyRequest middleware
@@ -194,10 +196,45 @@ router.post('/:groupId/leave', async (req, res) => {
   const spotifyUserId = await getCurrentSpotifyUserId(req, res);
   if (!spotifyUserId) return;
 
+  const io = req.app.get('io');
   const result = await groupStore.leaveGroup(req.params.groupId, spotifyUserId);
   if (!result.ok) return sendStoreError(res, result);
 
-  res.json({ group: await serializeGroup(result.group) });
+  await removeFromGroupRoom(io, spotifyUserId, req.params.groupId);
+  if (result.group) {
+    await notifyUsers(io, result.group.members.map((m) => m.spotifyUserId), 'group:changed', { groupId: req.params.groupId });
+    return res.json({ group: await serializeGroup(result.group) });
+  }
+  res.json({ group: null, deleted: true });
+});
+
+// POST /groups/:groupId/members { memberSpotifyUserIds: [...] } - admin only.
+// Like creating a group, you can only add people you're friends with.
+router.post('/:groupId/members', async (req, res) => {
+  const spotifyUserId = await getCurrentSpotifyUserId(req, res);
+  if (!spotifyUserId) return;
+
+  const ids = Array.isArray(req.body?.memberSpotifyUserIds)
+    ? req.body.memberSpotifyUserIds.filter((id) => typeof id === 'string' && id)
+    : [];
+  if (ids.length === 0) return res.status(400).json({ error: 'Pick at least one person to add' });
+
+  for (const id of ids) {
+    if (!(await hasAcceptedPrivateChatRequest(spotifyUserId, id))) {
+      return res.status(400).json({ error: 'You can only add people you are chatting with' });
+    }
+  }
+
+  const result = await groupStore.addMembers(req.params.groupId, spotifyUserId, ids);
+  if (!result.ok) return sendStoreError(res, result);
+
+  await notifyUsers(
+    req.app.get('io'),
+    result.group.members.map((m) => m.spotifyUserId),
+    'group:changed',
+    { groupId: result.group.id }
+  );
+  res.json({ group: await serializeGroup(result.group), added: result.added });
 });
 
 router.delete('/:groupId/members/:memberSpotifyUserId', async (req, res) => {
@@ -210,6 +247,15 @@ router.delete('/:groupId/members/:memberSpotifyUserId', async (req, res) => {
     req.params.memberSpotifyUserId
   );
   if (!result.ok) return sendStoreError(res, result);
+
+  // The kicked person's group disappears from their chats right away.
+  const io = req.app.get('io');
+  await removeFromGroupRoom(io, req.params.memberSpotifyUserId, req.params.groupId);
+  await notifyUsers(io, [req.params.memberSpotifyUserId], 'group:removed', {
+    groupId: req.params.groupId,
+    reason: 'kicked',
+  });
+  await notifyUsers(io, result.group.members.map((m) => m.spotifyUserId), 'group:changed', { groupId: req.params.groupId });
 
   res.json({ group: await serializeGroup(result.group) });
 });
@@ -229,6 +275,12 @@ router.patch('/:groupId/members/:memberSpotifyUserId/moderator', async (req, res
   );
   if (!result.ok) return sendStoreError(res, result);
 
+  await notifyUsers(
+    req.app.get('io'),
+    result.group.members.map((m) => m.spotifyUserId),
+    'group:changed',
+    { groupId: req.params.groupId }
+  );
   res.json({ group: await serializeGroup(result.group) });
 });
 

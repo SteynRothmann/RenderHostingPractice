@@ -7,11 +7,14 @@ import { useChat } from '../../data/ChatContext';
 import Conversation from './Conversation';
 import CreateGroupPanel from './CreateGroupPanel';
 import ChatProfileOverlay from './ChatProfileOverlay';
+import GroupProfilePanel from './GroupProfilePanel';
+import { useAuth } from '../../data/AuthContext';
 
 type Active = { type: 'friend' | 'group'; id: string } | null;
 
 export default function ChatPage() {
-  const { friends, groups, unfriend, leaveGroup, unreadThreadIds, setActiveThread } = useChat();
+  const { friends, groups, unreadThreadIds, setActiveThread } = useChat();
+  const { profile } = useAuth();
   const [params] = useSearchParams();
 
   const withId = params.get('with');
@@ -30,6 +33,8 @@ export default function ChatPage() {
   // null when closed - triggered from a friend's header or a group
   // message's sender name/avatar (see Conversation.tsx's onPersonClick).
   const [profileOverlayId, setProfileOverlayId] = useState<string | null>(null);
+  // Group whose info/management panel is open (header click in a group chat).
+  const [groupInfoId, setGroupInfoId] = useState<string | null>(null);
 
   const hasUnreadFriends = friends.some((f) => unreadThreadIds.has(f.spotifyUserId));
   const hasUnreadGroups = groups.some((g) => unreadThreadIds.has(g.id));
@@ -293,6 +298,7 @@ export default function ChatPage() {
                   // spotifyUserId here. Falls back to the static "Chat"
                   // subtitle until that's built.
                   listeningSongTitle={null}
+                  startNotice={`You started chatting with ${friend.displayName}`}
                   onHeaderClick={() => setProfileOverlayId(friend.spotifyUserId)}
                   onPersonClick={(id) => setProfileOverlayId(id)}
                   onBack={() => {
@@ -302,18 +308,6 @@ export default function ChatPage() {
                     // unread.
                     setShowThread(false);
                     setActiveThread(null);
-                  }}
-                  menuLabel="Unfriend"
-                  onMenuAction={() => {
-                    if (
-                      confirm(
-                        `Unfriend and delete this chat with ${friend.displayName}? This will also unfollow them.`
-                      )
-                    ) {
-                      unfriend(friend.spotifyUserId);
-                      setActive(null);
-                      setShowThread(false);
-                    }
                   }}
                 />
               );
@@ -330,18 +324,16 @@ export default function ChatPage() {
                   title={group.name}
                   icon={group.icon}
                   members={group.members}
+                  startNotice={
+                    group.ownerSpotifyUserId === profile?.spotifyUserId
+                      ? `You created ${group.name}`
+                      : `You were added to ${group.name}`
+                  }
+                  onHeaderClick={() => setGroupInfoId(group.id)}
                   onPersonClick={(id) => setProfileOverlayId(id)}
                   onBack={() => {
                     setShowThread(false);
                     setActiveThread(null);
-                  }}
-                  menuLabel="Leave group"
-                  onMenuAction={() => {
-                    if (confirm(`Leave and delete "${group.name}"?`)) {
-                      leaveGroup(group.id);
-                      setActive(null);
-                      setShowThread(false);
-                    }
                   }}
                 />
               );
@@ -356,6 +348,16 @@ export default function ChatPage() {
           setTab('groups');
           setActive({ type: 'group', id });
           setShowThread(true);
+        }}
+      />
+
+      <GroupProfilePanel
+        groupId={groupInfoId}
+        onClose={() => setGroupInfoId(null)}
+        onPersonClick={(id) => setProfileOverlayId(id)}
+        onLeft={() => {
+          setActive(null);
+          setShowThread(false);
         }}
       />
 

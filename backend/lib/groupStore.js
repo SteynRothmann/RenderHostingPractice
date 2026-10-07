@@ -18,6 +18,7 @@ function snapshot(group) {
     icon: group.icon,
     visibility: group.visibility,
     ownerSpotifyUserId: group.ownerSpotifyUserId,
+    createdAt: group.createdAt,
     members: Array.from(group.members.values(), (member) => ({ ...member })),
     pendingJoinRequests: Array.from(group.pendingJoinRequests.values(), (request) => ({ ...request })),
   };
@@ -69,6 +70,7 @@ async function createGroup({
     icon,
     visibility,
     ownerSpotifyUserId,
+    createdAt: Date.now(),
     members: new Map(),
     pendingJoinRequests: new Map(),
   };
@@ -161,13 +163,42 @@ async function leaveGroup(groupId, spotifyUserId) {
   const group = groups.get(groupId);
   if (!group) return { ok: false, reason: 'not-found' };
   if (!group.members.has(spotifyUserId)) return { ok: false, reason: 'not-a-member' };
+
+  // Admin leaving hands the group to the longest-standing moderator (else
+  // member); if nobody is left the group is deleted. Same rule as Postgres.
+  let newOwnerSpotifyUserId = null;
   if (group.ownerSpotifyUserId === spotifyUserId) {
-    return { ok: false, reason: 'owner-cannot-leave' };
+    const others = Array.from(group.members.values())
+      .filter((member) => member.spotifyUserId !== spotifyUserId)
+      .sort((a, b) => (a.role === 'moderator' ? 0 : 1) - (b.role === 'moderator' ? 0 : 1) || a.joinedAt - b.joinedAt);
+    if (others.length === 0) {
+      groups.delete(groupId);
+      return { ok: true, group: null, deleted: true };
+    }
+    newOwnerSpotifyUserId = others[0].spotifyUserId;
+    group.ownerSpotifyUserId = newOwnerSpotifyUserId;
+    others[0].role = 'owner';
   }
 
   group.members.delete(spotifyUserId);
   group.pendingJoinRequests.delete(spotifyUserId);
-  return { ok: true, group: snapshot(group) };
+  return { ok: true, group: snapshot(group), newOwnerSpotifyUserId };
+}
+
+async function addMembers(groupId, actorSpotifyUserId, targetSpotifyUserIds) {
+  if (!useMemoryStore) return postgresGroupStore.addMembers(groupId, actorSpotifyUserId, targetSpotifyUserIds);
+  const group = groups.get(groupId);
+  if (!group) return { ok: false, reason: 'not-found' };
+  if (group.ownerSpotifyUserId !== actorSpotifyUserId) return { ok: false, reason: 'forbidden' };
+
+  const added = [];
+  for (const targetId of new Set(targetSpotifyUserIds)) {
+    if (!targetId || group.members.has(targetId)) continue;
+    addMember(group, targetId);
+    group.pendingJoinRequests.delete(targetId);
+    added.push(targetId);
+  }
+  return { ok: true, added, group: snapshot(group) };
 }
 
 async function removeMember(groupId, actorSpotifyUserId, targetSpotifyUserId) {
@@ -216,6 +247,7 @@ module.exports = {
   requestPrivateGroupJoin,
   resolvePrivateGroupJoin,
   leaveGroup,
+  addMembers,
   removeMember,
   setModerator,
 };

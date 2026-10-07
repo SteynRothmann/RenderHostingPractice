@@ -7,6 +7,9 @@ import {
   revokeChatRequest,
   createRealGroup,
   leaveRealGroup,
+  addGroupMembers,
+  kickGroupMember,
+  setGroupModerator,
 } from '../lib/api';
 import { getSocket } from '../lib/socket';
 import { useAuth } from './AuthContext';
@@ -32,16 +35,21 @@ interface ChatContextValue {
   unfriend: (spotifyUserId: string) => Promise<void>;
   createGroup: (name: string, icon: string | null, memberSpotifyUserIds: string[]) => Promise<string>;
   leaveGroup: (groupId: string) => Promise<void>;
+  // Group management (see GroupProfilePanel). Each applies the server's
+  // updated group to local state straight away.
+  addGroupMembers: (groupId: string, memberSpotifyUserIds: string[]) => Promise<void>;
+  kickGroupMember: (groupId: string, spotifyUserId: string) => Promise<void>;
+  setGroupModerator: (groupId: string, spotifyUserId: string, isModerator: boolean) => Promise<void>;
   refresh: () => Promise<void>;
   // Unread tracking (client-side only, in-memory for the session - see
   // setActiveThread below for how a thread stops being "unread").
   unreadThreadIds: Set<string>;
   hasAnyUnread: boolean;
   setActiveThread: (threadId: string | null) => void;
-  // Brief "You were added to <group>" toast, surfaced from a global spot
+  // Brief toast ("You were added to <group>", "You started chatting with
+  // <name>", "You were removed from <group>"), surfaced from a global spot
   // (App.tsx) rather than only on /chat - see loadChats below for how a
-  // newly-appeared group id (that I didn't just create myself) triggers
-  // this. null means no toast is currently showing.
+  // newly-appeared group/friend triggers it. null means nothing is showing.
   newGroupNotice: string | null;
   dismissGroupNotice: () => void;
 }
@@ -66,6 +74,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // adds it here immediately, see below) or one someone else added me to -
   // only the latter should ever reach this point.
   const seenGroupIdsRef = useRef<Set<string> | null>(null);
+  // Same idea for friends: a friend id that appears after the first load is
+  // a brand-new chat ("You started chatting with ...").
+  const seenFriendIdsRef = useRef<Set<string> | null>(null);
 
   const dismissGroupNotice = useCallback(() => {
     if (groupNoticeTimerRef.current) {
@@ -75,9 +86,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setNewGroupNotice(null);
   }, []);
 
-  const showGroupNotice = useCallback((groupName: string) => {
+  const showNotice = useCallback((message: string) => {
     if (groupNoticeTimerRef.current) clearTimeout(groupNoticeTimerRef.current);
-    setNewGroupNotice(`You were added to ${groupName}`);
+    setNewGroupNotice(message);
     groupNoticeTimerRef.current = setTimeout(() => {
       setNewGroupNotice(null);
       groupNoticeTimerRef.current = null;
@@ -180,13 +191,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setGroups(myGroups);
 
         const currentIds = new Set(myGroups.map((g) => g.id));
-        if (seenGroupIdsRef.current === null) {
+        const currentFriendIds = new Set(chats.map((f) => f.spotifyUserId));
+        if (seenGroupIdsRef.current === null || seenFriendIdsRef.current === null) {
           // First load since login - just seed, never notify.
           seenGroupIdsRef.current = currentIds;
+          seenFriendIdsRef.current = currentFriendIds;
         } else {
           const newlyAdded = myGroups.find((g) => !seenGroupIdsRef.current!.has(g.id));
+          const newFriend = chats.find((f) => !seenFriendIdsRef.current!.has(f.spotifyUserId));
           seenGroupIdsRef.current = currentIds;
-          if (newlyAdded) showGroupNotice(newlyAdded.name);
+          seenFriendIdsRef.current = currentFriendIds;
+          if (newlyAdded) showNotice(`You were added to ${newlyAdded.name}`);
+          else if (newFriend) showNotice(`You started chatting with ${newFriend.displayName}`);
         }
       })
       .catch((err) => {
@@ -195,7 +211,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       .finally(() => {
         if (showLoading) setLoading(false);
       });
-  }, [showGroupNotice]);
+  }, [showNotice]);
 
   // Load friends + groups whenever login status turns on; clear everything
   // when logged out.
@@ -209,6 +225,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       joinedGroups.current.clear();
       historyLoadedFor.current.clear();
       seenGroupIdsRef.current = null; // re-seed without notifying on next login
+      seenFriendIdsRef.current = null;
       dismissGroupNotice();
       return;
     }
@@ -382,8 +399,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return group.id;
   }, []);
 
-  const leaveGroup = useCallback(async (groupId: string) => {
-    await leaveRealGroup(groupId);
+  // Forgets a group locally - used when I leave it or get removed from it.
+  const dropGroupLocally = useCallback((groupId: string) => {
     setGroups((prev) => prev.filter((g) => g.id !== groupId));
     setMessages((prev) => {
       const next = { ...prev };
@@ -396,10 +413,54 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       next.delete(groupId);
       return next;
     });
+    seenGroupIdsRef.current?.delete(groupId);
     joinedGroups.current.delete(groupId);
     historyLoadedFor.current.delete(groupId);
     getSocket().emit('group:leave', { groupId });
   }, []);
+
+  const leaveGroup = useCallback(async (groupId: string) => {
+    await leaveRealGroup(groupId);
+    dropGroupLocally(groupId);
+  }, [dropGroupLocally]);
+
+  // Swaps in the server's updated copy of a group (new roster/roles).
+  const applyGroupUpdate = useCallback((updated: RealGroup) => {
+    setGroups((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
+  }, []);
+
+  const addGroupMembersAction = useCallback(async (groupId: string, ids: string[]) => {
+    applyGroupUpdate(await addGroupMembers(groupId, ids));
+  }, [applyGroupUpdate]);
+
+  const kickGroupMemberAction = useCallback(async (groupId: string, spotifyUserId: string) => {
+    applyGroupUpdate(await kickGroupMember(groupId, spotifyUserId));
+  }, [applyGroupUpdate]);
+
+  const setGroupModeratorAction = useCallback(async (groupId: string, spotifyUserId: string, isModerator: boolean) => {
+    applyGroupUpdate(await setGroupModerator(groupId, spotifyUserId, isModerator));
+  }, [applyGroupUpdate]);
+
+  // Live group changes pushed by the backend (backend/lib/groupEvents.js):
+  // roster/role changes -> re-fetch; being kicked -> the group vanishes from
+  // my chats immediately and I'm told why.
+  useEffect(() => {
+    const socket = getSocket();
+    function onChanged() {
+      void loadChats(false);
+    }
+    function onRemoved({ groupId }: { groupId: string }) {
+      const group = groupsRef.current.find((g) => g.id === groupId);
+      dropGroupLocally(groupId);
+      if (group) showNotice(`You were removed from ${group.name}`);
+    }
+    socket.on('group:changed', onChanged);
+    socket.on('group:removed', onRemoved);
+    return () => {
+      socket.off('group:changed', onChanged);
+      socket.off('group:removed', onRemoved);
+    };
+  }, [loadChats, dropGroupLocally, showNotice]);
 
   const hasAnyUnread = unreadThreadIds.size > 0;
 
@@ -422,6 +483,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         unfriend,
         createGroup,
         leaveGroup,
+        addGroupMembers: addGroupMembersAction,
+        kickGroupMember: kickGroupMemberAction,
+        setGroupModerator: setGroupModeratorAction,
         refresh,
         unreadThreadIds,
         hasAnyUnread,

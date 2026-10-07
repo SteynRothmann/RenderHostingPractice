@@ -197,6 +197,10 @@ async function resolvePrivateGroupJoin(groupId, moderatorSpotifyUserId, requeste
   });
 }
 
+// Leaving: anyone may leave. If the ADMIN (owner) leaves, the group is
+// handed to the longest-standing moderator (else the longest-standing
+// member) so it is never left without an admin. If nobody else is left,
+// the group is deleted.
 async function leaveGroup(groupId, spotifyUserId) {
   return withTransaction(async (client) => {
     const result = await client.query(
@@ -208,13 +212,69 @@ async function leaveGroup(groupId, spotifyUserId) {
     );
     if (!result.rows[0]) return { ok: false, reason: 'not-found' };
     if (!result.rows[0].spotify_user_id) return { ok: false, reason: 'not-a-member' };
+
+    let newOwnerSpotifyUserId = null;
     if (result.rows[0].owner_spotify_user_id === spotifyUserId) {
-      return { ok: false, reason: 'owner-cannot-leave' };
+      const successor = await client.query(
+        `SELECT spotify_user_id FROM chat_group_members
+         WHERE group_id = $1 AND spotify_user_id <> $2
+         ORDER BY CASE WHEN role = 'moderator' THEN 0 ELSE 1 END, joined_at, spotify_user_id
+         LIMIT 1`,
+        [groupId, spotifyUserId]
+      );
+      if (!successor.rows[0]) {
+        // Last person out - remove the group and everything in it.
+        await client.query(`DELETE FROM group_messages WHERE group_id = $1`, [groupId]);
+        await client.query(`DELETE FROM group_join_requests WHERE group_id = $1`, [groupId]);
+        await client.query(`DELETE FROM chat_group_members WHERE group_id = $1`, [groupId]);
+        await client.query(`DELETE FROM chat_groups WHERE id = $1`, [groupId]);
+        return { ok: true, group: null, deleted: true };
+      }
+      newOwnerSpotifyUserId = successor.rows[0].spotify_user_id;
+      await client.query(`UPDATE chat_groups SET owner_spotify_user_id = $2 WHERE id = $1`, [groupId, newOwnerSpotifyUserId]);
+      await client.query(
+        `UPDATE chat_group_members SET role = 'owner' WHERE group_id = $1 AND spotify_user_id = $2`,
+        [groupId, newOwnerSpotifyUserId]
+      );
     }
 
     await client.query(`DELETE FROM chat_group_members WHERE group_id = $1 AND spotify_user_id = $2`, [groupId, spotifyUserId]);
     await client.query(`DELETE FROM group_join_requests WHERE group_id = $1 AND spotify_user_id = $2`, [groupId, spotifyUserId]);
-    return { ok: true, group: await getGroup(groupId, client) };
+    return { ok: true, group: await getGroup(groupId, client), newOwnerSpotifyUserId };
+  });
+}
+
+// Only the admin (owner) can add people after the group exists. Returns
+// which of the given ids were actually new.
+async function addMembers(groupId, actorSpotifyUserId, targetSpotifyUserIds) {
+  return withTransaction(async (client) => {
+    const owner = await client.query(
+      `SELECT 1 FROM chat_groups WHERE id = $1 AND owner_spotify_user_id = $2`,
+      [groupId, actorSpotifyUserId]
+    );
+    if (!owner.rows[0]) {
+      const exists = await client.query(`SELECT 1 FROM chat_groups WHERE id = $1`, [groupId]);
+      return { ok: false, reason: exists.rows.length ? 'forbidden' : 'not-found' };
+    }
+
+    const existing = await client.query(
+      `SELECT spotify_user_id FROM chat_group_members WHERE group_id = $1`,
+      [groupId]
+    );
+    const alreadyIn = new Set(existing.rows.map((row) => row.spotify_user_id));
+
+    const added = [];
+    for (const targetId of new Set(targetSpotifyUserIds)) {
+      if (!targetId || alreadyIn.has(targetId)) continue;
+      await client.query(
+        `INSERT INTO chat_group_members (group_id, spotify_user_id, role)
+         VALUES ($1, $2, 'member') ON CONFLICT (group_id, spotify_user_id) DO NOTHING`,
+        [groupId, targetId]
+      );
+      await client.query(`DELETE FROM group_join_requests WHERE group_id = $1 AND spotify_user_id = $2`, [groupId, targetId]);
+      added.push(targetId);
+    }
+    return { ok: true, added, group: await getGroup(groupId, client) };
   });
 }
 
@@ -275,6 +335,7 @@ module.exports = {
   requestPrivateGroupJoin,
   resolvePrivateGroupJoin,
   leaveGroup,
+  addMembers,
   removeMember,
   setModerator,
 };

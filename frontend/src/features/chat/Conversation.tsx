@@ -10,8 +10,9 @@ interface Props {
   icon: string | null;
   listeningSongTitle?: string | null;
   onJoinListening?: () => void;
-  onMenuAction: () => void;
-  menuLabel: string;
+  // System line shown at the very top of the thread, e.g. "You started
+  // chatting with Sam" or "You were added to Late Night Lo-fi".
+  startNotice?: string;
   onBack?: () => void;
   // Group member roster, passed ONLY for a group thread - used to resolve
   // each message's sender (RealChatMessage.from is just a spotifyUserId)
@@ -23,9 +24,8 @@ interface Props {
   // 1:1 header (via onHeaderClick below) or a group message's sender
   // name/avatar is clicked.
   onPersonClick?: (spotifyUserId: string) => void;
-  // Only supplied for a 1:1 friend thread - makes the header icon/title
-  // clickable to open that friend's profile overlay. Omitted for groups,
-  // since the header represents the whole group, not one person.
+  // Makes the header icon/title clickable: opens the friend's profile in a
+  // 1:1 thread, or the group's info panel in a group thread.
   onHeaderClick?: () => void;
 }
 
@@ -35,8 +35,7 @@ export default function Conversation({
   icon,
   listeningSongTitle,
   onJoinListening,
-  onMenuAction,
-  menuLabel,
+  startNotice,
   onBack,
   members,
   onPersonClick,
@@ -91,7 +90,7 @@ export default function Conversation({
           type="button"
           onClick={onHeaderClick}
           disabled={!onHeaderClick}
-          title={onHeaderClick ? `View ${title}'s profile` : undefined}
+          title={onHeaderClick ? (members ? 'View group info' : `View ${title}'s profile`) : undefined}
           className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-700 ${
             onHeaderClick ? 'cursor-pointer transition hover:ring-2 hover:ring-cyan-300/60' : ''
           }`}
@@ -130,15 +129,6 @@ export default function Conversation({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={onMenuAction}
-          title={menuLabel}
-          aria-label={menuLabel}
-          className="ml-auto rounded-full px-3 py-2 text-xl leading-none text-wl-fg/50 transition hover:bg-wl-fg/10 hover:text-wl-fg"
-        >
-          ⋮
-        </button>
       </header>
 
       {/* Messages */}
@@ -146,6 +136,12 @@ export default function Conversation({
         className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-5"
         aria-live="polite"
       >
+        {startNotice && (
+          <p className="self-center rounded-full bg-wl-fg/10 px-4 py-1.5 text-center text-xs text-wl-fg/60">
+            {startNotice}
+          </p>
+        )}
+
         {messages.length === 0 && (
           <p className="m-auto text-sm text-wl-fg/40">
             No messages yet. Say hello to {title}.

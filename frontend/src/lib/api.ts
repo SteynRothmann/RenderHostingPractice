@@ -275,6 +275,51 @@ export async function leaveRealGroup(groupId: string): Promise<void> {
   if (!res.ok) throw new Error(await errorFrom(res, 'Could not leave group'));
 }
 
+// The group routes answer with short codes for refused actions - turn them
+// into something a person can read.
+const GROUP_ERROR_TEXT: Record<string, string> = {
+  forbidden: "You don't have permission to do that.",
+  'moderator-cannot-remove-moderator': 'Moderators can only remove regular members.',
+  'cannot-remove-owner': "The admin can't be removed.",
+  'member-not-found': 'That person is no longer in the group.',
+  'not-found': 'This group no longer exists.',
+};
+
+async function groupErrorFrom(res: Response, fallback: string): Promise<string> {
+  const message = await errorFrom(res, fallback);
+  return GROUP_ERROR_TEXT[message] ?? message;
+}
+
+// Admin only: add friends to an existing group. Returns the updated group.
+export async function addGroupMembers(groupId: string, memberSpotifyUserIds: string[]): Promise<RealGroup> {
+  const res = await apiFetch(`/groups/${encodeURIComponent(groupId)}/members`, {
+    method: 'POST',
+    body: JSON.stringify({ memberSpotifyUserIds }),
+  });
+  if (!res.ok) throw new Error(await groupErrorFrom(res, 'Could not add people to this group'));
+  return (await res.json()).group;
+}
+
+// Admin, or a moderator for regular members only. Returns the updated group.
+export async function kickGroupMember(groupId: string, spotifyUserId: string): Promise<RealGroup> {
+  const res = await apiFetch(
+    `/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(spotifyUserId)}`,
+    { method: 'DELETE' }
+  );
+  if (!res.ok) throw new Error(await groupErrorFrom(res, 'Could not remove this person'));
+  return (await res.json()).group;
+}
+
+// Admin only: make someone a moderator, or take it away again.
+export async function setGroupModerator(groupId: string, spotifyUserId: string, isModerator: boolean): Promise<RealGroup> {
+  const res = await apiFetch(
+    `/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(spotifyUserId)}/moderator`,
+    { method: 'PATCH', body: JSON.stringify({ isModerator }) }
+  );
+  if (!res.ok) throw new Error(await groupErrorFrom(res, 'Could not change this role'));
+  return (await res.json()).group;
+}
+
 // Message history (backend/db/chatHistory.js, loaded once per thread by
 // ChatContext.tsx the first time that thread becomes active - live
 // messages after that keep arriving over the private:message/group:message
