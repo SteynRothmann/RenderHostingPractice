@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import NavPanel from '../../components/NavPanel';
+import BorderFrame from '../../components/BorderFrame';
 import { useChat } from '../../data/ChatContext';
 import { fetchHostProfile } from '../../lib/api';
 import type { HostProfile } from '../../data/types';
@@ -76,15 +77,17 @@ export default function ChatProfileOverlay({ spotifyUserId, onClose, onUnfriende
           <p className="text-sm text-wl-danger">{error}</p>
         ) : (
           <>
-            <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-400 bg-slate-300 shadow-md">
-              {profile?.profileImage ? (
-                <img src={profile.profileImage} alt={profile.displayName} className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-2xl font-semibold text-slate-700">
-                  {(profile?.displayName || '?').charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
+            <BorderFrame border={profile?.border} shape="circle" className="h-24 w-24" reserve="m-14">
+              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border-2 border-cyan-400 bg-slate-300 shadow-md">
+                {profile?.profileImage ? (
+                  <img src={profile.profileImage} alt={profile.displayName} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-semibold text-slate-700">
+                    {(profile?.displayName || '?').charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+            </BorderFrame>
 
             <div className="text-center">
               <p className="text-base font-semibold text-wl-title">{profile?.nickname || profile?.displayName}</p>

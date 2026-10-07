@@ -462,6 +462,31 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     };
   }, [loadChats, dropGroupLocally, showNotice]);
 
+  // Someone equipped/unequipped a border: patch it into every place their
+  // picture appears in my chats (friend list + group rosters) right away.
+  useEffect(() => {
+    const socket = getSocket();
+    function onCosmeticChanged(payload: { spotifyUserId: string; isEquipped: boolean; cssClass: string | null }) {
+      const border = payload.isEquipped ? payload.cssClass : null;
+      setFriends((prev) =>
+        prev.some((f) => f.spotifyUserId === payload.spotifyUserId)
+          ? prev.map((f) => (f.spotifyUserId === payload.spotifyUserId ? { ...f, border } : f))
+          : prev
+      );
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.members.some((m) => m.spotifyUserId === payload.spotifyUserId)
+            ? { ...g, members: g.members.map((m) => (m.spotifyUserId === payload.spotifyUserId ? { ...m, border } : m)) }
+            : g
+        )
+      );
+    }
+    socket.on('user_cosmetic_changed', onCosmeticChanged);
+    return () => {
+      socket.off('user_cosmetic_changed', onCosmeticChanged);
+    };
+  }, []);
+
   const hasAnyUnread = unreadThreadIds.size > 0;
 
   // Clear any pending auto-dismiss timer on unmount (ChatProvider lives

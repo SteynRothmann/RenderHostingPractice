@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Check, MessageCircle, X } from 'lucide-react';
+import BorderFrame from '../../components/BorderFrame';
 import NavPanel from '../../components/NavPanel';
 import { fetchIncomingChatRequests, respondToChatRequest } from '../../lib/api';
 import { useChat } from '../../data/ChatContext';
@@ -82,15 +83,17 @@ export default function NotificationsPanel({ open, onClose }: { open: boolean; o
                   className="rounded-2xl border border-wl-fg/10 bg-wl-fg/[0.06] p-4 transition hover:bg-wl-fg/[0.09]"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-wl-fg/25 bg-slate-700">
-                      {r.fromProfileImage ? (
-                        <img src={r.fromProfileImage} alt={r.fromDisplayName ?? ''} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-wl-fg">
-                          {(r.fromDisplayName || '?').charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
+                    <BorderFrame border={r.fromBorder} shape="circle" className="h-11 w-11" reserve="m-4">
+                      <div className="h-full w-full overflow-hidden rounded-full border border-wl-fg/25 bg-slate-700">
+                        {r.fromProfileImage ? (
+                          <img src={r.fromProfileImage} alt={r.fromDisplayName ?? ''} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-wl-fg">
+                            {(r.fromDisplayName || '?').charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                    </BorderFrame>
 
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-wl-fg">

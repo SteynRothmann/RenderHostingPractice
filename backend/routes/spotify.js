@@ -19,6 +19,7 @@ const { getValidAccessToken } = require('../lib/authHelper');
 const { getTokens, getTokensBySpotifyUserId, saveProfileDetails } = require('../db/tokenStore');
 const oceanState = require('../lib/oceanState');
 const { getQuotaStatus } = require('../lib/spotifyQuota');
+const { getEquippedBorders } = require('../lib/equippedBorders');
 
 // GET /spotify/quota - is Spotify currently rate-limiting the app? Public
 // (guests see the ocean too); the frontend also gets live changes over the
@@ -230,6 +231,7 @@ router.get('/user/:spotifyUserId', async (req, res) => {
     return res.status(404).json({ error: "This person hasn't logged into Wavelength" });
   }
 
+  const borders = await getEquippedBorders([stored.spotifyUserId]);
   res.json({
     profile: {
       spotifyUserId: stored.spotifyUserId,
@@ -238,6 +240,7 @@ router.get('/user/:spotifyUserId', async (req, res) => {
       profileImage: stored.profileImage,
       nickname: stored.nickname ?? null,
       bio: stored.bio ?? null,
+      border: borders.get(stored.spotifyUserId) ?? null,
     },
   });
 });

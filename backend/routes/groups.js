@@ -8,6 +8,7 @@ const chatHistory = require('../db/chatHistory');
 const groupStore = require('../lib/groupStore');
 const { hasAcceptedPrivateChatRequest } = require('../lib/chatRequests');
 const { notifyUsers, removeFromGroupRoom } = require('../lib/groupEvents');
+const { getEquippedBorders } = require('../lib/equippedBorders');
 
 // Always get the acting user from their identified bearer token, never from
 // request data. req.userId is set by this repo's identifyRequest middleware
@@ -36,6 +37,7 @@ function withoutJoinRequests(group) {
 
 async function serializeGroup(group) {
   const publicGroup = withoutJoinRequests(group);
+  const borders = await getEquippedBorders(publicGroup.members.map((m) => m.spotifyUserId));
   publicGroup.members = await Promise.all(publicGroup.members.map(async (member) => {
     const profile = await getTokensBySpotifyUserId(member.spotifyUserId);
     return {
@@ -44,6 +46,7 @@ async function serializeGroup(group) {
       // same preference order used for chat requests/friends.
       displayName: profile?.nickname || profile?.displayName || member.spotifyUserId,
       profileImage: profile?.profileImage || null,
+      border: borders.get(member.spotifyUserId) ?? null,
     };
   }));
   return publicGroup;

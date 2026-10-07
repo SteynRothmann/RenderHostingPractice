@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import NavPanel from '../../components/NavPanel';
+import BorderFrame from '../../components/BorderFrame';
 import { useChat } from '../../data/ChatContext';
 
 const PREDEFINED_ICONS = ['/avatars/avatar1.svg', '/avatars/avatar2.svg', '/avatars/avatar3.svg', '/avatars/avatar4.svg', '/avatars/avatar5.svg', '/avatars/avatar6.svg'];
@@ -152,19 +153,21 @@ export default function CreateGroupPanel({
                     className="accent-cyan-400"
                   />
 
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-700">
-                    {friend.profileImage ? (
-                      <img
-                        src={friend.profileImage}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-xs font-semibold text-wl-fg">
-                        {friend.displayName.charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
+                  <BorderFrame border={friend.border} shape="circle" className="h-8 w-8" reserve="m-4">
+                    <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-700">
+                      {friend.profileImage ? (
+                        <img
+                          src={friend.profileImage}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs font-semibold text-wl-fg">
+                          {friend.displayName.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  </BorderFrame>
 
                   <span className="text-sm text-wl-fg/85">
                     {friend.displayName}

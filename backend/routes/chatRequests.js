@@ -4,6 +4,7 @@ const router = express.Router();
 const { getTokens, getTokensBySpotifyUserId } = require('../db/tokenStore');
 const chatHistory = require('../db/chatHistory');
 const chatRequests = require('../lib/chatRequests');
+const { getEquippedBorders } = require('../lib/equippedBorders');
 
 // All routes below need to know the REAL Spotify account behind
 // this session (not just the session id) - chat requests are addressed
@@ -60,7 +61,9 @@ router.get('/incoming', async (req, res) => {
     return res.json({ requests: [] }); // not logged in - nothing to show, not an error
   }
   try {
-    res.json({ requests: await chatRequests.getIncoming(me.spotifyUserId) });
+    const requests = await chatRequests.getIncoming(me.spotifyUserId);
+    const borders = await getEquippedBorders(requests.map((r) => r.fromSpotifyUserId));
+    res.json({ requests: requests.map((r) => ({ ...r, fromBorder: borders.get(r.fromSpotifyUserId) ?? null })) });
   } catch (error) {
     console.error('Could not load incoming chat requests:', error.message);
     res.status(500).json({ error: 'Could not load notifications' });
@@ -93,6 +96,10 @@ router.get('/accepted', async (req, res) => {
   }
   try {
     const requests = await chatRequests.getAccepted(me.spotifyUserId);
+    const otherIds = requests.map((request) =>
+      request.fromSpotifyUserId === me.spotifyUserId ? request.toSpotifyUserId : request.fromSpotifyUserId
+    );
+    const borders = await getEquippedBorders(otherIds);
     const chats = await Promise.all(
       requests.map(async (request) => {
         const otherSpotifyUserId =
@@ -108,6 +115,7 @@ router.get('/accepted', async (req, res) => {
           // if neither is known at all.
           displayName: profile?.nickname || profile?.displayName || otherSpotifyUserId,
           profileImage: profile?.profileImage || null,
+          border: borders.get(otherSpotifyUserId) ?? null,
         };
       })
     );

@@ -8,6 +8,7 @@ import Conversation from './Conversation';
 import CreateGroupPanel from './CreateGroupPanel';
 import ChatProfileOverlay from './ChatProfileOverlay';
 import GroupProfilePanel from './GroupProfilePanel';
+import BorderFrame from '../../components/BorderFrame';
 import { useAuth } from '../../data/AuthContext';
 
 type Active = { type: 'friend' | 'group'; id: string } | null;
@@ -165,9 +166,9 @@ export default function ChatPage() {
                         }
                       `}
                     >
-                      <div className="relative shrink-0">
+                      <BorderFrame border={friend.border} shape="circle" className="h-11 w-11" reserve="m-4">
                         <div
-                          className={`flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border bg-slate-700 transition ${
+                          className={`flex h-full w-full items-center justify-center overflow-hidden rounded-full border bg-slate-700 transition ${
                             selected
                               ? 'border-cyan-300/60 shadow-[0_0_14px_rgba(34,211,238,0.35)]'
                               : 'border-wl-fg/10'
@@ -187,11 +188,11 @@ export default function ChatPage() {
                         </div>
                         {unreadThreadIds.has(friend.spotifyUserId) && (
                           <span
-                            className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-wl-panel bg-red-500"
+                            className="absolute -right-0.5 -top-0.5 z-10 h-3 w-3 rounded-full border-2 border-wl-panel bg-red-500"
                             aria-label="New message"
                           />
                         )}
-                      </div>
+                      </BorderFrame>
 
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[15px] font-semibold text-wl-fg">
@@ -290,6 +291,7 @@ export default function ChatPage() {
                   threadId={friend.spotifyUserId}
                   title={friend.displayName}
                   icon={friend.profileImage}
+                  iconBorder={friend.border}
                   // No real backend support yet for looking up an arbitrary
                   // Spotify account's live listening status by
                   // spotifyUserId from the chat feature - the Ocean page

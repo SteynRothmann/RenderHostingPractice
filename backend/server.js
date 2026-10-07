@@ -4,6 +4,8 @@ const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const { Server } = require('socket.io');
+const oceanState = require('./lib/oceanState');
+const { getAllEquippedBorders } = require('./lib/equippedBorders');
 const cookieParser = require('cookie-parser');
 
 const authRouter = require('./routes/auth');
@@ -1118,6 +1120,11 @@ httpServer.listen(PORT, () => {
       'DATABASE_URL not set - using in-memory token storage (fine for local testing, tokens reset on restart).'
     );
   }
+  // Refill the ocean's in-memory "who has which border equipped" from the
+  // database, so markers keep their borders across a server restart.
+  getAllEquippedBorders().then((rows) => {
+    for (const row of rows) oceanState.setUserActiveEffect(row.spotify_user_id, row.css_class);
+  });
   startOceanPoller(io);
   startChallengeScheduler(io);
   console.log('Ocean poller started - checking all logged-in users every 1s.');

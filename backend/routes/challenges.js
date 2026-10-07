@@ -17,6 +17,7 @@ const { getValidAccessToken } = require('../lib/authHelper');
 const { playTrackAt } = require('../lib/spotifyClient');
 const { validateChallengeSubmission } = require('../lib/challengesValidation');
 const { rotateChallenges, ensureActiveChallenge } = require('../lib/challengeRotation');
+const { getEquippedBorders } = require('../lib/equippedBorders');
 
 function requirePool(res) {
   if (pool) return true;
@@ -127,6 +128,7 @@ router.get('/:id/entries', async (req, res) => {
       [challengeId]
     );
 
+    const borders = await getEquippedBorders(result.rows.map((row) => row.spotify_user_id));
     const entries = await Promise.all(
       result.rows.map(async (row) => {
         const profile = await getTokensBySpotifyUserId(row.spotify_user_id);
@@ -134,6 +136,7 @@ router.get('/:id/entries', async (req, res) => {
           spotifyUserId: row.spotify_user_id,
           displayName: profile?.nickname || profile?.displayName || 'A Wavelength listener',
           profileImage: profile?.profileImage || null,
+          border: borders.get(row.spotify_user_id) ?? null,
           trackId: row.track_id,
           title: row.track_title,
           artist: row.artist,

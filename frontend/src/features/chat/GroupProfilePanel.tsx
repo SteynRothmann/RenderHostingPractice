@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { LogOut, ShieldCheck, UserMinus, UserPlus } from 'lucide-react';
 import NavPanel from '../../components/NavPanel';
+import BorderFrame from '../../components/BorderFrame';
 import { useChat } from '../../data/ChatContext';
 import { useAuth } from '../../data/AuthContext';
 import type { RealGroupMember } from '../../data/types';
@@ -21,15 +22,29 @@ const ROLE_LABEL: Record<RealGroupMember['role'], string | null> = {
   member: null, // regular members get no badge
 };
 
-function Avatar({ src, name, size = 'h-10 w-10' }: { src: string | null; name: string; size?: string }) {
+function Avatar({
+  src,
+  name,
+  size = 'h-10 w-10',
+  border,
+  reserve,
+}: {
+  src: string | null;
+  name: string;
+  size?: string;
+  border?: string | null;
+  reserve?: string;
+}) {
   return (
-    <div className={`flex ${size} shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-700`}>
-      {src ? (
-        <img src={src} alt="" className="h-full w-full object-cover" />
-      ) : (
-        <span className="text-sm font-semibold text-slate-100">{(name || '?').charAt(0).toUpperCase()}</span>
-      )}
-    </div>
+    <BorderFrame border={border} shape="circle" className={size} reserve={reserve}>
+      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-700">
+        {src ? (
+          <img src={src} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <span className="text-sm font-semibold text-slate-100">{(name || '?').charAt(0).toUpperCase()}</span>
+        )}
+      </div>
+    </BorderFrame>
   );
 }
 
@@ -177,7 +192,7 @@ export default function GroupProfilePanel({ groupId, onClose, onPersonClick, onL
                               }
                               className="accent-cyan-400"
                             />
-                            <Avatar src={friend.profileImage} name={friend.displayName} size="h-8 w-8" />
+                            <Avatar src={friend.profileImage} name={friend.displayName} size="h-8 w-8" border={friend.border} reserve="m-4" />
                             <span className="truncate text-sm text-wl-fg">{friend.displayName}</span>
                           </label>
                         );
@@ -218,7 +233,7 @@ export default function GroupProfilePanel({ groupId, onClose, onPersonClick, onL
                       disabled={isMe}
                       className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default"
                     >
-                      <Avatar src={member.profileImage} name={member.displayName} />
+                      <Avatar src={member.profileImage} name={member.displayName} border={member.border} reserve="m-4" />
                       <span className="min-w-0 truncate text-sm font-medium text-wl-fg">
                         {member.displayName}
                         {isMe && <span className="ml-1 font-normal text-wl-muted">(you)</span>}

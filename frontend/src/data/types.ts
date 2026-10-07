@@ -155,6 +155,7 @@ export interface HostProfile {
   // page (see MyProfilePage) - null if they've never set one.
   nickname: string | null;
   bio: string | null;
+  border?: string | null; // equipped border (css_class), see lib/borders.ts
 }
 
 // GET /chat-requests/incoming, POST /chat-requests - a request to start a
@@ -165,6 +166,7 @@ export interface ChatRequest {
   fromSpotifyUserId: string;
   fromDisplayName: string | null;
   fromProfileImage: string | null;
+  fromBorder?: string | null; // their equipped border (css_class), see lib/borders.ts
   toSpotifyUserId: string;
   status: 'pending' | 'accepted' | 'declined';
   createdAt: number;
@@ -211,6 +213,7 @@ export interface ChatFriend {
   spotifyUserId: string;
   displayName: string;
   profileImage: string | null;
+  border?: string | null; // their equipped border (css_class), see lib/borders.ts
 }
 
 export interface RealGroupMember {
@@ -219,6 +222,7 @@ export interface RealGroupMember {
   joinedAt: number;
   displayName: string;
   profileImage: string | null;
+  border?: string | null;
 }
 
 export interface RealGroup {
@@ -273,6 +277,7 @@ export interface ChallengeEntry {
   spotifyUserId: string;
   displayName: string; // nickname if they set one, else their Spotify name
   profileImage: string | null;
+  border?: string | null; // equipped border (css_class), see lib/borders.ts
   trackId: string;
   title: string;
   artist: string;

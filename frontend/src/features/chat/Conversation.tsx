@@ -2,12 +2,15 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { useChat } from '../../data/ChatContext';
 import { useAuth } from '../../data/AuthContext';
+import BorderFrame from '../../components/BorderFrame';
 import type { RealGroupMember } from '../../data/types';
 
 interface Props {
   threadId: string;
   title: string;
   icon: string | null;
+  // Equipped border of the person in a 1:1 thread (groups have none).
+  iconBorder?: string | null;
   listeningSongTitle?: string | null;
   onJoinListening?: () => void;
   // System line shown at the very top of the thread, e.g. "You started
@@ -33,6 +36,7 @@ export default function Conversation({
   threadId,
   title,
   icon,
+  iconBorder,
   listeningSongTitle,
   onJoinListening,
   startNotice,
@@ -86,23 +90,25 @@ export default function Conversation({
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={onHeaderClick}
-          disabled={!onHeaderClick}
-          title={onHeaderClick ? (members ? 'View group info' : `View ${title}'s profile`) : undefined}
-          className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-700 ${
-            onHeaderClick ? 'cursor-pointer transition hover:ring-2 hover:ring-cyan-300/60' : ''
-          }`}
-        >
-          {icon ? (
-            <img src={icon} alt={title} className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-sm font-semibold text-wl-fg">
-              {(title || '?').charAt(0).toUpperCase()}
-            </span>
-          )}
-        </button>
+        <BorderFrame border={iconBorder} shape="circle" className="h-11 w-11" reserve="m-4">
+          <button
+            type="button"
+            onClick={onHeaderClick}
+            disabled={!onHeaderClick}
+            title={onHeaderClick ? (members ? 'View group info' : `View ${title}'s profile`) : undefined}
+            className={`flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-700 ${
+              onHeaderClick ? 'cursor-pointer transition hover:ring-2 hover:ring-cyan-300/60' : ''
+            }`}
+          >
+            {icon ? (
+              <img src={icon} alt={title} className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-sm font-semibold text-wl-fg">
+                {(title || '?').charAt(0).toUpperCase()}
+              </span>
+            )}
+          </button>
+        </BorderFrame>
 
         <div className="min-w-0">
           <h2
@@ -187,15 +193,17 @@ export default function Conversation({
                   disabled={!onPersonClick}
                   className={`mb-1 flex items-center gap-1.5 px-1 ${onPersonClick ? 'cursor-pointer hover:opacity-80' : ''}`}
                 >
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-600">
-                    {sender?.profileImage ? (
-                      <img src={sender.profileImage} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="text-[9px] font-semibold text-wl-fg">
-                        {senderLabel.charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                  </span>
+                  <BorderFrame border={sender?.border} shape="circle" className="h-5 w-5" reserve="m-3.5">
+                    <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-600">
+                      {sender?.profileImage ? (
+                        <img src={sender.profileImage} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-[9px] font-semibold text-wl-fg">
+                          {senderLabel.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </span>
+                  </BorderFrame>
                   <span className="text-xs font-medium text-wl-link/80">{senderLabel}</span>
                 </button>
               )}

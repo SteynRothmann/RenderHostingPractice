@@ -587,11 +587,13 @@ export default function WeeklyChallengePanel({
                                 <span className="max-w-[7rem] truncate text-[11px] font-medium text-slate-200 light:text-slate-700">
                                   {entry.isMine ? 'You' : entry.displayName}
                                 </span>
-                                <span className="h-5 w-5 shrink-0 overflow-hidden rounded-full bg-slate-700">
-                                  {entry.profileImage && (
-                                    <img src={entry.profileImage} alt="" className="h-full w-full object-cover" />
-                                  )}
-                                </span>
+                                <BorderFrame border={entry.border} shape="circle" className="h-5 w-5" reserve="m-3.5">
+                                  <span className="block h-full w-full overflow-hidden rounded-full bg-slate-700">
+                                    {entry.profileImage && (
+                                      <img src={entry.profileImage} alt="" className="h-full w-full object-cover" />
+                                    )}
+                                  </span>
+                                </BorderFrame>
                               </div>
                               <span className="text-[10px] text-slate-400 light:text-slate-500">
                                 {timeAgo(entry.submittedAt)}

@@ -11,15 +11,19 @@ interface Props {
   // it some breathing room - the decoration reaches about 60% of the
   // picture's width beyond each edge.
   className?: string;
+  // Extra spacing (e.g. "m-3") added ONLY when a border is present, so the
+  // decoration has room in tight lists without leaving gaps for people who
+  // have no border.
+  reserve?: string;
   children: ReactNode;
 }
 
 // Wraps an avatar (shape="circle") or a song marker (shape="square") with its
 // animated border. The art never intercepts clicks.
-export default function BorderFrame({ border, shape, className = '', children }: Props) {
+export default function BorderFrame({ border, shape, className = '', reserve = '', children }: Props) {
   const key = isBorderKey(border) ? border : null;
   return (
-    <div className={`relative shrink-0 ${className}`}>
+    <div className={`relative shrink-0 ${className} ${key ? reserve : ''}`}>
       {children}
       {key && (
         <span
