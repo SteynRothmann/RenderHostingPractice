@@ -18,6 +18,14 @@ const {
 const { getValidAccessToken } = require('../lib/authHelper');
 const { getTokens, getTokensBySpotifyUserId, saveProfileDetails } = require('../db/tokenStore');
 const oceanState = require('../lib/oceanState');
+const { getQuotaStatus } = require('../lib/spotifyQuota');
+
+// GET /spotify/quota - is Spotify currently rate-limiting the app? Public
+// (guests see the ocean too); the frontend also gets live changes over the
+// 'spotify:quota' socket event, this is the "what's the state right now" call.
+router.get('/quota', (req, res) => {
+  res.json(getQuotaStatus());
+});
 
 // GET /spotify/currently-playing
 // Used by the standalone test dashboard (routes/spotify.js is separate

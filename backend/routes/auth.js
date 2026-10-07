@@ -5,6 +5,7 @@ const router = express.Router();
 const { exchangeCodeForTokens, getMyProfile } = require('../lib/spotifyClient');
 const { saveTokens, getTokens, deleteTokens } = require('../db/tokenStore');
 const { generateUserId } = require('../lib/identity');
+const { isRateLimitError, isUserCapError, noteRateLimit } = require('../lib/spotifyQuota');
 const oceanState = require('../lib/oceanState');
 
 const { SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI, FRONTEND_URL } = process.env;
@@ -115,7 +116,11 @@ router.get('/callback', async (req, res) => {
     res.redirect(`${FRONTEND_URL}/#wl_token=${encodeURIComponent(userId)}`);
   } catch (err) {
     console.error('Token exchange failed:', err.response?.data || err.message);
-    res.redirect(`${FRONTEND_URL}/login?error=token_exchange_failed`);
+    // Spotify refusing because of a limit (rate limit, or a Development Mode
+    // app that's out of allowed users) gets its own message on the login page.
+    if (isRateLimitError(err)) noteRateLimit(err, req.app.get('io'));
+    const quota = isRateLimitError(err) || isUserCapError(err);
+    res.redirect(`${FRONTEND_URL}/login?error=${quota ? 'quota_reached' : 'token_exchange_failed'}`);
   }
 });
 

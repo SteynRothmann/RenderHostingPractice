@@ -49,15 +49,19 @@ export default function BorderPickerModal({
           </div>
 
           <div className="flex flex-col items-center gap-2">
-            {/* Deliberately empty - album art would just fight the border. */}
-            <div className={`h-14 w-14 rounded-2xl border-2 border-cyan-400/70 bg-slate-900 ${aura}`} />
+            {/* A plain label instead of album art, which would fight the border. */}
+            <div
+              className={`flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-cyan-400/70 bg-slate-900 px-1 text-center text-[10px] font-semibold leading-tight text-slate-300 ${aura}`}
+            >
+              Your song
+            </div>
             <span className="text-[10px] font-semibold uppercase tracking-wider text-wl-muted">Song marker</span>
           </div>
         </div>
 
         {unlocked.length === 0 ? (
           <p className="text-sm text-wl-soft">
-            You haven&apos;t unlocked any borders yet. Join a weekly challenge to earn one.
+            You haven&apos;t unlocked any borders yet. Join the weekly challenge to earn this week&apos;s limited-time border.
           </p>
         ) : (
           <div>
@@ -93,7 +97,9 @@ export default function BorderPickerModal({
 
         {lockedCount > 0 && (
           <p className="text-[11px] text-wl-faint">
-            {lockedCount} more {lockedCount === 1 ? 'border' : 'borders'} to unlock by joining challenges.
+            {lockedCount === 1
+              ? 'This week\u2019s limited-time border is still up for grabs - join the challenge to unlock it.'
+              : `${lockedCount} limited-time borders are up for grabs - join the challenge to unlock them.`}
           </p>
         )}
 

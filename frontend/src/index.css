@@ -260,6 +260,70 @@ body {
   box-shadow: 0 0 0 2px #fbbf24, 0 0 18px 5px rgba(251, 191, 36, 0.55);
 }
 
+.wl-cosmetic-aura-crimson {
+  box-shadow: 0 0 0 2px rgb(244 63 94), 0 0 18px 5px rgb(244 63 94 / 0.55);
+}
+
+.wl-cosmetic-aura-emerald {
+  box-shadow: 0 0 0 2px rgb(16 185 129), 0 0 18px 5px rgb(16 185 129 / 0.55);
+}
+
+.wl-cosmetic-aura-violet {
+  box-shadow: 0 0 0 2px rgb(139 92 246), 0 0 18px 5px rgb(139 92 246 / 0.55);
+}
+
+.wl-cosmetic-aura-coral {
+  box-shadow: 0 0 0 2px rgb(255 127 80), 0 0 18px 5px rgb(255 127 80 / 0.55);
+}
+
+.wl-cosmetic-aura-ember {
+  box-shadow: 0 0 0 2px rgb(249 115 22), 0 0 18px 5px rgb(249 115 22 / 0.55);
+}
+
+.wl-cosmetic-aura-pearl {
+  box-shadow: 0 0 0 2px rgb(226 232 240), 0 0 18px 5px rgb(226 232 240 / 0.55);
+}
+
+.wl-cosmetic-aura-lime {
+  box-shadow: 0 0 0 2px rgb(163 230 53), 0 0 18px 5px rgb(163 230 53 / 0.55);
+}
+
+.wl-cosmetic-aura-orchid {
+  box-shadow: 0 0 0 2px rgb(232 121 249), 0 0 18px 5px rgb(232 121 249 / 0.55);
+}
+
+.wl-cosmetic-aura-sapphire {
+  box-shadow: 0 0 0 2px rgb(59 130 246), 0 0 18px 5px rgb(59 130 246 / 0.55);
+}
+
+.wl-cosmetic-aura-lagoon {
+  box-shadow: 0 0 0 2px rgb(20 184 166), 0 0 18px 5px rgb(20 184 166 / 0.55);
+}
+
+.wl-cosmetic-aura-indigo {
+  box-shadow: 0 0 0 2px rgb(99 102 241), 0 0 18px 5px rgb(99 102 241 / 0.55);
+}
+
+.wl-cosmetic-aura-fuchsia {
+  box-shadow: 0 0 0 2px rgb(236 72 153), 0 0 18px 5px rgb(236 72 153 / 0.55);
+}
+
+.wl-cosmetic-aura-sky {
+  box-shadow: 0 0 0 2px rgb(56 189 248), 0 0 18px 5px rgb(56 189 248 / 0.55);
+}
+
+.wl-cosmetic-aura-mint {
+  box-shadow: 0 0 0 2px rgb(110 231 183), 0 0 18px 5px rgb(110 231 183 / 0.55);
+}
+
+.wl-cosmetic-aura-quartz {
+  box-shadow: 0 0 0 2px rgb(253 164 175), 0 0 18px 5px rgb(253 164 175 / 0.55);
+}
+
+.wl-cosmetic-aura-amethyst {
+  box-shadow: 0 0 0 2px rgb(192 132 252), 0 0 18px 5px rgb(192 132 252 / 0.55);
+}
+
 /* Song Details - allow scrolling without showing browser scrollbars */
 .song-details-scroll {
   scrollbar-width: none;

@@ -34,7 +34,11 @@ router.get('/inventory', async (req, res) => {
               COALESCE(uc.is_equipped, FALSE) AS is_equipped,
               CASE WHEN uc.reward_id IS NOT NULL THEN TRUE ELSE FALSE END AS is_unlocked
        FROM rewards r
-       LEFT JOIN user_cosmetics uc ON r.reward_id = uc.reward_id AND uc.spotify_user_id = $1`,
+       LEFT JOIN user_cosmetics uc ON r.reward_id = uc.reward_id AND uc.spotify_user_id = $1
+       -- Rewards are limited-time: show what the caller owns, plus this
+       -- week's border (so it can be previewed). Past ones they missed are gone.
+       WHERE uc.reward_id IS NOT NULL
+          OR r.reward_id IN (SELECT reward_id FROM challenges WHERE is_active = TRUE)`,
       [spotifyUserId]
     );
 

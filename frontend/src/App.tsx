@@ -7,6 +7,7 @@ import UserProfilePage from './features/profile/UserProfilePage';
 import ChatPage from './features/chat/ChatPage';
 import RequireAuth from './features/auth/RequireAuth';
 import { useChat } from './data/ChatContext';
+import QuotaWatcher from './components/QuotaWatcher';
 
 export default function App() {
   // "You were added to <group>" toast - global because it needs to be
@@ -27,6 +28,8 @@ export default function App() {
         <Route path="/hosts/:spotifyUserId" element={<RequireAuth><HostProfilePage /></RequireAuth>} />
         <Route path="/chat" element={<RequireAuth><ChatPage /></RequireAuth>} />
       </Routes>
+
+      <QuotaWatcher />
 
       <button
         type="button"

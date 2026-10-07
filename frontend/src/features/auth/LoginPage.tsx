@@ -4,6 +4,7 @@ import { Info, Music2 } from 'lucide-react';
 import { useAuth } from '../../data/AuthContext';
 import BrandLogo from '../../components/BrandLogo';
 import ThemeToggle from '../../components/ThemeToggle';
+import QuotaPopup from '../../components/QuotaPopup';
 
 // Real login screen. Rebuilt from scratch to match this project's own Ocean
 // page visual language (dark sea gradient, cyan wave bands, soft light
@@ -17,6 +18,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   access_denied: 'Spotify login was cancelled.',
   state_mismatch: 'Login could not be verified. Please try again.',
   token_exchange_failed: "Something went wrong connecting to Spotify. Please try again.",
+  quota_reached: "Spotify's quota for Wavelength has been reached, so new logins can't be accepted right now.",
 };
 
 export default function LoginPage() {
@@ -25,6 +27,7 @@ export default function LoginPage() {
   const [params] = useSearchParams();
   const [connecting, setConnecting] = useState(false);
   const errorReason = params.get('error');
+  const [quotaDismissed, setQuotaDismissed] = useState(false);
 
   function handleLogin() {
     setConnecting(true);
@@ -109,6 +112,12 @@ export default function LoginPage() {
           </g>
         </svg>
       </div>
+
+      <QuotaPopup
+        open={errorReason === 'quota_reached' && !quotaDismissed}
+        message="Spotify's user quota for Wavelength has been reached, so new logins can't be accepted right now. Please try again later - or continue as a guest to watch the ocean."
+        onClose={() => setQuotaDismissed(true)}
+      />
 
       {/* Card content. */}
       <div className="relative z-10 w-full max-w-sm">

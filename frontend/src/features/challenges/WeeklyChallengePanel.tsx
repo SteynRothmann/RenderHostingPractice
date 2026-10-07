@@ -445,7 +445,7 @@ export default function WeeklyChallengePanel({
                         >
                           <Sparkles className="h-3.5 w-3.5 text-amber-300 light:text-amber-600" />
                           <span>
-                            Reward: {reward.name}
+                            Limited reward: {reward.name}
                             {reward.is_unlocked ? ' (unlocked)' : ''}
                           </span>
                           <span className="ml-0.5 inline-flex items-center gap-1 border-l border-amber-400/30 pl-2 font-semibold">

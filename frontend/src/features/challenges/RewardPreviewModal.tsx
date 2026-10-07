@@ -26,7 +26,9 @@ export default function RewardPreviewModal({ open, onClose, reward, profileImage
       {reward && (
         <div className="space-y-4 px-5 py-5">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-wl-link">Border reward</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-wl-link">
+              Border reward · Limited time
+            </p>
             <h3 className="mt-0.5 text-xl font-extrabold tracking-tight text-wl-title">{reward.name}</h3>
             <p className="mt-1 text-sm leading-relaxed text-wl-soft">{reward.description}</p>
           </div>
@@ -46,8 +48,12 @@ export default function RewardPreviewModal({ open, onClose, reward, profileImage
             </div>
 
             <div className="flex flex-col items-center gap-2.5">
-              {/* Deliberately empty - album art would just fight the border. */}
-              <div className={`h-16 w-16 rounded-2xl border-2 border-cyan-400/70 bg-slate-900 ${aura}`} />
+              {/* A plain label instead of album art, which would fight the border. */}
+              <div
+                className={`flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-cyan-400/70 bg-slate-900 px-1 text-center text-[11px] font-semibold leading-tight text-slate-300 ${aura}`}
+              >
+                Your song
+              </div>
               <span className="text-[10px] font-semibold uppercase tracking-wider text-wl-muted">Song marker</span>
             </div>
           </div>
@@ -70,7 +76,7 @@ export default function RewardPreviewModal({ open, onClose, reward, profileImage
           ) : (
             <p className="flex items-center gap-1.5 text-xs font-medium text-wl-muted">
               <Lock className="h-3.5 w-3.5" />
-              Join this challenge to unlock it.
+              Join this challenge to unlock it - this border is gone for good once the challenge ends.
             </p>
           )}
 

@@ -50,6 +50,23 @@ async function pickNextPoolEntry(client) {
   return choices[Math.floor(Math.random() * choices.length)];
 }
 
+// Picks this challenge's reward border: random, and never one an earlier
+// challenge has already offered, so every reward is limited-time. If every
+// reward has somehow been used (the set is finite), falls back to the one
+// that has been away the longest rather than leaving the challenge reward-less.
+async function pickNextReward(client) {
+  const history = await client.query(
+    `SELECT reward_id, MAX(created_at) AS last_used FROM challenges
+     WHERE reward_id IS NOT NULL GROUP BY reward_id`
+  );
+  const lastUsed = new Map(history.rows.map((row) => [row.reward_id, new Date(row.last_used).getTime()]));
+  const unused = REWARDS.filter((reward) => !lastUsed.has(reward.reward_id));
+  if (unused.length > 0) return unused[Math.floor(Math.random() * unused.length)];
+
+  console.warn('Challenge rotation: every reward border has been used - reusing the oldest one. Add more to REWARDS.');
+  return [...REWARDS].sort((a, b) => lastUsed.get(a.reward_id) - lastUsed.get(b.reward_id))[0];
+}
+
 // Ends the active challenge if it has expired (or unconditionally with
 // force) and, if nothing is active afterwards, starts the next one.
 // Returns { rotated, challenge?, endedChallengeIds, reason? }.
@@ -75,16 +92,17 @@ async function rotateChallenges({ io, force = false } = {}) {
 
     const entry = await pickNextPoolEntry(client);
 
-    // Make sure the border this challenge grants exists (user_cosmetics
-    // references rewards, so granting a missing one would fail on join).
-    for (const reward of REWARDS) {
-      await client.query(
-        `INSERT INTO rewards (reward_id, name, description, effect_type, css_class)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (reward_id) DO NOTHING`,
-        [reward.reward_id, reward.name, reward.description, reward.effect_type, reward.css_class]
-      );
-    }
+    const reward = await pickNextReward(client);
+
+    // Make sure the chosen border exists (user_cosmetics references rewards,
+    // so granting a missing one would fail on join). Only the chosen reward
+    // is created, so borders that haven't been offered yet stay secret.
+    await client.query(
+      `INSERT INTO rewards (reward_id, name, description, effect_type, css_class)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (reward_id) DO NOTHING`,
+      [reward.reward_id, reward.name, reward.description, reward.effect_type, reward.css_class]
+    );
 
     const startedAt = new Date();
     const deadline = new Date(startedAt.getTime() + durationMs());
@@ -92,7 +110,7 @@ async function rotateChallenges({ io, force = false } = {}) {
       `INSERT INTO challenges (theme, description, reward_id, deadline, is_active, created_at)
        VALUES ($1, $2, $3, $4, TRUE, $5)
        RETURNING id, theme, description, reward_id, deadline, created_at`,
-      [entry.theme, entry.description, entry.rewardId, deadline.toISOString(), startedAt.toISOString()]
+      [entry.theme, entry.description, reward.reward_id, deadline.toISOString(), startedAt.toISOString()]
     );
     await client.query('COMMIT');
 

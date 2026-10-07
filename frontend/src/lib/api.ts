@@ -9,6 +9,7 @@
 // src/data/AuthContext.tsx), and kept in localStorage from then on. See
 // socket.ts for the companion Socket.IO connection used for live
 // 'oceanUpdate' events (that one's just a public broadcast, no auth).
+import { COSMETIC_AURA_RGB } from './cosmeticAuras';
 import type { ActiveChallenge, ActiveChallengeSubmission, ChallengeEntry, ChallengeSearchResult, ChatFriend, ChatRequest, CosmeticItem, HostProfile, MyPlayback, ProfileStats, PublicPlaylist, RealChatMessage, RealGroup, RecentTrack, SpotifyProfile } from '../data/types';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -369,7 +370,6 @@ export async function equipCosmetic(rewardId: string, isEquipped: boolean): Prom
 // maps it identically instead of duplicating the if/else - anything
 // unrecognized (including null) safely renders no aura at all.
 export function cosmeticAuraClass(cssClass: string | null | undefined): string {
-  if (cssClass === 'cyan-glow') return 'wl-cosmetic-cyan-glow';
-  if (cssClass === 'gold-shimmer') return 'wl-cosmetic-gold-shimmer';
+  if (cssClass && cssClass in COSMETIC_AURA_RGB) return `wl-cosmetic-${cssClass}`;
   return '';
 }

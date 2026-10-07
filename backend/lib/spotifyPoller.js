@@ -3,6 +3,7 @@ const { getValidAccessToken } = require('./authHelper');
 const { getCurrentlyPlaying, playTrackAt, getArtistGenres } = require('./spotifyClient');
 const { getGenresForArtist } = require('./genreCache');
 const oceanState = require('./oceanState');
+const { isRateLimitError, noteRateLimit, syncQuotaAnnouncement } = require('./spotifyQuota');
 
 // Spotify's token endpoint returns one of these in the error body when a
 // refresh can never succeed again (the refresh token was revoked, expired,
@@ -17,7 +18,7 @@ function isPermanentAuthFailure(err) {
 
 const POLL_INTERVAL_MS = 2000; // how often we check each user's playback
 
-async function pollAllSessions() {
+async function pollAllSessions(io) {
   const userIds = await getAllUserIds();
 
   // Poll everyone in parallel - fine for a class-project-sized user
@@ -56,6 +57,10 @@ async function pollAllSessions() {
         // access, etc.) shouldn't break the whole ocean update.
         console.error(`Poll failed for session ${userId}:`, err.response?.data || err.message);
 
+        // Spotify said "slow down" - remember it so the frontend can show
+        // the "quota reached" pop-up (see lib/spotifyQuota.js).
+        if (isRateLimitError(err)) noteRateLimit(err, io);
+
         // Without this, a session whose refresh token can never work again
         // (e.g. left over from testing against a different/rotated Spotify
         // app) would retry - and fail - every single poll cycle forever,
@@ -73,6 +78,7 @@ async function pollAllSessions() {
   );
 
   oceanState.pruneStalePausedSessions();
+  syncQuotaAnnouncement(io);
 }
 
 // "Follow Along": for every follower, if their followed host is now on a
@@ -168,7 +174,7 @@ async function syncFollowers() {
 // connected browser via Socket.IO whenever state changes.
 function startOceanPoller(io) {
   setInterval(async () => {
-    await pollAllSessions();
+    await pollAllSessions(io);
     await syncFollowers();
     const groups = oceanState.computeGroups();
     io.emit('oceanUpdate', groups);
