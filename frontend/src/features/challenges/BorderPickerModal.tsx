@@ -1,4 +1,4 @@
-import { ChevronDown, Disc } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import ChallengeSubModal from './ChallengeSubModal';
 import { cosmeticAuraClass } from '../../lib/api';
 import type { CosmeticItem } from '../../data/types';
@@ -12,8 +12,6 @@ interface Props {
   saving: boolean;
   profileImage: string | null;
   initial: string; // fallback letter when there's no profile image
-  // Album art of the person's entry, for the song-marker preview (if joined).
-  markerCover: string | null;
 }
 
 // Pick which unlocked border is equipped, from a dropdown. Applies the
@@ -27,7 +25,6 @@ export default function BorderPickerModal({
   saving,
   profileImage,
   initial,
-  markerCover,
 }: Props) {
   const unlocked = cosmetics.filter((c) => c.is_unlocked);
   const lockedCount = cosmetics.length - unlocked.length;
@@ -52,15 +49,8 @@ export default function BorderPickerModal({
           </div>
 
           <div className="flex flex-col items-center gap-2">
-            <div
-              className={`flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border-2 border-cyan-400/70 bg-slate-900 ${aura}`}
-            >
-              {markerCover ? (
-                <img src={markerCover} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <Disc className="h-6 w-6 text-cyan-300" />
-              )}
-            </div>
+            {/* Deliberately empty - album art would just fight the border. */}
+            <div className={`h-14 w-14 rounded-2xl border-2 border-cyan-400/70 bg-slate-900 ${aura}`} />
             <span className="text-[10px] font-semibold uppercase tracking-wider text-wl-muted">Song marker</span>
           </div>
         </div>

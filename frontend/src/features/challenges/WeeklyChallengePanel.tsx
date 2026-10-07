@@ -10,6 +10,7 @@ import {
   Palette,
   ListMusic,
   Plus,
+  Eye,
 } from 'lucide-react';
 
 import Cover from '../../components/Cover';
@@ -25,6 +26,7 @@ import {
 import { getSocket } from '../../lib/socket';
 import JoinChallengeModal from './JoinChallengeModal';
 import BorderPickerModal from './BorderPickerModal';
+import RewardPreviewModal from './RewardPreviewModal';
 import type { ActiveChallenge, ChallengeEntry, CosmeticItem } from '../../data/types';
 
 // "5m ago" / "3h ago" / "2d ago" for the entries list.
@@ -81,6 +83,7 @@ export default function WeeklyChallengePanel({
 
   const [joinOpen, setJoinOpen] = useState(false);
   const [borderOpen, setBorderOpen] = useState(false);
+  const [rewardPreviewOpen, setRewardPreviewOpen] = useState(false);
   // Joining also tries to start the track playing on Spotify (so it shows
   // up in the ocean) - that can fail independently of the entry itself (no
   // Premium, no active device). Not an error, so it gets a calmer notice.
@@ -121,6 +124,7 @@ export default function WeeklyChallengePanel({
     let cancelled = false;
     setJoinOpen(false);
     setBorderOpen(false);
+    setRewardPreviewOpen(false);
     setLoadingChallenge(true);
     fetchActiveChallenge()
       .then((active) => {
@@ -149,6 +153,7 @@ export default function WeeklyChallengePanel({
     challengeIdRef.current = challengeId;
     setPlaybackNotice('');
     setJoinOpen(false);
+    setRewardPreviewOpen(false);
     setEntries([]);
     setEntriesError('');
     if (!open || challengeId === null) return;
@@ -432,13 +437,22 @@ export default function WeeklyChallengePanel({
                       </div>
 
                       {reward && (
-                        <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-100 light:bg-amber-50 light:text-amber-900">
+                        <button
+                          type="button"
+                          onClick={() => setRewardPreviewOpen(true)}
+                          title="Preview this border"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-100 transition hover:border-amber-400/60 hover:bg-amber-500/20 light:bg-amber-50 light:text-amber-900 light:hover:bg-amber-100"
+                        >
                           <Sparkles className="h-3.5 w-3.5 text-amber-300 light:text-amber-600" />
                           <span>
                             Reward: {reward.name}
                             {reward.is_unlocked ? ' (unlocked)' : ''}
                           </span>
-                        </div>
+                          <span className="ml-0.5 inline-flex items-center gap-1 border-l border-amber-400/30 pl-2 font-semibold">
+                            <Eye className="h-3.5 w-3.5" />
+                            Preview
+                          </span>
+                        </button>
                       )}
 
                       {alreadyEntered && (
@@ -549,7 +563,7 @@ export default function WeeklyChallengePanel({
                         No entries yet - be the first to join!
                       </p>
                     ) : (
-                      <ul className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                      <ul className="no-scrollbar max-h-72 space-y-2 overflow-y-auto pb-6 [mask-image:linear-gradient(to_bottom,black_calc(100%-1.75rem),transparent)]">
                         {sortedEntries.map((entry) => (
                           <li
                             key={entry.spotifyUserId}
@@ -608,7 +622,15 @@ export default function WeeklyChallengePanel({
               saving={equipping}
               profileImage={profile?.profileImage ?? null}
               initial={(profile?.displayName || '?').charAt(0).toUpperCase()}
-              markerCover={challenge?.mySubmission?.cover ?? null}
+            />
+            <RewardPreviewModal
+              open={rewardPreviewOpen}
+              onClose={() => setRewardPreviewOpen(false)}
+              reward={reward}
+              profileImage={profile?.profileImage ?? null}
+              initial={(profile?.displayName || '?').charAt(0).toUpperCase()}
+              onEquip={(id) => void selectBorder(id)}
+              saving={equipping}
             />
           </motion.div>
         </motion.div>
