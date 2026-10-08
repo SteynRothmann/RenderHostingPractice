@@ -196,7 +196,7 @@ export interface PublicPlaylist {
   name: string;
   description: string;
   image: string | null;
-  trackCount: number;
+  trackCount: number | null;
   url: string | null;
 }
 

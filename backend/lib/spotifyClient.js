@@ -158,7 +158,10 @@ async function getPublicPlaylists(accessToken) {
       name: p.name,
       description: p.description || '',
       image: p.images?.[0]?.url || null,
-      trackCount: p.tracks?.total ?? 0,
+      // Spotify's Feb 2026 API changes renamed the playlist `tracks` field to
+      // `items`, so read either. null (not 0) when Spotify doesn't tell us, so
+      // the UI can hide the count instead of claiming "0 tracks".
+      trackCount: [p.items?.total, p.tracks?.total].find((n) => Number.isFinite(n)) ?? null,
       url: p.external_urls?.spotify || null,
     }));
 }

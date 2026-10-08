@@ -277,7 +277,11 @@ export default function MyProfilePage() {
                     )}
                   </div>
                   <p className="w-full truncate text-xs font-medium text-wl-title group-hover:text-wl-link">{p.name}</p>
-                  <p className="text-[11px] text-wl-faint">{p.trackCount} tracks</p>
+                  {typeof p.trackCount === 'number' && p.trackCount > 0 && (
+                    <p className="text-[11px] text-wl-faint">
+                      {p.trackCount} {p.trackCount === 1 ? 'track' : 'tracks'}
+                    </p>
+                  )}
                 </a>
               ))}
             </div>
