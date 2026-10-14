@@ -147,10 +147,6 @@ function oceanRegion(): Rect {
 }
 
 const welcomeCard = () => q('[role="dialog"][aria-labelledby="guest-welcome-title"]');
-const inWelcome = (re: RegExp) => {
-  const card = welcomeCard();
-  return card ? byText<HTMLElement>('button', re, card) : null;
-};
 
 function searchTarget(): Target {
   const input = searchInput();
@@ -159,6 +155,12 @@ function searchTarget(): Target {
   const dropdown = input.closest('div.relative')?.querySelector<HTMLElement>(':scope > div.absolute');
   return [pill, dropdown && visible(dropdown) ? dropdown : null];
 }
+
+/** The top-bar "Log in" link shown to guests. */
+const navLogin = () => q<HTMLElement>('a[href="/login"]');
+/** The Spotify button on the Wavelength login page. */
+const loginPageBtn = () =>
+  window.location.pathname === '/login' ? byText('button', /^(Log in with Spotify|Redirecting to Spotify…)$/) : null;
 
 const section = (re: RegExp, tag: string) => byText(tag, re)?.closest<HTMLElement>('section') ?? null;
 const heading = (re: RegExp) => byText('h3', re)?.parentElement ?? null;
@@ -180,7 +182,7 @@ export const STEPS: Step[] = [
     id: 'overview-purpose',
     section: 'Overview',
     title: 'Purpose',
-    say: 'Every square you see is a song someone is listening to on Spotify right now. You can open a song, listen along with the person playing it, chat with them once they accept your request, and join a challenge that changes every week. The purpose is simple: to help people discover music through other people and make listening feel social.',
+    say: 'Every square you see is a song someone is listening to on Spotify right now. You can open a song, listen along with the person playing it, chat with them once they accept your request, and join a challenge that changes every week. The purpose is simple: to help people discover music through other people and make listening feel social. While logged out, you can look around and watch as the songs float by,',
     route: '/',
     pad: 0,
     dim: false,
@@ -188,20 +190,12 @@ export const STEPS: Step[] = [
   },
   // The next two are skipped automatically when you are already logged in.
   {
-    id: 'look-around',
-    section: 'Overview',
-    title: 'Just look around',
-    say: 'While logged out, you can look around and watch as the songs float by,',
-    optional: true,
-    find: () => inWelcome(/Just look around/),
-  },
-  {
     id: 'login',
     section: 'Overview',
-    title: 'Log in with Spotify',
+    title: 'Log in button',
     say: "but to open songs, chat and join challenges, you'll have to log in with Spotify.",
     optional: true,
-    find: () => inWelcome(/Log in with Spotify/),
+    find: navLogin,
   },
 
   // ---------- SYSTEM WALKTHROUGH (4 to 7 minutes) ----------
@@ -210,8 +204,11 @@ export const STEPS: Step[] = [
     section: 'Walkthrough',
     title: 'Logging in',
     say: "Let me show you how it works. I will log in with Spotify. Wavelength uses Spotify's official login, so we never see my password, only a token that lets the app see what I am playing.",
+    route: '/login',
     optional: true,
-    find: () => inWelcome(/Log in with Spotify/),
+    // On the login page: its Spotify button. Before you get there: the top-bar
+    // Log in link (so this step is not skipped while you are still on the ocean).
+    find: () => loginPageBtn() ?? navLogin(),
   },
 
   // The ocean
