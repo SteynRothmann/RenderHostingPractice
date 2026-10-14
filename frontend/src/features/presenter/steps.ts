@@ -84,6 +84,8 @@ const searchInput = () => q<HTMLInputElement>('input[aria-label="Search or filte
 const challengeDialog = () => q('[role="dialog"][aria-label="Weekly Challenge"]');
 const pickerDialog = () => q('[role="dialog"][aria-label="Profile border"]');
 const changeBorderBtn = () => byText('button', /Change border|^Borders$/);
+const joinDialog = () => q('[role="dialog"][aria-label="Join challenge"]');
+const previewDialog = () => q('[role="dialog"][aria-label="Reward preview"]');
 
 /** Close any song panel, challenge panel or challenge sub-panel that is open. */
 async function closeOverlays() {
@@ -98,6 +100,18 @@ async function closeOverlays() {
     const closer = sub || panel || song;
     if (!closer) return;
     closer.click();
+    await sleep(500);
+  }
+}
+
+/** Close the small panels that sit on top of the challenge panel (join, reward preview, border picker). */
+async function closeSubDialogs() {
+  for (let i = 0; i < 3; i++) {
+    const sub = q(
+      '[role="dialog"]:not([aria-labelledby="guest-welcome-title"]):not([aria-label="Weekly Challenge"]) button[aria-label="Close"]'
+    );
+    if (!sub) return;
+    sub.click();
     await sleep(500);
   }
 }
@@ -305,7 +319,7 @@ export const STEPS: Step[] = [
     id: 'challenge-join',
     section: 'Walkthrough',
     title: 'Join',
-    say: 'I have already joined this week, so I will not be able to enter again, but it is as simple as pressing Join, picking a song and confirming. After that, your submitted song will start playing in the ocean.',
+    say: 'To join, I press Join,',
     hint: 'Open the Ride the Wave panel',
     ensure: async (ctx) => {
       await openChallenge(ctx);
@@ -315,24 +329,51 @@ export const STEPS: Step[] = [
       byText<HTMLElement>('span', /Joined/)?.closest<HTMLElement>('div.inline-flex') ??
       null,
   },
+  // You click Join yourself, then search and pick a song. Nothing here clicks it for you.
+  {
+    id: 'challenge-search',
+    section: 'Walkthrough',
+    title: 'Choose a song',
+    say: 'search for a song that fits the theme and pick it,',
+    hint: 'Click Join this challenge',
+    find: joinDialog,
+  },
+  {
+    id: 'challenge-confirm',
+    section: 'Walkthrough',
+    title: 'Confirm and submit',
+    say: 'and confirm. After that, your submitted song will start playing in the ocean.',
+    hint: 'Pick a song first',
+    find: () => byText('button', /^(Confirm & submit entry|Submitting…)$/),
+  },
   {
     id: 'reward',
     section: 'Walkthrough',
     title: 'Limited-time border',
-    say: "Joining a challenge wins you that week's limited-time border.",
+    say: "Joining a challenge wins you that week's limited-time border,",
     hint: 'Open the Ride the Wave panel',
     ensure: async (ctx) => {
       await openChallenge(ctx);
     },
     find: () => q('button[title="Preview this border"]'),
   },
+  // You click Preview yourself.
+  {
+    id: 'reward-preview',
+    section: 'Walkthrough',
+    title: 'Reward preview',
+    say: 'and the preview shows how it looks.',
+    hint: 'Click Preview',
+    find: previewDialog,
+  },
   {
     id: 'change-border',
     section: 'Walkthrough',
     title: 'Change border',
-    say: 'I have collected them all, so I can switch between them.',
+    say: 'Now I can choose which border to wear. Change border opens my collection,',
     hint: 'Open the Ride the Wave panel',
     ensure: async (ctx) => {
+      await closeSubDialogs();
       await openChallenge(ctx);
     },
     find: changeBorderBtn,
@@ -341,11 +382,13 @@ export const STEPS: Step[] = [
     id: 'border-picker',
     section: 'Walkthrough',
     title: 'Pick a border',
-    say: 'Whichever I pick shows around my picture and my song, even in chats.',
+    say: 'and whichever I pick shows around my picture and my song, even in chats.',
     hint: 'Click Change border',
     ensure: async (ctx) => {
+      if (pickerDialog()) return; // you already opened it yourself
       await openChallenge(ctx);
       if (!pickerDialog()) {
+        await closeSubDialogs();
         changeBorderBtn()?.click();
         await waitFor(pickerDialog, 2500);
       }

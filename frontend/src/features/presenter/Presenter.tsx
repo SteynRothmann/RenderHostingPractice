@@ -8,7 +8,7 @@ import { PRESENTER_EVENT, PRESENTER_FLAG, PRESENTER_STEP } from './flags';
 // pointer-events:none, so you can still click the real app underneath.
 //
 // Keys: Space/Right next · Left back · T script · H hide · A auto-setup · Q quit
-// (while typing in a text box use Ctrl+Right / Ctrl+Left instead).
+// (while typing in a text box use Ctrl+Right / Ctrl+Left instead; Space also works in an empty one).
 
 const AUTO_KEY = 'wl-presenter-auto';
 const SAY_KEY = 'wl-presenter-say';
@@ -169,7 +169,11 @@ export default function Presenter() {
         }
         return;
       }
-      if (typing) return;
+      // Space still means "next" in a text box that is empty (e.g. the song search
+      // right after you click Join), because there is nothing to type a space into yet.
+      const emptyField =
+        !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && (t as HTMLInputElement).value === '';
+      if (typing && !(k === ' ' && emptyField)) return;
 
       switch (k) {
         case ' ':
@@ -212,7 +216,8 @@ export default function Presenter() {
     function onKeyUp(e: KeyboardEvent) {
       const t = e.target as HTMLElement | null;
       const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
-      if (e.key === ' ' && !typing) e.preventDefault();
+      const empty = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && (t as HTMLInputElement).value === '';
+      if (e.key === ' ' && (!typing || empty)) e.preventDefault();
     }
     window.addEventListener('keydown', onKey, true);
     window.addEventListener('keyup', onKeyUp, true);
