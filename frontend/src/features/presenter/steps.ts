@@ -18,8 +18,12 @@ export interface Ctx {
   navigate: (path: string) => void;
 }
 
+export type Section = 'Overview' | 'Walkthrough' | 'Conclusion';
+
 export interface Step {
   id: string;
+  /** Which part of the video this step belongs to. */
+  section: Section;
   title: string;
   /** The line from the video script, shown only when the script pill (T) is on. */
   say: string;
@@ -162,17 +166,30 @@ const heading = (re: RegExp) => byText('h3', re)?.parentElement ?? null;
 /* ---------- the script ---------- */
 
 export const STEPS: Step[] = [
-  // 0:00 Logged-out welcome (skipped automatically when already logged in)
+  // ---------- OVERVIEW (about 1 minute) ----------
   {
-    id: 'welcome',
-    title: 'Welcome message',
-    say: 'Hi, and welcome to Wavelength. Wavelength turns music into a living ocean. Every square you see is a song someone is listening to on Spotify right now.',
+    id: 'overview-welcome',
+    section: 'Overview',
+    title: 'Background and rationale',
+    say: 'Hi, and welcome to Wavelength. Most of us listen to music on our own. We find new songs through algorithms and playlists, but we rarely get to see the people behind the music. Wavelength was built to change that. It is an ocean-themed social music app that connects to your Spotify account and turns what everyone is listening to into one shared ocean.',
     route: '/',
-    optional: true,
-    find: welcomeCard,
+    // The welcome card when logged out, otherwise the whole ocean.
+    find: () => welcomeCard() ?? oceanRegion(),
   },
   {
+    id: 'overview-purpose',
+    section: 'Overview',
+    title: 'Purpose',
+    say: 'Every square you see is a song someone is listening to on Spotify right now. You can open a song, listen along with the person playing it, chat with them once they accept your request, and join a challenge that changes every week. The purpose is simple: to help people discover music through other people and make listening feel social.',
+    route: '/',
+    pad: 0,
+    dim: false,
+    find: oceanRegion,
+  },
+  // The next two are skipped automatically when you are already logged in.
+  {
     id: 'look-around',
+    section: 'Overview',
     title: 'Just look around',
     say: 'While logged out, you can look around and watch as the songs float by,',
     optional: true,
@@ -180,26 +197,39 @@ export const STEPS: Step[] = [
   },
   {
     id: 'login',
+    section: 'Overview',
     title: 'Log in with Spotify',
     say: "but to open songs, chat and join challenges, you'll have to log in with Spotify.",
     optional: true,
     find: () => inWelcome(/Log in with Spotify/),
   },
 
-  // 0:25 The ocean
+  // ---------- SYSTEM WALKTHROUGH (4 to 7 minutes) ----------
+  {
+    id: 'login-demo',
+    section: 'Walkthrough',
+    title: 'Logging in',
+    say: "Let me show you how it works. I will log in with Spotify. Wavelength uses Spotify's official login, so we never see my password, only a token that lets the app see what I am playing.",
+    optional: true,
+    find: () => inWelcome(/Log in with Spotify/),
+  },
+
+  // The ocean
   {
     id: 'ocean',
+    section: 'Walkthrough',
     title: 'The ocean',
-    say: 'After logging in, you are greeted with the main wave page. Hover over a square to see the song and artist. The green number on the square shows how many people are listening to it together. The glowing ring around this square is my own song, playing right now.',
+    say: 'After logging in, you are greeted with the main wave page. Hover over a square to see the song and artist. The green number on the square shows how many people are listening to it together. The glowing ring around this square is my own song, playing right now. The ocean updates live, so squares appear and sink as people start and stop listening.',
     route: '/',
     pad: 0,
     dim: false,
     ensure: closeOverlays,
     find: oceanRegion,
   },
-  // 0:45 Dark mode
+  // Dark mode
   {
     id: 'theme',
+    section: 'Walkthrough',
     title: 'Light and dark mode',
     say: 'If you prefer it dark, there is a dark mode. This switch in the top bar flips between day and night, and Wavelength remembers your choice.',
     route: '/',
@@ -207,9 +237,10 @@ export const STEPS: Step[] = [
     hint: 'Log in or open the ocean page',
     find: () => q('[role="switch"]'),
   },
-  // 0:55 Search
+  // Search
   {
     id: 'search',
+    section: 'Walkthrough',
     title: 'Search',
     say: 'Here I can search for a song, an artist or a genre, and the squares that do not match fade away. Clicking a song in the search bar or on a square floating by opens that song.',
     route: '/',
@@ -218,11 +249,12 @@ export const STEPS: Step[] = [
     find: searchTarget,
   },
 
-  // 1:15 Song panel
+  // Song panel
   {
     id: 'listen',
+    section: 'Walkthrough',
     title: 'Listen on Spotify',
-    say: 'Listen on Spotify plays the song on your device where the host is at that moment.',
+    say: 'Listen on Spotify plays the song on your device where the host is at that moment. Wavelength controls your Spotify app instead of playing the audio itself, so Spotify needs to be open on a device.',
     route: '/',
     hint: 'Open a song',
     ensure: async (ctx) => {
@@ -231,23 +263,18 @@ export const STEPS: Step[] = [
     find: () => listenBtn(),
   },
   {
-    id: 'save',
-    title: 'Save',
-    say: 'Save adds it to your Liked Songs.',
-    hint: 'Open a song',
-    find: () => q('button[aria-label="Save to Playlist"], button[aria-label="Saved to Liked Songs"]'),
-  },
-  {
     id: 'follow',
+    section: 'Walkthrough',
     title: 'Follow Along',
     say: 'Follow Along keeps you with the host, even when they skip. Listening and following need Spotify Premium.',
     hint: 'Open a song',
     find: () => byText('button', /Follow Along/),
   },
 
-  // 1:40 Weekly challenge
+  // Weekly challenge
   {
     id: 'challenge-button',
+    section: 'Walkthrough',
     title: 'Ride the Wave',
     say: 'Every week there is a new weekly challenge with a theme.',
     route: '/',
@@ -257,6 +284,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'challenge-theme',
+    section: 'Walkthrough',
     title: 'Theme and countdown',
     say: 'You join with a song that fits,',
     hint: 'Open the Ride the Wave panel',
@@ -267,6 +295,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'challenge-entries',
+    section: 'Walkthrough',
     title: 'Entries',
     say: "and everyone's entries show up here.",
     hint: 'Open the Ride the Wave panel',
@@ -277,6 +306,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'challenge-join',
+    section: 'Walkthrough',
     title: 'Join',
     say: 'I have already joined this week, so I will not be able to enter again, but it is as simple as pressing Join, picking a song and confirming. After that, your submitted song will start playing in the ocean.',
     hint: 'Open the Ride the Wave panel',
@@ -290,6 +320,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'reward',
+    section: 'Walkthrough',
     title: 'Limited-time border',
     say: "Joining a challenge wins you that week's limited-time border.",
     hint: 'Open the Ride the Wave panel',
@@ -300,6 +331,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'change-border',
+    section: 'Walkthrough',
     title: 'Change border',
     say: 'I have collected them all, so I can switch between them.',
     hint: 'Open the Ride the Wave panel',
@@ -310,6 +342,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'border-picker',
+    section: 'Walkthrough',
     title: 'Pick a border',
     say: 'Whichever I pick shows around my picture and my song, even in chats.',
     hint: 'Click Change border',
@@ -323,9 +356,10 @@ export const STEPS: Step[] = [
     find: pickerDialog,
   },
 
-  // 2:25 Profile
+  // Profile
   {
     id: 'profile-icon',
+    section: 'Walkthrough',
     title: 'Your picture',
     say: 'Your picture opens your profile.',
     route: '/',
@@ -335,6 +369,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'profile-fields',
+    section: 'Walkthrough',
     title: 'Nickname and bio',
     say: 'Here you can set a nickname and a bio.',
     route: '/profile',
@@ -343,6 +378,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'profile-genres',
+    section: 'Walkthrough',
     title: 'Top genres',
     say: 'Below that you can see your top genres',
     hint: 'Open your profile',
@@ -350,6 +386,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'profile-recent',
+    section: 'Walkthrough',
     title: 'Recently played',
     say: 'and what you played recently,',
     hint: 'Open your profile',
@@ -357,6 +394,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'profile-playlists',
+    section: 'Walkthrough',
     title: 'Public playlists',
     say: 'as well as your public playlists, pulled straight from Spotify.',
     hint: 'Open your profile',
@@ -364,17 +402,19 @@ export const STEPS: Step[] = [
   },
   {
     id: 'profile-save',
+    section: 'Walkthrough',
     title: 'Save changes',
     say: 'Just remember to click Save changes.',
     hint: 'Open your profile',
     find: () => byText('button', /^(Save changes|Saving…)$/),
   },
 
-  // 2:40 Meeting people and chat
+  // Meeting people and chat
   {
     id: 'host-card',
+    section: 'Walkthrough',
     title: 'The host',
-    say: 'To start chatting with someone, open their song and press on their profile',
+    say: 'To start chatting with someone, open their song, press on their profile',
     route: '/',
     hint: 'Open a song',
     ensure: async (ctx) => {
@@ -384,8 +424,9 @@ export const STEPS: Step[] = [
   },
   {
     id: 'request-chat',
+    section: 'Walkthrough',
     title: 'Request Chat',
-    say: 'and press Request Chat.',
+    say: 'and press Request Chat. You cannot message strangers, because the other person has to accept first.',
     hint: "Open a host's profile",
     ensure: async (ctx) => {
       if (window.location.pathname.startsWith('/hosts/')) return;
@@ -399,6 +440,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'bell',
+    section: 'Walkthrough',
     title: 'Notifications',
     say: "They'll get a notification under the bell icon,",
     route: '/',
@@ -408,16 +450,18 @@ export const STEPS: Step[] = [
   },
   {
     id: 'chat-icon',
+    section: 'Walkthrough',
     title: 'Chat',
-    say: 'and when they accept you can message each other,',
+    say: 'and when they accept you become friends and can message each other.',
     route: '/',
     hint: 'Log in or open the ocean page',
     find: () => q('button[aria-label="Chat"]'),
   },
   {
     id: 'chat-friends',
+    section: 'Walkthrough',
     title: 'Friends',
-    say: 'in one to one chats,',
+    say: 'Your friends live on the chat page, in one to one conversations. Messages are saved, so the history is still here after I log out and back in.',
     route: '/chat',
     hint: 'Open the Chat page',
     ensure: async () => {
@@ -428,8 +472,9 @@ export const STEPS: Step[] = [
   },
   {
     id: 'chat-groups',
+    section: 'Walkthrough',
     title: 'Groups',
-    say: 'or start a group with your friends.',
+    say: 'You can also start a group with your friends. Whoever creates a group is its admin, who can add people and make moderators, and moderators can remove members.',
     route: '/chat',
     hint: 'Open the Chat page',
     ensure: async () => {
@@ -439,11 +484,23 @@ export const STEPS: Step[] = [
     find: () => byText('button', /New group/) ?? byText('nav button', /groups/i),
   },
 
-  // 3:10 Outro
+  // ---------- CONCLUSION (under 1 minute) ----------
+  {
+    id: 'wrap-up',
+    section: 'Conclusion',
+    title: 'Wrap-up and limits',
+    say: "That is Wavelength: one shared ocean where every square is a real person listening right now. Two limits to know about. Because we use Spotify's Web API, songs play in your own Spotify app and not inside the website. And Spotify's rules mean we cannot save songs to Liked Songs or show other people's followers, recently played songs or public playlists.",
+    route: '/',
+    pad: 0,
+    dim: false,
+    ensure: closeOverlays,
+    find: oceanRegion,
+  },
   {
     id: 'outro',
-    title: 'The end',
-    say: 'That is Wavelength. Log in with Spotify and make some waves.',
+    section: 'Conclusion',
+    title: 'Thank you',
+    say: 'Thank you for watching. Log in with Spotify and make some waves.',
     route: '/',
     ensure: closeOverlays,
     find: () => null,

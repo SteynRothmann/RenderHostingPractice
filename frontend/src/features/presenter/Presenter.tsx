@@ -368,7 +368,7 @@ export default function Presenter() {
         <div className={`absolute inset-x-0 flex justify-center px-4 ${pillTop ? 'top-16' : 'bottom-6'}`}>
           <div className="max-w-3xl rounded-2xl bg-slate-950/85 px-5 py-3 text-center text-slate-100 shadow-xl backdrop-blur">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-300">
-              {idx + 1} / {STEPS.length} · {step.title}
+              {step.section} · {idx + 1} / {STEPS.length} · {step.title}
             </p>
             <p className="mt-1 text-base leading-snug">{step.say}</p>
           </div>
