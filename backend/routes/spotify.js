@@ -37,22 +37,16 @@ router.get('/currently-playing', async (req, res) => {
     // browser/person is asking, without needing real accounts yet.
     const userId = req.userId;
 
-    const accessToken = await getValidAccessToken(userId);
-    const data = await getCurrentlyPlaying(accessToken);
+    // Still validates the login (and refreshes the token when it is about to
+    // expire) so a logged-out browser keeps getting an error...
+    await getValidAccessToken(userId);
 
-    if (!data) {
-      return res.json({ playing: false });
-    }
-
-    res.json({
-      playing: data.is_playing,
-      trackId: data.item?.id,
-      track: data.item?.name,
-      artist: data.item?.artists?.map((a) => a.name).join(', '),
-      albumArt: data.item?.album?.images?.[0]?.url, // largest available image
-      progressMs: data.progress_ms,
-      durationMs: data.item?.duration_ms,
-    });
+    // ...but what's playing comes from the background poller's latest
+    // result (refreshed every couple of seconds) instead of another call to
+    // Spotify. Every open tab asks this once a second, and each of those used
+    // to be a real Spotify request - which is what pushed the app over
+    // Spotify's rate limit. No poller entry = nothing playing right now.
+    res.json(oceanState.getCachedPlayback(userId) || { playing: false });
   } catch (err) {
     console.error('currently-playing failed:', err.response?.data || err.message);
     res.status(500).json({ error: 'Could not fetch currently-playing data' });
