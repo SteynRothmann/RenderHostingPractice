@@ -197,23 +197,25 @@ async function pickPlaybackDevice(accessToken) {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     const devices = (res.data?.devices || []).filter((d) => d.id && !d.is_restricted);
-    const device = devices.find((d) => d.is_active) || devices[0];
-    return device ? device.id : null;
+    return devices.find((d) => d.is_active) || devices[0] || null;
   } catch {
     return null; // fall back to Spotify's own choice rather than failing the join
   }
 }
 
 async function playTrackAt(accessToken, trackUri, positionMs) {
-  const deviceId = await pickPlaybackDevice(accessToken);
-  await axios.put(
+  const device = await pickPlaybackDevice(accessToken);
+  const res = await axios.put(
     'https://api.spotify.com/v1/me/player/play',
     { uris: [trackUri], position_ms: Math.max(0, Math.floor(positionMs || 0)) },
     {
       headers: { Authorization: `Bearer ${accessToken}` },
-      ...(deviceId ? { params: { device_id: deviceId } } : {}),
+      ...(device ? { params: { device_id: device.id } } : {}),
     }
   );
+  // Which device we aimed at, and what Spotify answered (204 = done, 202 =
+  // accepted but the device was slow/unavailable), so callers can show or log it.
+  return { device: device ? { name: device.name, type: device.type } : null, status: res.status };
 }
 
 async function pausePlayback(accessToken) {

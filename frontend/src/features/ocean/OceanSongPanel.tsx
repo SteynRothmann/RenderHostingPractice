@@ -58,6 +58,7 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
   const [joining, setJoining] = useState(false);
   const [following, setFollowing] = useState(false);
   const [error, setError] = useState('');
+  const [startedNote, setStartedNote] = useState('');
   const [followError, setFollowError] = useState('');
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [saved, setSaved] = useState(false);
@@ -69,6 +70,7 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
   // (mirrors getLiveProgressMs on the backend).
   useEffect(() => {
     setError('');
+    setStartedNote('');
     setSaved(false);
     setSaving(false);
     setSaveError('');
@@ -133,9 +135,15 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
     if (!group) return;
     if (!isLoggedIn) return login();
     setError('');
+    setStartedNote('');
     setJoining(true);
     try {
-      await joinTrack(group.trackUri, group.trackId);
+      const res = await joinTrack(group.trackUri, group.trackId);
+      // Say where the song was sent, so "nothing happened" can be told apart
+      // from "it started on a different device than the one in front of you".
+      if (res.alreadyListening) setStartedNote("You're already listening to this song.");
+      else if (res.device) setStartedNote(`Sent to your Spotify on "${res.device.name}" (${res.device.type}).`);
+      else setStartedNote('Sent to your Spotify.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not play this song');
     } finally {
@@ -392,6 +400,10 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
 
             {followError && (
               <p className="relative mt-2 text-center text-xs text-red-300">{followError}</p>
+            )}
+
+            {startedNote && !error && (
+              <p className="relative mt-3 text-center text-xs text-emerald-300">{startedNote}</p>
             )}
 
             {error && (
