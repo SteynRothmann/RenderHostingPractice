@@ -151,7 +151,7 @@ async function syncFollowers() {
               hostSession.durationMs || Infinity
             )
           : hostSession.progressMs;
-        await playTrackAt(accessToken, hostSession.trackUri, positionMs);
+        await playTrackAt(accessToken, hostSession.trackUri, positionMs, { albumUri: hostSession.albumUri });
         oceanState.clearFollowSyncError(followerSessionId);
         oceanState.setLastSyncedTrackId(followerSessionId, hostSession.trackId);
       } catch (err) {

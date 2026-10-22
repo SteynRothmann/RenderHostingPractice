@@ -261,7 +261,13 @@ async function waitUntilPlaying(accessToken, trackUri, ms) {
 // { device, status, playing } - `playing` is null when it wasn't checked.
 async function playTrackAt(accessToken, trackUri, positionMs, { verify = false, albumUri = null } = {}) {
   const device = await pickPlaybackDevice(accessToken);
-  const body = { uris: [trackUri], position_ms: Math.max(0, Math.floor(positionMs || 0)) };
+  const position_ms = Math.max(0, Math.floor(positionMs || 0));
+  const urisBody = { uris: [trackUri], position_ms };
+  // Spotify now accepts the plain track-list request (urisBody) with a 204
+  // and then loads nothing, so the primary request asks for the same track
+  // inside its album instead; the track list stays as the fallback.
+  const albumBody = albumUri ? { context_uri: albumUri, offset: { uri: trackUri }, position_ms } : null;
+  const body = albumBody || urisBody;
   const config = {
     headers: { Authorization: `Bearer ${accessToken}` },
     ...(device ? { params: { device_id: device.id } } : {}),
@@ -281,18 +287,13 @@ async function playTrackAt(accessToken, trackUri, positionMs, { verify = false, 
   let playing = null;
 
   let player = null;
-  let method = 'uris';
+  let method = albumBody ? 'album-context' : 'uris';
   if (verify) {
     player = await waitUntilPlaying(accessToken, trackUri, 4000);
     if (!player.playing) {
-      // Spotify sometimes accepts a plain track-list request (204) and then
-      // loads nothing. Asking for the same track inside its album instead
-      // (context_uri + offset) is a different path through Spotify's player,
-      // so try that before giving up.
-      const retryBody = albumUri
-        ? { context_uri: albumUri, offset: { uri: trackUri }, position_ms: body.position_ms }
-        : body;
-      method = albumUri ? 'album-context' : 'uris-retry';
+      // The first request was accepted but nothing started: try the other kind.
+      const retryBody = albumBody ? urisBody : body;
+      method = albumBody ? 'uris (fallback)' : 'uris (retry)';
       res = await axios.put('https://api.spotify.com/v1/me/player/play', retryBody, config);
       player = await waitUntilPlaying(accessToken, trackUri, 4000);
     }
