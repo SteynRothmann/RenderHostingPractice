@@ -127,9 +127,9 @@ router.post('/join', async (req, res) => {
     const group = groups.find((g) => g.trackId === trackId);
     const positionMs = group ? oceanState.getLiveProgressMs(group) : 0;
 
-    const played = await playTrackAt(accessToken, trackUri, positionMs, { verify: true });
+    const played = await playTrackAt(accessToken, trackUri, positionMs, { verify: true, albumUri: group?.albumUri || null });
     console.log(
-      `join ok: user ${userId} -> device ${played.device ? `"${played.device.name}" (${played.device.type})` : 'none listed (Spotify default)'}, Spotify status ${played.status}, playing: ${played.playing}, player: ${JSON.stringify(played.player)}`
+      `join ok: user ${userId} -> device ${played.device ? `"${played.device.name}" (${played.device.type})` : 'none listed (Spotify default)'}, Spotify status ${played.status}, playing: ${played.playing} (method ${played.method}), player: ${JSON.stringify(played.player)}`
     );
     res.json({ success: true, joinedAtMs: positionMs, device: played.device, spotifyStatus: played.status, playing: played.playing, player: played.player });
   } catch (err) {

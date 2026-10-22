@@ -85,6 +85,7 @@ function updateSessionFromPoll(sessionId, spotifyData, accountInfo) {
   sessions.set(sessionId, {
     trackId,
     trackUri: spotifyData.item.uri,
+    albumUri: spotifyData.item.album?.uri || null, // lets a join fall back to album-context playback (see spotifyClient.playTrackAt)
     trackName: spotifyData.item.name,
     artist: spotifyData.item.artists?.map((a) => a.name).join(', '),
     albumArt: spotifyData.item.album?.images?.[0]?.url,
@@ -137,6 +138,7 @@ function computeGroups() {
       group = {
         trackId: session.trackId,
         trackUri: session.trackUri,
+        albumUri: session.albumUri,
         trackName: session.trackName,
         artist: session.artist,
         albumArt: session.albumArt,
@@ -178,6 +180,7 @@ function computeGroups() {
   return Array.from(groups.values()).map((g) => ({
     trackId: g.trackId,
     trackUri: g.trackUri,
+    albumUri: g.albumUri,
     trackName: g.trackName,
     artist: g.artist,
     albumArt: g.albumArt,

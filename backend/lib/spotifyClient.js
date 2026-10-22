@@ -259,7 +259,7 @@ async function waitUntilPlaying(accessToken, trackUri, ms) {
 // waiting) re-checks after a moment that the song really started and, if the
 // phone ignored the first command, sends it once more. Returns
 // { device, status, playing } - `playing` is null when it wasn't checked.
-async function playTrackAt(accessToken, trackUri, positionMs, { verify = false } = {}) {
+async function playTrackAt(accessToken, trackUri, positionMs, { verify = false, albumUri = null } = {}) {
   const device = await pickPlaybackDevice(accessToken);
   const body = { uris: [trackUri], position_ms: Math.max(0, Math.floor(positionMs || 0)) };
   const config = {
@@ -281,10 +281,19 @@ async function playTrackAt(accessToken, trackUri, positionMs, { verify = false }
   let playing = null;
 
   let player = null;
+  let method = 'uris';
   if (verify) {
     player = await waitUntilPlaying(accessToken, trackUri, 4000);
     if (!player.playing) {
-      res = await axios.put('https://api.spotify.com/v1/me/player/play', body, config);
+      // Spotify sometimes accepts a plain track-list request (204) and then
+      // loads nothing. Asking for the same track inside its album instead
+      // (context_uri + offset) is a different path through Spotify's player,
+      // so try that before giving up.
+      const retryBody = albumUri
+        ? { context_uri: albumUri, offset: { uri: trackUri }, position_ms: body.position_ms }
+        : body;
+      method = albumUri ? 'album-context' : 'uris-retry';
+      res = await axios.put('https://api.spotify.com/v1/me/player/play', retryBody, config);
       player = await waitUntilPlaying(accessToken, trackUri, 4000);
     }
     playing = player.playing;
@@ -292,7 +301,7 @@ async function playTrackAt(accessToken, trackUri, positionMs, { verify = false }
 
   // device: which device we aimed at; status: Spotify's answer (204 = done,
   // 202 = accepted but the device was slow/unavailable).
-  return { device: device ? { name: device.name, type: device.type } : null, status: res.status, playing, player: player ? player.state : null };
+  return { device: device ? { name: device.name, type: device.type } : null, status: res.status, playing, method, player: player ? player.state : null };
 }
 
 async function pausePlayback(accessToken) {
