@@ -216,17 +216,43 @@ async function transferPlayback(accessToken, deviceId) {
   );
 }
 
-// True when Spotify reports the account is playing exactly this track.
-async function isPlayingTrack(accessToken, trackUri) {
+// What Spotify says the account is doing right now: is it playing this
+// track, plus a short summary of the player (for the logs and the join
+// response, so a phone that ignores commands can be diagnosed).
+async function checkPlayer(accessToken, trackUri) {
   try {
     const res = await axios.get('https://api.spotify.com/v1/me/player', {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    const d = res.data;
-    return !!(d && d.is_playing && (d.item?.uri === trackUri || d.item?.linked_from?.uri === trackUri));
-  } catch {
-    return false;
+    const d = res.status === 200 ? res.data : null;
+    if (!d) return { playing: false, state: null };
+    return {
+      playing: !!(d.is_playing && (d.item?.uri === trackUri || d.item?.linked_from?.uri === trackUri)),
+      state: {
+        isPlaying: !!d.is_playing,
+        track: d.item?.name || null,
+        device: d.device?.name || null,
+        deviceActive: d.device?.is_active ?? null,
+        volume: d.device?.volume_percent ?? null,
+        privateSession: d.device?.is_private_session ?? null,
+        disallows: Object.keys(d.actions?.disallows || {}),
+      },
+    };
+  } catch (err) {
+    return { playing: false, state: { error: err.response?.status || err.message } };
   }
+}
+
+// Polls for up to `ms`, because a phone that was asleep can take several
+// seconds to start after Spotify says "204 accepted".
+async function waitUntilPlaying(accessToken, trackUri, ms) {
+  let last = { playing: false, state: null };
+  for (let waited = 0; waited < ms; waited += 1000) {
+    await sleep(1000);
+    last = await checkPlayer(accessToken, trackUri);
+    if (last.playing) break;
+  }
+  return last;
 }
 
 // `verify: true` (used by the "Listen on Spotify" button, where the person is
@@ -254,20 +280,19 @@ async function playTrackAt(accessToken, trackUri, positionMs, { verify = false }
   let res = await axios.put('https://api.spotify.com/v1/me/player/play', body, config);
   let playing = null;
 
+  let player = null;
   if (verify) {
-    await sleep(1500);
-    playing = await isPlayingTrack(accessToken, trackUri);
-    if (!playing) {
-      await sleep(600);
+    player = await waitUntilPlaying(accessToken, trackUri, 4000);
+    if (!player.playing) {
       res = await axios.put('https://api.spotify.com/v1/me/player/play', body, config);
-      await sleep(1500);
-      playing = await isPlayingTrack(accessToken, trackUri);
+      player = await waitUntilPlaying(accessToken, trackUri, 4000);
     }
+    playing = player.playing;
   }
 
   // device: which device we aimed at; status: Spotify's answer (204 = done,
   // 202 = accepted but the device was slow/unavailable).
-  return { device: device ? { name: device.name, type: device.type } : null, status: res.status, playing };
+  return { device: device ? { name: device.name, type: device.type } : null, status: res.status, playing, player: player ? player.state : null };
 }
 
 async function pausePlayback(accessToken) {

@@ -135,9 +135,9 @@ router.post('/join', async (req, res) => {
 
     const played = await playTrackAt(accessToken, trackUri, positionMs, { verify: true });
     console.log(
-      `join ok: user ${userId} -> device ${played.device ? `"${played.device.name}" (${played.device.type})` : 'none listed (Spotify default)'}, Spotify status ${played.status}, playing: ${played.playing}`
+      `join ok: user ${userId} -> device ${played.device ? `"${played.device.name}" (${played.device.type})` : 'none listed (Spotify default)'}, Spotify status ${played.status}, playing: ${played.playing}, player: ${JSON.stringify(played.player)}`
     );
-    res.json({ success: true, joinedAtMs: positionMs, device: played.device, spotifyStatus: played.status, playing: played.playing });
+    res.json({ success: true, joinedAtMs: positionMs, device: played.device, spotifyStatus: played.status, playing: played.playing, player: played.player });
   } catch (err) {
     const status = err.response?.status;
     const spotifyMessage = err.response?.data?.error?.message;
