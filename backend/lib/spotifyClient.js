@@ -203,19 +203,71 @@ async function pickPlaybackDevice(accessToken) {
   }
 }
 
-async function playTrackAt(accessToken, trackUri, positionMs) {
-  const device = await pickPlaybackDevice(accessToken);
-  const res = await axios.put(
-    'https://api.spotify.com/v1/me/player/play',
-    { uris: [trackUri], position_ms: Math.max(0, Math.floor(positionMs || 0)) },
-    {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      ...(device ? { params: { device_id: device.id } } : {}),
-    }
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Moves the account's playback to this device (without starting anything).
+// An idle phone usually only starts listening to remote "play" commands
+// after it has been made the active device like this.
+async function transferPlayback(accessToken, deviceId) {
+  await axios.put(
+    'https://api.spotify.com/v1/me/player',
+    { device_ids: [deviceId], play: false },
+    { headers: { Authorization: `Bearer ${accessToken}` } }
   );
-  // Which device we aimed at, and what Spotify answered (204 = done, 202 =
-  // accepted but the device was slow/unavailable), so callers can show or log it.
-  return { device: device ? { name: device.name, type: device.type } : null, status: res.status };
+}
+
+// True when Spotify reports the account is playing exactly this track.
+async function isPlayingTrack(accessToken, trackUri) {
+  try {
+    const res = await axios.get('https://api.spotify.com/v1/me/player', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const d = res.data;
+    return !!(d && d.is_playing && (d.item?.uri === trackUri || d.item?.linked_from?.uri === trackUri));
+  } catch {
+    return false;
+  }
+}
+
+// `verify: true` (used by the "Listen on Spotify" button, where the person is
+// waiting) re-checks after a moment that the song really started and, if the
+// phone ignored the first command, sends it once more. Returns
+// { device, status, playing } - `playing` is null when it wasn't checked.
+async function playTrackAt(accessToken, trackUri, positionMs, { verify = false } = {}) {
+  const device = await pickPlaybackDevice(accessToken);
+  const body = { uris: [trackUri], position_ms: Math.max(0, Math.floor(positionMs || 0)) };
+  const config = {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    ...(device ? { params: { device_id: device.id } } : {}),
+  };
+
+  // A device that isn't the active one is woken up first.
+  if (device && !device.is_active) {
+    try {
+      await transferPlayback(accessToken, device.id);
+      await sleep(900);
+    } catch {
+      // Not fatal - the play command below still names the device.
+    }
+  }
+
+  let res = await axios.put('https://api.spotify.com/v1/me/player/play', body, config);
+  let playing = null;
+
+  if (verify) {
+    await sleep(1500);
+    playing = await isPlayingTrack(accessToken, trackUri);
+    if (!playing) {
+      await sleep(600);
+      res = await axios.put('https://api.spotify.com/v1/me/player/play', body, config);
+      await sleep(1500);
+      playing = await isPlayingTrack(accessToken, trackUri);
+    }
+  }
+
+  // device: which device we aimed at; status: Spotify's answer (204 = done,
+  // 202 = accepted but the device was slow/unavailable).
+  return { device: device ? { name: device.name, type: device.type } : null, status: res.status, playing };
 }
 
 async function pausePlayback(accessToken) {

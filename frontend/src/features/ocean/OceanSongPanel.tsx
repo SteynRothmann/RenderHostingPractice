@@ -142,7 +142,11 @@ export default function OceanSongPanel({ group, myTrackId, onClose }: Props) {
       // Say where the song was sent, so "nothing happened" can be told apart
       // from "it started on a different device than the one in front of you".
       if (res.alreadyListening) setStartedNote("You're already listening to this song.");
-      else if (res.device) setStartedNote(`Sent to your Spotify on "${res.device.name}" (${res.device.type}).`);
+      else if (res.playing === false)
+        setStartedNote(
+          `Spotify accepted the command, but "${res.device?.name ?? 'your device'}" didn't start playing. Open the Spotify app on it, play any song for a few seconds, then try again.`,
+        );
+      else if (res.device) setStartedNote(`Playing on your Spotify on "${res.device.name}" (${res.device.type}).`);
       else setStartedNote('Sent to your Spotify.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not play this song');

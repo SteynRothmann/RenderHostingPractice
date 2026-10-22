@@ -95,7 +95,7 @@ export async function fetchCurrentlyPlaying(): Promise<MyPlayback> {
 export async function joinTrack(
   trackUri: string,
   trackId: string,
-): Promise<{ success: true; alreadyListening?: boolean; device?: { name: string; type: string } | null }> {
+): Promise<{ success: true; alreadyListening?: boolean; device?: { name: string; type: string } | null; playing?: boolean | null }> {
   const res = await apiFetch('/spotify/join', {
     method: 'POST',
     body: JSON.stringify({ trackUri, trackId }),
