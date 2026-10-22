@@ -183,11 +183,36 @@ async function resumePlayback(accessToken) {
 // Starts a SPECIFIC track at a specific position - this is what "joining"
 // a song already playing in the ocean uses, so the listener starts near
 // the live position instead of from the beginning.
+//
+// The target device is chosen explicitly. Without a device_id Spotify sends
+// the command to whatever it remembers as the account's "active" device,
+// and it answers 204 (success) even when that device is stale - an app that
+// was closed, a phone that went to sleep, or a different device from the one
+// the person is looking at - so the song never starts anywhere they can hear.
+// GET /me/player/devices only lists devices that are online right now, so we
+// aim at one of those instead.
+async function pickPlaybackDevice(accessToken) {
+  try {
+    const res = await axios.get('https://api.spotify.com/v1/me/player/devices', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const devices = (res.data?.devices || []).filter((d) => d.id && !d.is_restricted);
+    const device = devices.find((d) => d.is_active) || devices[0];
+    return device ? device.id : null;
+  } catch {
+    return null; // fall back to Spotify's own choice rather than failing the join
+  }
+}
+
 async function playTrackAt(accessToken, trackUri, positionMs) {
+  const deviceId = await pickPlaybackDevice(accessToken);
   await axios.put(
     'https://api.spotify.com/v1/me/player/play',
     { uris: [trackUri], position_ms: Math.max(0, Math.floor(positionMs || 0)) },
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      ...(deviceId ? { params: { device_id: deviceId } } : {}),
+    }
   );
 }
 
